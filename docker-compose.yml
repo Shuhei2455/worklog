@@ -1,0 +1,166 @@
+# backlog-clone 開発・検証用スタック
+#
+# 職場VMへは `docker save` / `load` でイメージを持ち込める構成にしてある。
+# 永続データは postgres のボリュームと files ボリュームの2つだけ。
+# バックアップ対象がこの2つで済むようにするのが設計方針(01-design.md 1.B)。
+#
+# 注意: `docker compose down -v` は実行しない(CLAUDE.md)。
+
+name: backlog-clone
+
+services:
+
+  # ---- 入口。TLSは職場移設時にここで面倒を見る -------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${CADDY_HTTP_PORT}:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - gitea
+
+  # ---- Next.js (UI + API) ---------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    restart: unless-stopped
+    command: pnpm dev
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      MEILI_URL: ${MEILI_URL}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
+      APP_URL: ${APP_URL}
+      MAIL_ENABLED: ${MAIL_ENABLED}
+      GITEA_URL: ${GITEA_URL}
+      FILES_DIR: ${FILES_DIR}
+      MAX_ATTACHMENT_MB: ${MAX_ATTACHMENT_MB}
+    volumes:
+      - ./app:/work
+      - app_node_modules:/work/node_modules
+      - files:/data/files
+    ports:
+      - "${APP_PORT}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---- 非同期処理(通知・メール・検索インデックス) ----------------
+  worker:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    restart: unless-stopped
+    command: pnpm worker
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      MEILI_URL: ${MEILI_URL}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MAIL_ENABLED: ${MAIL_ENABLED}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      FILES_DIR: ${FILES_DIR}
+    volumes:
+      - ./app:/work
+      - app_node_modules:/work/node_modules
+      - files:/data/files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---- PostgreSQL ------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # 日本語の照合順序で並べ替えが破綻しないようにする
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ---- Redis (BullMQ) --------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "${REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ---- Meilisearch ----------------------------------------------
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_ENV: development
+    volumes:
+      - meilidata:/meili_data
+    ports:
+      - "${MEILI_PORT}:7700"
+
+  # ---- Gitea (Git本体。自作しない) --------------------------------
+  gitea:
+    image: gitea/gitea:1.22
+    restart: unless-stopped
+    environment:
+      USER_UID: 1000
+      USER_GID: 1000
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: postgres:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: ${POSTGRES_USER}
+      GITEA__database__PASSWD: ${POSTGRES_PASSWORD}
+      GITEA__server__ROOT_URL: ${APP_URL}/git/
+      GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
+    volumes:
+      - giteadata:/data
+    ports:
+      - "${GITEA_HTTP_PORT}:3000"
+      - "${GITEA_SSH_PORT}:22"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  meilidata:
+  giteadata:
+  caddy_data:
+  caddy_config:
+  app_node_modules:
+  files:

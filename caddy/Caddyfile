@@ -1,0 +1,13 @@
+# 開発用。職場移設時はここでTLSを終端する。
+:80 {
+	encode gzip
+
+	# Gitea は /git/ 配下にぶら下げる。ユーザーからは1つのアプリに見せる方針
+	handle_path /git/* {
+		reverse_proxy gitea:3000
+	}
+
+	handle {
+		reverse_proxy app:3000
+	}
+}
