@@ -1,5 +1,14 @@
-// M0-a では接続確認だけ。全テーブルの定義は M0-b で行う
-// (docs/02-roadmap.md「スキーマはこの段階で全部書く」)。
+// backlog-clone スキーマ
+//
+// docs/02-roadmap.md の指示により、M0 の時点で全テーブルを定義する。
+// 「後から追加していくと、活動履歴や通知のように既存レコードの移行が必要な
+//  部分で手戻りする」ため。UIが無いテーブルがあるのは想定どおり。
+//
+// 値の根拠は docs/00-spec-verified.md。ここに無い項目は憶測で埋めず、
+// 同ファイル 10.2「本アプリの決定」に記録してから実装している。
+//
+// 命名: Prisma のモデル名は PascalCase、DBの物理名は snake_case(@@map / @map)。
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,4 +16,978 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// 列挙
+// ===========================================================================
+
+/// ユーザー種別。本家APIの roleType とは別物なので注意。
+/// roleType は「種別 × 制限」を1つの数値に潰したもので、ゲストを区別しない
+/// (00-spec-verified.md 7章)。内部では3軸で持ち、API応答時に写像する。
+enum UserType {
+  admin
+  member
+  guest
+}
+
+/// 管理者が個別に設定する制限。
+enum Restriction {
+  none
+  issue_create_only
+  issue_view_only
+}
+
+enum AuthProvider {
+  local
+  oidc
+  ldap
+}
+
+/// 活動履歴の種類。コメントと変更履歴を1テーブルに統合しているため、
+/// コメントもここに入る(01-design.md 4.4)。
+/// TODO(要確認): 本家APIは type を整数で返す。API v2 を作る M3 までに
+/// 公式の整数値との対応を確認し、写像テーブルを用意すること。
+enum ActivityType {
+  issue_created
+  issue_updated
+  issue_deleted
+  comment
+  wiki_created
+  wiki_updated
+  wiki_deleted
+  file_added
+  file_updated
+  git_push
+  pull_request_created
+  pull_request_updated
+  project_user_added
+  project_user_removed
+}
+
+/// 通知が飛んだ理由。同一 activity に複数該当する場合は
+/// notified > assigned > mentioned > watching の順で1件に寄せる(決定 D10)。
+enum NotificationReason {
+  notified
+  assigned
+  mentioned
+  watching
+}
+
+/// カスタム属性の型。値は本家と同じ(00-spec-verified.md 10.1 で確認済み)。
+enum CustomFieldType {
+  text           // 1
+  sentence       // 2
+  number         // 3
+  date           // 4
+  single_list    // 5
+  multiple_list  // 6
+  checkbox       // 7
+  radio          // 8
+}
+
+// ===========================================================================
+// ユーザーとチーム
+// ===========================================================================
+
+model User {
+  id           Int          @id @default(autoincrement())
+  /// ログインID。本家の userId に相当する
+  userId       String       @unique @map("user_id")
+  name         String
+  email        String       @unique
+  iconUrl      String?      @map("icon_url")
+  lang         String       @default("ja")
+  timezone     String       @default("Asia/Tokyo")
+
+  /// 種別 × 制限 の2軸。プロジェクト管理者フラグは ProjectMember 側にある。
+  /// 単一のロール列挙にしてはいけない(本家がそうなっていないため必ず破綻する)
+  userType     UserType     @default(member) @map("user_type")
+  restriction  Restriction  @default(none)
+
+  /// 職場ではAD/OIDCに繋ぐ可能性が高い。後付けだと名寄せで詰まるので最初から持つ
+  authProvider AuthProvider @default(local) @map("auth_provider")
+  externalId   String?      @map("external_id")
+  passwordHash String?      @map("password_hash")
+
+  /// Gitea 側のユーザーID(M4で使う)
+  giteaUserId  Int?         @map("gitea_user_id")
+
+  lastLoginAt  DateTime?    @map("last_login_at")
+  /// 論理削除。活動履歴が残るので物理削除しない
+  disabledAt   DateTime?    @map("disabled_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  teamMembers          TeamMember[]
+  projectMembers       ProjectMember[]
+  apiTokens            ApiToken[]
+  createdIssues        Issue[]                @relation("IssueCreatedBy")
+  updatedIssues        Issue[]                @relation("IssueUpdatedBy")
+  assignedIssues       Issue[]                @relation("IssueAssignee")
+  activities           Activity[]
+  notifiedActivities   ActivityNotifiedUser[]
+  stars                Star[]
+  watchings            Watching[]
+  notifications        Notification[]
+  issueParticipants    IssueParticipant[]
+  createdWikiPages     WikiPage[]             @relation("WikiCreatedBy")
+  updatedWikiPages     WikiPage[]             @relation("WikiUpdatedBy")
+  wikiRevisions        WikiRevision[]
+  attachments          Attachment[]
+  savedFilters         SavedFilter[]
+  auditLogs            AuditLog[]
+  recentIssues         RecentlyViewedIssue[]
+  recentProjects       RecentlyViewedProject[]
+  recentWikis          RecentlyViewedWiki[]
+
+  @@index([disabledAt])
+  @@map("users")
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String
+  iconUrl   String?  @map("icon_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members      TeamMember[]
+  projectTeams ProjectTeam[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId Int  @map("team_id")
+  userId Int  @map("user_id")
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@map("team_members")
+}
+
+/// API v2 の認証に使う(M3)。本家同様スペース単位ではなくユーザーに紐づける
+model ApiToken {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  name       String
+  /// 生のトークンは保存しない
+  tokenHash  String    @unique @map("token_hash")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_tokens")
+}
+
+// ===========================================================================
+// プロジェクト
+// ===========================================================================
+
+model Project {
+  id          Int     @id @default(autoincrement())
+  /// 決定 D1: ^[A-Z][A-Z0-9_]{0,9}$ (本家の制約は未確認)
+  key         String  @unique
+  name        String
+  description String?
+  archived    Boolean @default(false)
+
+  /// 機能のON/OFF。chartEnabled は課題の入力可否そのものに影響する
+  /// (OFFだと開始日・期限日を入力できない。00-spec-verified.md 2章)
+  chartEnabled      Boolean @default(true) @map("chart_enabled")
+  subtaskingEnabled Boolean @default(true) @map("subtasking_enabled")
+  wikiEnabled       Boolean @default(true) @map("wiki_enabled")
+  fileSharingEnabled Boolean @default(true) @map("file_sharing_enabled")
+  gitEnabled        Boolean @default(false) @map("git_enabled")
+  projectLeaderCanEditProjectLeader Boolean @default(false) @map("project_leader_can_edit_project_leader")
+
+  /// 'markdown' 固定。設定項目としては保持する(00-spec-verified.md 8章)
+  textFormattingRule String @default("markdown") @map("text_formatting_rule")
+
+  /// keyId の採番カウンタ。UPDATE ... RETURNING で進める。
+  /// アプリ側で MAX+1 を取ってはいけない
+  lastIssueNo Int @default(0) @map("last_issue_no")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members       ProjectMember[]
+  teams         ProjectTeam[]
+  issueTypes    IssueType[]
+  categories    Category[]
+  versions      Version[]
+  statuses      Status[]
+  customFields  CustomField[]
+  issues        Issue[]
+  activities    Activity[]
+  wikiPages     WikiPage[]
+  attachments   Attachment[]
+  sharedFiles   SharedFile[]
+  repositories  Repository[]
+  webhooks      Webhook[]
+  savedFilters  SavedFilter[]
+  recentViews   RecentlyViewedProject[]
+
+  @@index([archived])
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId      Int     @map("project_id")
+  userId         Int     @map("user_id")
+  /// プロジェクト単位のフラグ。一般ユーザー(制限なし)のみ設定できる
+  /// (00-spec-verified.md 7章)
+  isProjectAdmin Boolean @default(false) @map("is_project_admin")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model ProjectTeam {
+  projectId Int     @map("project_id")
+  teamId    Int     @map("team_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, teamId])
+  @@map("project_teams")
+}
+
+// ===========================================================================
+// マスタ（すべてプロジェクト単位）
+//
+// 決定 D6: id はプロジェクト内で 1 始まりにする。
+// 本家が {id:1, projectId:N} を返すため、autoincrement にすると
+// 2つ目のプロジェクトの Open が id=5 になり API 互換が壊れる。
+// 複合主キー @@id([projectId, id]) にすることで、
+// 課題からの参照 (projectId, statusId) が「同じプロジェクトのマスタか」を
+// DBレベルで保証してくれる副次効果もある。
+//
+// 採番は projects の行をロックしたトランザクション内で MAX+1 を取る。
+// keyId と違って作成頻度が低く管理者しか触らないので、ロック待ちは問題にならない。
+// ===========================================================================
+
+model IssueType {
+  projectId    Int    @map("project_id")
+  id           Int
+  name         String
+  color        String
+  displayOrder Int    @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issues  Issue[]
+
+  @@id([projectId, id])
+  @@map("issue_types")
+}
+
+model Category {
+  projectId    Int    @map("project_id")
+  id           Int
+  name         String
+  displayOrder Int    @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issueCategories IssueCategory[]
+
+  @@id([projectId, id])
+  @@map("categories")
+}
+
+/// マイルストーンと発生バージョンは同一エンティティ。
+/// 本家が `GET /projects/:key/versions` で両方を返すため、分けてはいけない
+/// (00-spec-verified.md 2章)。参照の仕方で役割が変わるだけ。
+model Version {
+  projectId      Int       @map("project_id")
+  id             Int
+  name           String
+  description    String?
+  startDate      DateTime? @map("start_date") @db.Date
+  releaseDueDate DateTime? @map("release_due_date") @db.Date
+  archived       Boolean   @default(false)
+  displayOrder   Int       @map("display_order")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issueMilestones IssueMilestone[]
+  issueVersions   IssueVersion[]
+
+  @@id([projectId, id])
+  @@map("versions")
+}
+
+model Status {
+  projectId    Int    @map("project_id")
+  id           Int
+  name         String
+  /// 決定 D4: 本家の配色は写さず独自パレットを使う
+  color        String
+  /// 決定 D5: 標準4状態は 1000/2000/3000/4000。
+  /// 追加状態は Open より前・Closed より後に置けない(00-spec-verified.md 1章)
+  displayOrder Int    @map("display_order")
+  /// 標準4状態かどうか。true のものは削除も並べ替えもできない
+  isDefault    Boolean @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issues  Issue[]
+
+  @@id([projectId, id])
+  @@map("statuses")
+}
+
+model CustomField {
+  projectId   Int             @map("project_id")
+  id          Int
+  typeId      CustomFieldType @map("type_id")
+  name        String
+  description String?
+  required    Boolean         @default(false)
+  /// 空なら全種別で有効。IssueType.id の配列
+  applicableIssueTypes Int[]  @map("applicable_issue_types")
+
+  /// 型ごとの追加パラメータ(00-spec-verified.md 10.1)。
+  /// 数値型は min/max/initialValue/unit、日付型は min/max/initialValueType/
+  /// initialDate/initialShift、リスト型は allowAddItem/allowInput。
+  /// 型ごとにカラムを生やすと8型ぶん散らかるのでJSONBにまとめる
+  settings    Json?
+
+  displayOrder Int      @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items   CustomFieldItem[]
+  values  IssueCustomFieldValue[]
+
+  @@id([projectId, id])
+  @@map("custom_fields")
+}
+
+/// リスト型・複数リスト型・ラジオ型の選択肢
+model CustomFieldItem {
+  id            Int    @id @default(autoincrement())
+  projectId     Int    @map("project_id")
+  customFieldId Int    @map("custom_field_id")
+  name          String
+  displayOrder  Int    @map("display_order")
+
+  customField CustomField @relation(fields: [projectId, customFieldId], references: [projectId, id], onDelete: Cascade)
+
+  @@index([projectId, customFieldId])
+  @@map("custom_field_items")
+}
+
+// ===========================================================================
+// 課題
+// ===========================================================================
+
+model Issue {
+  id        Int @id @default(autoincrement())
+  projectId Int @map("project_id")
+  /// プロジェクト内連番。表示は project.key + '-' + keyId。
+  /// 削除による欠番は許容する(決定 D2)
+  keyId     Int @map("key_id")
+
+  issueTypeId Int     @map("issue_type_id")
+  summary     String
+  description String?
+
+  statusId Int @map("status_id")
+  /// 優先度はスペース共通の定数(2=高/3=中/4=低、1は欠番)。
+  /// テーブルを作らないので外部キーは張れず、CHECK 制約で縛る
+  priorityId Int  @map("priority_id")
+  /// 完了理由もスペース共通の定数(0..4)。決定 D3 により「完了」でも必須にしない
+  resolutionId Int? @map("resolution_id")
+
+  /// 担当者は1人だけ。複数担当は本家が認めていないので配列にしない
+  /// (00-spec-verified.md 2章)
+  assigneeId Int? @map("assignee_id")
+  createdBy  Int  @map("created_by")
+  updatedBy  Int  @map("updated_by")
+
+  /// プロジェクト設定の chartEnabled が ON のときだけ入力できる
+  startDate      DateTime? @map("start_date") @db.Date
+  dueDate        DateTime? @map("due_date") @db.Date
+  estimatedHours Decimal?  @map("estimated_hours") @db.Decimal(8, 2)
+  actualHours    Decimal?  @map("actual_hours") @db.Decimal(8, 2)
+
+  /// 1階層のみ。親を持つ課題は親になれない(アプリ側でバリデート)
+  parentIssueId Int? @map("parent_issue_id")
+
+  /// ボードの並び順。隣接2件の中間値を入れて全件再採番を避ける
+  boardOrder Float @default(0) @map("board_order")
+
+  /// 状態を「完了」にした日時。ガントの表示条件4パターン目で使う
+  /// (00-spec-verified.md 5章)
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issueType IssueType @relation(fields: [projectId, issueTypeId], references: [projectId, id])
+  status    Status    @relation(fields: [projectId, statusId], references: [projectId, id])
+  assignee  User?     @relation("IssueAssignee", fields: [assigneeId], references: [id])
+  creator   User      @relation("IssueCreatedBy", fields: [createdBy], references: [id])
+  updater   User      @relation("IssueUpdatedBy", fields: [updatedBy], references: [id])
+  parent    Issue?    @relation("IssueParent", fields: [parentIssueId], references: [id])
+  children  Issue[]   @relation("IssueParent")
+
+  categories       IssueCategory[]
+  milestones       IssueMilestone[]
+  versions         IssueVersion[]
+  relationsFrom    IssueRelation[]         @relation("RelationFrom")
+  relationsTo      IssueRelation[]         @relation("RelationTo")
+  participants     IssueParticipant[]
+  customFieldValues IssueCustomFieldValue[]
+  activities       Activity[]
+  watchings        Watching[]
+  stars            Star[]
+  attachments      IssueAttachment[]
+  sharedFiles      IssueSharedFile[]
+  commitLinks      CommitIssueLink[]
+  pullRequests     PullRequest[]
+  recentViews      RecentlyViewedIssue[]
+
+  @@unique([projectId, keyId])
+  @@index([projectId, statusId, assigneeId])
+  @@index([assigneeId, dueDate])
+  @@index([projectId, updatedAt(sort: Desc)])
+  @@index([parentIssueId])
+  @@map("issues")
+}
+
+model IssueCategory {
+  issueId    Int @map("issue_id")
+  projectId  Int @map("project_id")
+  categoryId Int @map("category_id")
+
+  issue    Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [projectId, categoryId], references: [projectId, id], onDelete: Cascade)
+
+  @@id([issueId, categoryId])
+  @@map("issue_categories")
+}
+
+/// マイルストーンとしての versions 参照
+model IssueMilestone {
+  issueId   Int @map("issue_id")
+  projectId Int @map("project_id")
+  versionId Int @map("version_id")
+
+  issue   Issue   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  version Version @relation(fields: [projectId, versionId], references: [projectId, id], onDelete: Cascade)
+
+  @@id([issueId, versionId])
+  @@map("issue_milestones")
+}
+
+/// 発生バージョンとしての versions 参照
+model IssueVersion {
+  issueId   Int @map("issue_id")
+  projectId Int @map("project_id")
+  versionId Int @map("version_id")
+
+  issue   Issue   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  version Version @relation(fields: [projectId, versionId], references: [projectId, id], onDelete: Cascade)
+
+  @@id([issueId, versionId])
+  @@map("issue_versions")
+}
+
+/// 親子とは別の、対等な課題同士のリンク
+model IssueRelation {
+  issueId        Int @map("issue_id")
+  relatedIssueId Int @map("related_issue_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  issue        Issue @relation("RelationFrom", fields: [issueId], references: [id], onDelete: Cascade)
+  relatedIssue Issue @relation("RelationTo", fields: [relatedIssueId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, relatedIssueId])
+  @@map("issue_relations")
+}
+
+/// 登録者・担当者・コメントした人が自動で参加者になる
+/// (00-spec-verified.md 3章)
+model IssueParticipant {
+  issueId   Int      @map("issue_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, userId])
+  @@map("issue_participants")
+}
+
+model IssueCustomFieldValue {
+  issueId       Int  @map("issue_id")
+  projectId     Int  @map("project_id")
+  customFieldId Int  @map("custom_field_id")
+  /// 型が8種あるので値はJSONBで持つ。型ごとの検証はアプリ側(zod)で行う
+  value         Json
+
+  issue       Issue       @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  customField CustomField @relation(fields: [projectId, customFieldId], references: [projectId, id], onDelete: Cascade)
+
+  @@id([issueId, customFieldId])
+  @@map("issue_custom_field_values")
+}
+
+// ===========================================================================
+// 活動履歴・コメント・スター
+// ===========================================================================
+
+/// コメントと変更履歴を1テーブルに統合する。
+/// 本家の課題画面は両者が時系列で混ざるため、分けると必ず結合して
+/// 並べ直す羽目になる(01-design.md 4.4)。
+model Activity {
+  id        Int          @id @default(autoincrement())
+  projectId Int          @map("project_id")
+  type      ActivityType
+
+  /// issueId / wikiPageId / pullRequestId は「どれか1つだけ」入る。
+  /// Prisma に排他制約は書けないので、マイグレーションに CHECK 制約を手書きする
+  issueId       Int? @map("issue_id")
+  wikiPageId    Int? @map("wiki_page_id")
+  pullRequestId Int? @map("pull_request_id")
+
+  userId  Int     @map("user_id")
+  /// コメント本文
+  content String?
+  /// [{field:'status', from:'2', to:'3'}, ...]
+  /// フィールド追加のたびにスキーマを触らずに済むようJSONBにする。
+  /// 表示側は describeChanges() で日本語ラベルに解決する
+  changes Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issue         Issue?                 @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  wikiPage      WikiPage?              @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
+  pullRequest   PullRequest?           @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  user          User                   @relation(fields: [userId], references: [id])
+  notifiedUsers ActivityNotifiedUser[]
+  notifications Notification[]
+  stars         Star[]
+  attachments   CommentAttachment[]
+
+  @@index([issueId, createdAt])
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("activities")
+}
+
+/// 「お知らせ」の宛先。課題登録・コメント時に notifiedUserId[] で明示指定する
+/// (00-spec-verified.md 3章。v1設計ではこの経路が抜けていた)
+model ActivityNotifiedUser {
+  activityId Int @map("activity_id")
+  userId     Int @map("user_id")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, userId])
+  @@map("activity_notified_users")
+}
+
+/// 課題・コメント(activity)・Wikiに付けられる
+model Star {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  issueId    Int?     @map("issue_id")
+  activityId Int?     @map("activity_id")
+  wikiPageId Int?     @map("wiki_page_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issue    Issue?    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  wikiPage WikiPage? @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, issueId])
+  @@unique([userId, activityId])
+  @@unique([userId, wikiPageId])
+  @@map("stars")
+}
+
+// ===========================================================================
+// 通知
+// ===========================================================================
+
+/// ウォッチにはメモを付けられる(00-spec-verified.md 3章)
+model Watching {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  issueId     Int       @map("issue_id")
+  note        String?
+  lastReadAt  DateTime? @map("last_read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, issueId])
+  @@map("watchings")
+}
+
+/// 発生源(お知らせ・ウォッチ・メンション)が違うだけで、
+/// 生成される通知レコードは同一形式にする(01-design.md 4.5)
+model Notification {
+  id         Int                @id @default(autoincrement())
+  userId     Int                @map("user_id")
+  activityId Int                @map("activity_id")
+  reason     NotificationReason
+  readAt     DateTime?          @map("read_at")
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityId])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ===========================================================================
+// Wiki
+// ===========================================================================
+
+model WikiPage {
+  id        Int      @id @default(autoincrement())
+  projectId Int      @map("project_id")
+  name      String
+  content   String
+  createdBy Int      @map("created_by")
+  updatedBy Int      @map("updated_by")
+  /// 楽観ロック用。競合を警告するために使う(リアルタイム共同編集はしない)
+  revision  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator     User                @relation("WikiCreatedBy", fields: [createdBy], references: [id])
+  updater     User                @relation("WikiUpdatedBy", fields: [updatedBy], references: [id])
+  revisions   WikiRevision[]
+  tags        WikiTag[]
+  activities  Activity[]
+  stars       Star[]
+  attachments WikiAttachment[]
+  sharedFiles WikiSharedFile[]
+  recentViews RecentlyViewedWiki[]
+
+  @@unique([projectId, name])
+  @@map("wiki_pages")
+}
+
+/// 全文スナップショット方式。差分保存にするほどの量ではない
+model WikiRevision {
+  id         Int      @id @default(autoincrement())
+  wikiPageId Int      @map("wiki_page_id")
+  content    String
+  userId     Int      @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  wikiPage WikiPage @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([wikiPageId, createdAt])
+  @@map("wiki_revisions")
+}
+
+model WikiTag {
+  wikiPageId Int    @map("wiki_page_id")
+  tag        String
+
+  wikiPage WikiPage @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
+
+  @@id([wikiPageId, tag])
+  @@index([tag])
+  @@map("wiki_tags")
+}
+
+// ===========================================================================
+// 添付ファイルと共有ファイル
+//
+// 添付は attachments に実体を1本持ち、課題/Wiki/コメントからの紐づけを
+// 別テーブルにする。同じファイルが複数箇所から参照される可能性に備える。
+// ===========================================================================
+
+model Attachment {
+  id         Int      @id @default(autoincrement())
+  projectId  Int      @map("project_id")
+  name       String
+  size       Int
+  mime       String
+  /// ストレージ上のキー。ローカルボリューム前提だがS3互換に差し替えられるよう
+  /// パスそのものではなくキーとして扱う
+  storageKey String   @map("storage_key")
+  createdBy  Int      @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  project  Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator  User                @relation(fields: [createdBy], references: [id])
+  issues   IssueAttachment[]
+  wikis    WikiAttachment[]
+  comments CommentAttachment[]
+
+  @@map("attachments")
+}
+
+model IssueAttachment {
+  issueId      Int @map("issue_id")
+  attachmentId Int @map("attachment_id")
+
+  issue      Issue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  attachment Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, attachmentId])
+  @@map("issue_attachments")
+}
+
+model WikiAttachment {
+  wikiPageId   Int @map("wiki_page_id")
+  attachmentId Int @map("attachment_id")
+
+  wikiPage   WikiPage   @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
+  attachment Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+
+  @@id([wikiPageId, attachmentId])
+  @@map("wiki_attachments")
+}
+
+model CommentAttachment {
+  activityId   Int @map("activity_id")
+  attachmentId Int @map("attachment_id")
+
+  activity   Activity   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  attachment Attachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, attachmentId])
+  @@map("comment_attachments")
+}
+
+/// プロジェクトのファイル置き場。添付とは別物で、課題やWikiから参照される
+model SharedFile {
+  id         Int      @id @default(autoincrement())
+  projectId  Int      @map("project_id")
+  /// 階層は dir カラムで表現する('/docs/spec' のような文字列)
+  dir        String
+  name       String
+  size       Int
+  mime       String
+  storageKey String   @map("storage_key")
+  createdBy  Int      @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issues  IssueSharedFile[]
+  wikis   WikiSharedFile[]
+
+  @@unique([projectId, dir, name])
+  @@map("shared_files")
+}
+
+model IssueSharedFile {
+  issueId      Int @map("issue_id")
+  sharedFileId Int @map("shared_file_id")
+
+  issue      Issue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  sharedFile SharedFile @relation(fields: [sharedFileId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, sharedFileId])
+  @@map("issue_shared_files")
+}
+
+model WikiSharedFile {
+  wikiPageId   Int @map("wiki_page_id")
+  sharedFileId Int @map("shared_file_id")
+
+  wikiPage   WikiPage   @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
+  sharedFile SharedFile @relation(fields: [sharedFileId], references: [id], onDelete: Cascade)
+
+  @@id([wikiPageId, sharedFileId])
+  @@map("wiki_shared_files")
+}
+
+// ===========================================================================
+// Git連携（M4）
+// ===========================================================================
+
+model Repository {
+  id            Int     @id @default(autoincrement())
+  projectId     Int     @map("project_id")
+  giteaRepoId   Int     @map("gitea_repo_id")
+  name          String
+  defaultBranch String  @default("main") @map("default_branch")
+  /// OFFにすると連携が止まる(02-roadmap.md フェーズ4の受け入れ条件)
+  linkCommitsToIssues Boolean @default(true) @map("link_commits_to_issues")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  commitLinks  CommitIssueLink[]
+  pullRequests PullRequest[]
+
+  @@unique([projectId, name])
+  @@map("repositories")
+}
+
+model CommitIssueLink {
+  id           Int      @id @default(autoincrement())
+  repositoryId Int      @map("repository_id")
+  commitSha    String   @map("commit_sha")
+  issueId      Int      @map("issue_id")
+  message      String
+  committedAt  DateTime @map("committed_at")
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  issue      Issue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, commitSha, issueId])
+  @@index([issueId])
+  @@map("commit_issue_links")
+}
+
+model PullRequest {
+  id             Int      @id @default(autoincrement())
+  repositoryId   Int      @map("repository_id")
+  giteaPrNumber  Int      @map("gitea_pr_number")
+  /// ブランチ名に課題キーが含まれていれば自動で紐づく
+  issueId        Int?     @map("issue_id")
+  title          String
+  body           String?
+  baseBranch     String   @map("base_branch")
+  headBranch     String   @map("head_branch")
+  state          String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  issue      Issue?     @relation(fields: [issueId], references: [id])
+  activities Activity[]
+
+  @@unique([repositoryId, giteaPrNumber])
+  @@map("pull_requests")
+}
+
+// ===========================================================================
+// その他
+//
+// 以下は 01-design.md 4章には表が無いが、02-roadmap.md が後段で要求している
+// 機能のために必要。「スキーマはこの段階で全部書く」の指示に従って定義する。
+// ===========================================================================
+
+/// 検索条件の保存(M1の課題一覧、M2のボード)
+model SavedFilter {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  projectId Int?     @map("project_id")
+  name      String
+  /// URLクエリと同じ形の条件オブジェクト。buildIssueWhere() がそのまま解釈できる形
+  condition Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("saved_filters")
+}
+
+/// プロジェクト単位のwebhook送信(M3)
+model Webhook {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  name        String
+  hookUrl     String   @map("hook_url")
+  description String?
+  /// 送信対象のイベント
+  activityTypes ActivityType[] @map("activity_types")
+  allEvent    Boolean  @default(false) @map("all_event")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+/// 監査ログ(M5)。activities は「変更」を追えるが、閲覧は追えない。
+/// 職場のルール次第で要求されるので枠だけ作っておく
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id")
+  detail     Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+/// 最近見た課題/プロジェクト/Wiki(00-spec-verified.md 9章)。
+/// M1のダッシュボードで使う
+model RecentlyViewedIssue {
+  userId   Int      @map("user_id")
+  issueId  Int      @map("issue_id")
+  viewedAt DateTime @default(now()) @map("viewed_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@id([userId, issueId])
+  @@index([userId, viewedAt(sort: Desc)])
+  @@map("recently_viewed_issues")
+}
+
+model RecentlyViewedProject {
+  userId    Int      @map("user_id")
+  projectId Int      @map("project_id")
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@index([userId, viewedAt(sort: Desc)])
+  @@map("recently_viewed_projects")
+}
+
+model RecentlyViewedWiki {
+  userId     Int      @map("user_id")
+  wikiPageId Int      @map("wiki_page_id")
+  viewedAt   DateTime @default(now()) @map("viewed_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wikiPage WikiPage @relation(fields: [wikiPageId], references: [id], onDelete: Cascade)
+
+  @@id([userId, wikiPageId])
+  @@index([userId, viewedAt(sort: Desc)])
+  @@map("recently_viewed_wikis")
 }
