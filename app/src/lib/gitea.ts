@@ -387,8 +387,10 @@ export async function ensureRepoWebhook(
 ): Promise<number> {
   const url = `${process.env.APP_URL_INTERNAL ?? "http://app:3000"}/api/gitea/webhook`;
   const config = { url, content_type: "json", secret };
-  // pull_request_comment まで取るのは活動種別20（PRへのコメント）のため
-  const events = ["push", "pull_request", "pull_request_comment"];
+  // Gitea は `pull_request` を配下のイベント（pull_request_comment や
+  // pull_request_review_* など）に展開して登録する。つまり絞り込めない。
+  // 受け取る側（/api/gitea/webhook）で、扱わないものを静かに捨てる
+  const events = ["push", "pull_request"];
 
   const hooks = await call<Array<{ id: number; config: { url: string } }>>(
     `/repos/${org}/${encodeURIComponent(name)}/hooks`,

@@ -43,9 +43,13 @@ export async function POST(req: Request): Promise<NextResponse> {
         message = await handlePullRequest(payload as never);
         break;
       default:
-        // 購読していないイベントが来ても 200 を返す。
-        // Gitea 側で「配信失敗」が溜まると本当の失敗が埋もれる
-        message = `未対応のイベント: ${event}`;
+        // 扱わないイベントでも 200 を返す。Gitea 側で「配信失敗」が
+        // 溜まると、本当の失敗が埋もれる。
+        //
+        // `pull_request` を購読すると Gitea が配下のイベント
+        // （pull_request_comment / pull_request_review_* など）まで
+        // 登録するので、ここには日常的に届く。ログには出さない
+        return NextResponse.json({ ok: true, message: `ignored: ${event}` });
     }
     console.log(`[gitea] ${message}`);
     return NextResponse.json({ ok: true, message });
