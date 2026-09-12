@@ -23,6 +23,12 @@ export function Shell({
           <Link href="/" className="text-lg font-semibold text-brand-700">
             Kadai
           </Link>
+          <Link
+            href="/dashboard"
+            className="text-sm text-slate-500 hover:text-brand-700"
+          >
+            ダッシュボード
+          </Link>
           <nav className="flex-1 text-sm text-slate-500">
             {breadcrumbs.map((b, i) => (
               <span key={i}>

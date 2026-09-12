@@ -43,6 +43,18 @@ export async function changeLookupsFor(projectId: number): Promise<ChangeLookups
   };
 }
 
+/**
+ * 「最近見た課題」に記録する。
+ * 閲覧のたびに時刻を更新するだけなので upsert で足りる。
+ */
+export async function recordRecentlyViewed(userId: number, issueId: number) {
+  await prisma.recentlyViewedIssue.upsert({
+    where: { userId_issueId: { userId, issueId } },
+    update: { viewedAt: new Date() },
+    create: { userId, issueId },
+  });
+}
+
 /** 課題1件と、その活動履歴 */
 export async function loadIssueDetail(projectKey: string, keyId: number) {
   const project = await prisma.project.findUnique({ where: { key: projectKey } });

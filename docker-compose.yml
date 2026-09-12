@@ -54,6 +54,10 @@ services:
     volumes:
       - ./app:/work
       - app_node_modules:/work/node_modules
+      # app/worker は user 1000:1000 で動くので、このボリュームも
+      # 1000:1000 所有でないと添付を書き込めない(EACCES)。
+      # 初回に作られるときは root 所有になるため、
+      # docker/fix-volume-perms.sh で直す
       - files:/data/files
     ports:
       - "${APP_PORT}:3000"

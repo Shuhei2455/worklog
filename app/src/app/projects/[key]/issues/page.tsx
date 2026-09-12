@@ -10,6 +10,7 @@ import {
 } from "@/lib/issue-filter";
 import { PRIORITIES } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
+import { saveFilter } from "./actions";
 
 const PRIORITY_LABEL = new Map(PRIORITIES.map((p) => [p.id, p.label]));
 
@@ -156,6 +157,30 @@ export default async function IssueList({
         >
           クリア
         </Link>
+      </form>
+
+      {/* 条件はURLクエリなので、保存＝そのクエリを名前付きで覚えるだけ */}
+      <form
+        action={saveFilter.bind(null, key)}
+        className="mt-2 flex items-center gap-2 text-xs"
+      >
+        <input
+          type="hidden"
+          name="query"
+          value={new URLSearchParams(
+            Object.entries(sp).filter(
+              ([, v]) => typeof v === "string" && v !== "",
+            ) as [string, string][],
+          ).toString()}
+        />
+        <input
+          name="name"
+          placeholder="この条件に名前を付けて保存"
+          className="w-56 rounded border border-slate-300 px-2 py-1"
+        />
+        <button className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">
+          保存
+        </button>
       </form>
 
       <p className="mt-4 text-xs text-slate-500">

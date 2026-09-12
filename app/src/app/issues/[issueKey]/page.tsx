@@ -3,10 +3,22 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
-import { parseIssueKey, loadIssueDetail } from "@/lib/issue-view";
+import {
+  parseIssueKey,
+  loadIssueDetail,
+  recordRecentlyViewed,
+} from "@/lib/issue-view";
 import { PRIORITIES, RESOLUTIONS } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
-import { editIssue, removeIssue } from "@/app/projects/[key]/issues/actions";
+import {
+  editIssue,
+  removeIssue,
+  attachFile,
+  detachFile,
+  setParent,
+  addRelation,
+  removeRelation,
+} from "@/app/projects/[key]/issues/actions";
 
 const PRIORITY_LABEL = new Map(PRIORITIES.map((p) => [p.id, p.label]));
 const jst = (d: Date) =>
@@ -17,10 +29,10 @@ export default async function IssueDetail({
   searchParams,
 }: {
   params: Promise<{ issueKey: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   const { issueKey } = await params;
-  const { error } = await searchParams;
+  const { error, ok } = await searchParams;
   const user = await currentUser();
 
   const parsed = parseIssueKey(decodeURIComponent(issueKey));
@@ -34,11 +46,14 @@ export default async function IssueDetail({
   // 参加していないプロジェクトの課題は管理者でも見えない
   if (!can(user, "issue.view", ctx)) notFound();
 
+  // ダッシュボードの「最近見た課題」に出す
+  await recordRecentlyViewed(user.id, issue.id);
+
   const canEdit = can(user, "issue.edit", ctx);
   const canComment = can(user, "comment.manage", ctx);
   const canDelete = can(user, "issue.delete", ctx);
 
-  const [statuses, members] = await Promise.all([
+  const [statuses, members, attachments] = await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
       orderBy: { displayOrder: "asc" },
@@ -46,6 +61,11 @@ export default async function IssueDetail({
     prisma.projectMember.findMany({
       where: { projectId: project.id },
       include: { user: true },
+    }),
+    prisma.issueAttachment.findMany({
+      where: { issueId: issue.id },
+      include: { attachment: true },
+      orderBy: { attachmentId: "asc" },
     }),
   ]);
 
@@ -59,6 +79,11 @@ export default async function IssueDetail({
         { label: fullKey },
       ]}
     >
+      {ok && (
+        <p className="mb-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {ok}
+        </p>
+      )}
       {error && (
         <p className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -93,6 +118,55 @@ export default async function IssueDetail({
               {issue.description}
             </div>
           )}
+
+          {/* ---- 添付ファイル ---- */}
+          <div className="mt-4 rounded border border-slate-200 bg-white p-3">
+            <h2 className="text-sm font-semibold text-slate-600">添付ファイル</h2>
+            {attachments.length === 0 ? (
+              <p className="mt-1 text-xs text-slate-400">なし</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm">
+                {attachments.map((a) => (
+                  <li key={a.attachmentId} className="flex items-center gap-2">
+                    <a
+                      href={`/attachments/${a.attachmentId}`}
+                      className="text-brand-700 hover:underline"
+                    >
+                      {a.attachment.name}
+                    </a>
+                    <span className="text-xs text-slate-400">
+                      {Math.ceil(a.attachment.size / 1024)} KB
+                    </span>
+                    {can(user, "issueAttachment.delete", ctx) && (
+                      <form action={detachFile.bind(null, fullKey)}>
+                        <input type="hidden" name="attachmentId" value={a.attachmentId} />
+                        <button className="text-xs text-red-700 hover:underline">
+                          削除
+                        </button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {can(user, "issueAttachment.add", ctx) && (
+              <form
+                action={attachFile.bind(null, fullKey)}
+                encType="multipart/form-data"
+                className="mt-3 flex items-center gap-2"
+              >
+                <input
+                  type="file"
+                  name="file"
+                  required
+                  className="text-xs file:mr-2 file:rounded file:border file:border-slate-300 file:bg-white file:px-2 file:py-1 file:text-xs"
+                />
+                <button className="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">
+                  添付
+                </button>
+              </form>
+            )}
+          </div>
 
           <h2 className="mt-6 text-sm font-semibold text-slate-600">
             コメントと変更履歴
@@ -209,17 +283,85 @@ export default async function IssueDetail({
             ))}
           </dl>
 
-          {issue.parent && (
+          {project.subtaskingEnabled && (
             <div className="rounded border border-slate-200 bg-white p-3">
               <p className="text-xs text-slate-500">親課題</p>
-              <Link
-                href={`/issues/${project.key}-${issue.parent.keyId}`}
-                className="font-mono text-xs text-brand-700 hover:underline"
-              >
-                {project.key}-{issue.parent.keyId}
-              </Link>
+              {issue.parent ? (
+                <Link
+                  href={`/issues/${project.key}-${issue.parent.keyId}`}
+                  className="font-mono text-xs text-brand-700 hover:underline"
+                >
+                  {project.key}-{issue.parent.keyId}
+                </Link>
+              ) : (
+                <p className="text-xs text-slate-400">なし</p>
+              )}
+              {canEdit && (
+                <form action={setParent.bind(null, fullKey)} className="mt-2 flex gap-1">
+                  <input
+                    name="parentKey"
+                    placeholder={`${project.key}-1`}
+                    defaultValue={
+                      issue.parent ? `${project.key}-${issue.parent.keyId}` : ""
+                    }
+                    className="w-24 rounded border border-slate-300 px-1.5 py-1 font-mono text-xs"
+                  />
+                  <button className="rounded border border-slate-300 px-2 text-xs hover:bg-slate-50">
+                    設定
+                  </button>
+                </form>
+              )}
+              {canEdit && (
+                <p className="mt-1 text-xs text-slate-400">
+                  空にすると解除。親子は1階層までです。
+                </p>
+              )}
             </div>
           )}
+
+          {/* 親子とは別の、対等なリンク */}
+          <div className="rounded border border-slate-200 bg-white p-3">
+            <p className="text-xs text-slate-500">関連課題</p>
+            {issue.relationsFrom.length === 0 ? (
+              <p className="mt-1 text-xs text-slate-400">なし</p>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {issue.relationsFrom.map((r) => (
+                  <li key={r.relatedIssueId} className="flex items-center gap-1 text-xs">
+                    <Link
+                      href={`/issues/${project.key}-${r.relatedIssue.keyId}`}
+                      className="font-mono text-brand-700 hover:underline"
+                    >
+                      {project.key}-{r.relatedIssue.keyId}
+                    </Link>
+                    <span className="flex-1 truncate">{r.relatedIssue.summary}</span>
+                    {canEdit && (
+                      <form action={removeRelation.bind(null, fullKey)}>
+                        <input
+                          type="hidden"
+                          name="relatedIssueId"
+                          value={r.relatedIssueId}
+                        />
+                        <button className="text-red-700 hover:underline">外す</button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canEdit && (
+              <form action={addRelation.bind(null, fullKey)} className="mt-2 flex gap-1">
+                <input
+                  name="relatedKey"
+                  placeholder={`${project.key}-2`}
+                  className="w-24 rounded border border-slate-300 px-1.5 py-1 font-mono text-xs"
+                />
+                <button className="rounded border border-slate-300 px-2 text-xs hover:bg-slate-50">
+                  追加
+                </button>
+              </form>
+            )}
+          </div>
 
           {issue.children.length > 0 && (
             <div className="rounded border border-slate-200 bg-white p-3">

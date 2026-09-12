@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import { createIssue, updateIssue, deleteIssue } from "@/lib/issue";
+import { putFile, deleteFile, MAX_ATTACHMENT_BYTES } from "@/lib/storage";
 
 /** 課題まわりのサーバーアクション。入口で必ず assertCan を通す */
 
@@ -100,4 +101,219 @@ export async function removeIssue(issueKey: string) {
 
   revalidatePath(`/projects/${projectKey}/issues`);
   redirect(`/projects/${projectKey}/issues`);
+}
+
+/* ------------------------------------------------------------------ *
+ * 添付ファイル・親子課題・関連課題
+ * ------------------------------------------------------------------ */
+
+
+async function issueByKey(issueKey: string) {
+  const [projectKey, keyIdRaw] = issueKey.split("-");
+  const project = await projectByKey(projectKey);
+  const issue = await prisma.issue.findUnique({
+    where: { projectId_keyId: { projectId: project.id, keyId: Number(keyIdRaw) } },
+  });
+  if (!issue) throw new Error("課題が見つかりません");
+  return { project, issue };
+}
+
+function backToIssue(issueKey: string, message?: string, isError = false) {
+  const q = message
+    ? `?${isError ? "error" : "ok"}=${encodeURIComponent(message)}`
+    : "";
+  revalidatePath(`/issues/${issueKey}`);
+  redirect(`/issues/${issueKey}${q}`);
+}
+
+/** 添付の追加。本家は2段階(先にファイルを送ってidを得る)だが、
+ *  画面からは1操作にまとめる */
+export async function attachFile(issueKey: string, formData: FormData) {
+  const actor = await currentUser();
+  const { project, issue } = await issueByKey(issueKey);
+  await assertCan(actor, "issueAttachment.add", project.id);
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    backToIssue(issueKey, "ファイルを選んでください", true);
+    return;
+  }
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    backToIssue(
+      issueKey,
+      `ファイルが大きすぎます（上限 ${Math.floor(MAX_ATTACHMENT_BYTES / 1024 / 1024)}MB）`,
+      true,
+    );
+    return;
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const storageKey = await putFile(project.id, bytes);
+
+  await prisma.$transaction(async (tx) => {
+    const a = await tx.attachment.create({
+      data: {
+        projectId: project.id,
+        name: file.name,
+        size: bytes.byteLength,
+        mime: file.type || "application/octet-stream",
+        storageKey,
+        createdBy: actor.id,
+      },
+    });
+    await tx.issueAttachment.create({
+      data: { issueId: issue.id, attachmentId: a.id },
+    });
+    await tx.activity.create({
+      data: {
+        projectId: project.id,
+        type: "issue_updated",
+        issueId: issue.id,
+        userId: actor.id,
+        content: `添付ファイル「${file.name}」を追加しました`,
+      },
+    });
+  });
+  backToIssue(issueKey, `「${file.name}」を添付しました`);
+}
+
+export async function detachFile(issueKey: string, formData: FormData) {
+  const actor = await currentUser();
+  const { project, issue } = await issueByKey(issueKey);
+  await assertCan(actor, "issueAttachment.delete", project.id);
+
+  const attachmentId = Number(formData.get("attachmentId"));
+  const a = await prisma.attachment.findUnique({ where: { id: attachmentId } });
+  if (!a || a.projectId !== project.id) {
+    backToIssue(issueKey, "添付が見つかりません", true);
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.issueAttachment.deleteMany({
+      where: { issueId: issue.id, attachmentId },
+    });
+    // 他から参照されていなければ実体も消す
+    const used = await tx.issueAttachment.count({ where: { attachmentId } });
+    const usedWiki = await tx.wikiAttachment.count({ where: { attachmentId } });
+    const usedComment = await tx.commentAttachment.count({ where: { attachmentId } });
+    if (used + usedWiki + usedComment === 0) {
+      await tx.attachment.delete({ where: { id: attachmentId } });
+    }
+  });
+  await deleteFile(a.storageKey);
+  backToIssue(issueKey, `「${a.name}」を削除しました`);
+}
+
+/** 親課題の設定・解除 */
+export async function setParent(issueKey: string, formData: FormData) {
+  const actor = await currentUser();
+  const { project, issue } = await issueByKey(issueKey);
+  await assertCan(actor, "issue.edit", project.id);
+
+  const raw = String(formData.get("parentKey") ?? "").trim().toUpperCase();
+  if (!raw) {
+    await updateIssue({ issueId: issue.id, updatedBy: actor.id, parentIssueId: null });
+    backToIssue(issueKey, "親課題を解除しました");
+    return;
+  }
+
+  const keyId = Number(raw.split("-")[1]);
+  const parent = Number.isInteger(keyId)
+    ? await prisma.issue.findUnique({
+        where: { projectId_keyId: { projectId: project.id, keyId } },
+      })
+    : null;
+  if (!parent) {
+    backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
+    return;
+  }
+
+  try {
+    await updateIssue({
+      issueId: issue.id,
+      updatedBy: actor.id,
+      parentIssueId: parent.id,
+    });
+  } catch (e) {
+    backToIssue(issueKey, e instanceof Error ? e.message : "設定できません", true);
+    return;
+  }
+  backToIssue(issueKey, "親課題を設定しました");
+}
+
+/** 関連課題。親子とは別の、対等なリンク */
+export async function addRelation(issueKey: string, formData: FormData) {
+  const actor = await currentUser();
+  const { project, issue } = await issueByKey(issueKey);
+  await assertCan(actor, "issue.edit", project.id);
+
+  const raw = String(formData.get("relatedKey") ?? "").trim().toUpperCase();
+  const keyId = Number(raw.split("-")[1]);
+  const other = Number.isInteger(keyId)
+    ? await prisma.issue.findUnique({
+        where: { projectId_keyId: { projectId: project.id, keyId } },
+      })
+    : null;
+  if (!other) {
+    backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
+    return;
+  }
+  if (other.id === issue.id) {
+    backToIssue(issueKey, "自分自身とは関連づけられません", true);
+    return;
+  }
+
+  // 対等なリンクなので両方向に張る。片方向だと相手側から辿れない
+  await prisma.issueRelation.createMany({
+    data: [
+      { issueId: issue.id, relatedIssueId: other.id },
+      { issueId: other.id, relatedIssueId: issue.id },
+    ],
+    skipDuplicates: true,
+  });
+  backToIssue(issueKey, "関連課題を追加しました");
+}
+
+export async function removeRelation(issueKey: string, formData: FormData) {
+  const actor = await currentUser();
+  const { project, issue } = await issueByKey(issueKey);
+  await assertCan(actor, "issue.edit", project.id);
+
+  const otherId = Number(formData.get("relatedIssueId"));
+  await prisma.issueRelation.deleteMany({
+    where: {
+      OR: [
+        { issueId: issue.id, relatedIssueId: otherId },
+        { issueId: otherId, relatedIssueId: issue.id },
+      ],
+    },
+  });
+  backToIssue(issueKey, "関連課題を外しました");
+}
+
+/** 検索条件の保存。condition はURLクエリと同じ形なので、貼るだけで復元できる */
+export async function saveFilter(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "issue.view", project.id);
+
+  const name = String(formData.get("name") ?? "").trim();
+  const query = String(formData.get("query") ?? "");
+  if (!name) {
+    redirect(`/projects/${key}/issues?${query}&error=${encodeURIComponent("名前を入れてください")}`);
+  }
+
+  const condition: Record<string, string> = {};
+  for (const [k, v] of new URLSearchParams(query)) {
+    // 保存するのは条件だけ。ページ位置は持ち越さない
+    if (k === "offset" || k === "error" || k === "ok") continue;
+    if (v !== "") condition[k] = v;
+  }
+
+  await prisma.savedFilter.create({
+    data: { userId: actor.id, projectId: project.id, name, condition },
+  });
+  revalidatePath("/dashboard");
+  redirect(`/projects/${key}/issues?${query}`);
 }
