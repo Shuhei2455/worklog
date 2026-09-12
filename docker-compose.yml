@@ -80,6 +80,9 @@ services:
     user: "1000:1000"
     command: pnpm worker
     environment:
+      # メール本文のリンクを絶対URLにするために要る。
+      # 無いと /issues/AA-1 のような相対パスになり、メールから開けない
+      APP_URL: ${APP_URL}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       MEILI_URL: ${MEILI_URL}

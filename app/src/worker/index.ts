@@ -3,10 +3,13 @@ import {
   redis,
   SEARCH_QUEUE,
   WEBHOOK_QUEUE,
+  MAIL_QUEUE,
   type SearchJob,
   type WebhookJob,
+  type MailJob,
 } from "@/lib/queue";
 import { buildPayload, deliver } from "@/lib/webhook";
+import { sendNotificationMail, mailEnabled } from "@/lib/mail";
 import { prisma } from "@/lib/db";
 import {
   meili,
@@ -145,6 +148,23 @@ async function main() {
   hookWorker.on("failed", (job, err) => {
     console.error(`[worker] webhook失敗 ${job?.data?.webhookId}:`, err.message);
   });
+
+  // メール。MAIL_ENABLED=false のときはワーカーごと起動しない。
+  // 無効なのに接続を張ろうとして延々と失敗する、という状態を避ける
+  if (mailEnabled()) {
+    const mailWorker = new Worker<MailJob>(
+      MAIL_QUEUE,
+      async (job) => sendNotificationMail(job.data.notificationId),
+      { connection: redis, concurrency: 2 },
+    );
+    mailWorker.on("completed", (_job, result) => console.log(`[worker] ${result}`));
+    mailWorker.on("failed", (job, err) =>
+      console.error(`[worker] メール失敗 ${job?.data?.notificationId}:`, err.message),
+    );
+    console.log("[worker] メール送信も待機します");
+  } else {
+    console.log("[worker] メールは無効です（MAIL_ENABLED=false）。アプリ内通知のみ");
+  }
 
   console.log("[worker] 検索インデックスと webhook の配信を待機します");
 }

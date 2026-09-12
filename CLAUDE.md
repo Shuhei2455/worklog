@@ -165,6 +165,7 @@ tags: [開発, backlog-clone]
 | Git | Gitea（Gitホスティングは自作しない） |
 | UI | Tailwind + shadcn/ui + TanStack Table + dnd-kit |
 | Markdown | remark / rehype（GFM） |
+| メール | nodemailer（2026-09-12にユーザー承認のうえ追加。Nodeに標準のSMTPクライアントが無いため） |
 
 別のライブラリを入れたい理由ができたら、勝手に入れずに提案する。
 
