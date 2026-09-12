@@ -300,8 +300,11 @@ export async function saveFilter(key: string, formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const query = String(formData.get("query") ?? "");
+  // 一覧からもボードからも保存できる。戻り先だけ変える
+  const from = String(formData.get("from") ?? "issues");
+  const back = `/projects/${key}/${from === "board" ? "board" : "issues"}`;
   if (!name) {
-    redirect(`/projects/${key}/issues?${query}&error=${encodeURIComponent("名前を入れてください")}`);
+    redirect(`${back}?${query}&error=${encodeURIComponent("名前を入れてください")}`);
   }
 
   const condition: Record<string, string> = {};
@@ -315,7 +318,7 @@ export async function saveFilter(key: string, formData: FormData) {
     data: { userId: actor.id, projectId: project.id, name, condition },
   });
   revalidatePath("/dashboard");
-  redirect(`/projects/${key}/issues?${query}`);
+  redirect(`${back}?${query}`);
 }
 
 /* ------------------------------------------------------------------ *

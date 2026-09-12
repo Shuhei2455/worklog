@@ -180,6 +180,7 @@ export default async function IssueList({
         action={saveFilter.bind(null, key)}
         className="mt-2 flex items-center gap-2 text-xs"
       >
+        <input type="hidden" name="from" value="issues" />
         <input
           type="hidden"
           name="query"

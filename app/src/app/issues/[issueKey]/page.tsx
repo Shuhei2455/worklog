@@ -41,7 +41,7 @@ export default async function IssueDetail({
   const parsed = parseIssueKey(decodeURIComponent(issueKey));
   if (!parsed) notFound();
 
-  const detail = await loadIssueDetail(parsed.projectKey, parsed.keyId);
+  const detail = await loadIssueDetail(parsed.projectKey, parsed.keyId, user.id);
   if (!detail) notFound();
   const { project, issue, timeline } = detail;
 
@@ -220,6 +220,19 @@ export default async function IssueDetail({
                   {t.type === "issue_created" && (
                     <span className="rounded bg-slate-100 px-1.5 py-0.5">登録</span>
                   )}
+                  {/* スターは課題・コメント・Wikiに付けられる(00-spec 9章)。
+                      コメント単位のスターはここから */}
+                  <form action={toggleStar.bind(null, fullKey)} className="ml-auto">
+                    <input type="hidden" name="activityId" value={t.id} />
+                    <button
+                      className={`text-xs ${
+                        t.starredByMe ? "text-amber-500" : "text-slate-300 hover:text-amber-400"
+                      }`}
+                      title="このコメントにスター"
+                    >
+                      ★{t.starCount > 0 ? t.starCount : ""}
+                    </button>
+                  </form>
                   {t.notifiedUsers.length > 0 && (
                     <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">
                       お知らせ: {t.notifiedUsers.map((u) => u.name).join("、")}

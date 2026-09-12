@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext, visibleProjectIds } from "@/lib/session";
 import { parseIssueFilter, buildIssueWhere } from "@/lib/issue-filter";
 import { Shell } from "@/components/Shell";
+import { saveFilter } from "../issues/actions";
 import { BoardClient, type Card } from "./BoardClient";
 
 /**
@@ -149,6 +150,31 @@ export default async function BoardPage({
         <p className="w-full text-xs text-slate-500">
           絞り込めるのはこの4つだけです（本家と同じ）。状態は列そのものなので条件になりません。
         </p>
+      </form>
+
+      {/* 本家もボードから検索条件を保存できる */}
+      <form
+        action={saveFilter.bind(null, key)}
+        className="mt-2 flex items-center gap-2 text-xs"
+      >
+        <input type="hidden" name="from" value="board" />
+        <input
+          type="hidden"
+          name="query"
+          value={new URLSearchParams(
+            Object.entries(sp).filter(
+              ([, v]) => typeof v === "string" && v !== "",
+            ) as [string, string][],
+          ).toString()}
+        />
+        <input
+          name="name"
+          placeholder="この条件に名前を付けて保存"
+          className="w-56 rounded border border-slate-300 px-2 py-1"
+        />
+        <button className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">
+          保存
+        </button>
       </form>
 
       <BoardClient

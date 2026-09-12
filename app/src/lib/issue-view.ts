@@ -56,7 +56,11 @@ export async function recordRecentlyViewed(userId: number, issueId: number) {
 }
 
 /** 課題1件と、その活動履歴 */
-export async function loadIssueDetail(projectKey: string, keyId: number) {
+export async function loadIssueDetail(
+  projectKey: string,
+  keyId: number,
+  viewerId?: number,
+) {
   const project = await prisma.project.findUnique({ where: { key: projectKey } });
   if (!project) return null;
 
@@ -88,7 +92,11 @@ export async function loadIssueDetail(projectKey: string, keyId: number) {
 
   const activities = await prisma.activity.findMany({
     where: { issueId: issue.id },
-    include: { user: true, notifiedUsers: { include: { user: true } } },
+    include: {
+      user: true,
+      notifiedUsers: { include: { user: true } },
+      stars: { select: { userId: true } },
+    },
     orderBy: { createdAt: "asc" },
   });
 
@@ -107,6 +115,8 @@ export async function loadIssueDetail(projectKey: string, keyId: number) {
       createdAt: a.createdAt,
       described: describeChanges(a.changes, lookups),
       notifiedUsers: a.notifiedUsers.map((n) => n.user),
+      starCount: a.stars.length,
+      starredByMe: viewerId ? a.stars.some((s) => s.userId === viewerId) : false,
     })),
   };
 }
