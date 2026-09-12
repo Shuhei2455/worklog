@@ -39,6 +39,16 @@ export default async function GanttPage({
   const { key } = await params;
   const sp = await searchParams;
   const user = await currentUser();
+  // CSV出力へ渡すクエリ。画面の絞り込みをそのまま引き継ぐ
+  const ganttQuery = new URLSearchParams(
+    Object.entries(sp).flatMap(([k, v]) =>
+      v === undefined
+        ? []
+        : Array.isArray(v)
+          ? v.map((x) => [k, x] as [string, string])
+          : [[k, v] as [string, string]],
+    ),
+  ).toString();
 
   const project = await prisma.project.findUnique({ where: { key } });
   if (!project) notFound();
@@ -56,7 +66,15 @@ export default async function GanttPage({
           { label: "ガントチャート" },
         ]}
       >
-        <h1 className="text-xl font-semibold">ガントチャート</h1>
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-xl font-semibold">ガントチャート</h1>
+          <a
+            href={`/projects/${key}/gantt/export`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            CSV出力
+          </a>
+        </div>
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           このプロジェクトは「チャートを使用する」が無効です。
           <Link href={`/projects/${key}/settings`} className="ml-2 underline">
@@ -202,12 +220,21 @@ export default async function GanttPage({
     >
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">ガントチャート</h1>
-        <Link
-          href={`/projects/${key}/issues`}
-          className="text-sm text-brand-700 hover:underline"
-        >
-          課題一覧へ
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* 絞り込みを引き継ぐ。画面と同じ resolveGanttBar を使うので内容が一致する */}
+          <a
+            href={`/projects/${key}/gantt/export${ganttQuery ? `?${ganttQuery}` : ""}`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            CSV出力
+          </a>
+          <Link
+            href={`/projects/${key}/issues`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            課題一覧へ
+          </Link>
+        </div>
       </div>
 
       {/* 絞り込みは本家と同じ5つ: 種別・状態・カテゴリー・マイルストーン・担当者 */}

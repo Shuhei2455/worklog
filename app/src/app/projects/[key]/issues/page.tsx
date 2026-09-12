@@ -23,6 +23,12 @@ export default async function IssueList({
 }) {
   const { key } = await params;
   const sp = await searchParams;
+  // CSV出力へ渡すクエリ。いま見ている絞り込みをそのまま引き継ぐ
+  const queryString = new URLSearchParams(
+    Object.entries(sp).flatMap(([k, v]) =>
+      v === undefined ? [] : Array.isArray(v) ? v.map((x) => [k, x] as [string, string]) : [[k, v] as [string, string]],
+    ),
+  ).toString();
   const user = await currentUser();
 
   const project = await prisma.project.findUnique({ where: { key } });
@@ -122,6 +128,22 @@ export default async function IssueList({
             className="text-sm text-brand-700 hover:underline"
           >
             ガントチャート
+          </Link>
+        )}
+        {/* CSV。エクスポートは**いま見ている絞り込みをそのまま引き継ぐ**
+            （buildIssueWhere を共有しているので内容がずれない） */}
+        <a
+          href={`/projects/${key}/issues/export${queryString ? `?${queryString}` : ""}`}
+          className="text-sm text-brand-700 hover:underline"
+        >
+          CSV出力
+        </a>
+        {can(user, "issue.create", ctx) && (
+          <Link
+            href={`/projects/${key}/issues/import`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            CSV取り込み
           </Link>
         )}
         {can(user, "issue.create", ctx) && (
