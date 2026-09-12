@@ -366,27 +366,31 @@ export async function ensureRepoWebhook(
   secret: string,
 ): Promise<number> {
   const url = `${process.env.APP_URL_INTERNAL ?? "http://app:3000"}/api/gitea/webhook`;
+  const config = { url, content_type: "json", secret };
+  // pull_request_comment まで取るのは活動種別20（PRへのコメント）のため
+  const events = ["push", "pull_request", "pull_request_comment"];
+
   const hooks = await call<Array<{ id: number; config: { url: string } }>>(
     `/repos/${org}/${encodeURIComponent(name)}/hooks`,
   );
   const found = hooks.find((h) => h.config.url === url);
-  if (found) return found.id;
+
+  if (found) {
+    // **秘密を毎回入れ直す。** Gitea は登録済みの秘密を返さないので、
+    // こちらの GITEA_WEBHOOK_SECRET を変えたときに食い違う。
+    // そうなると署名が合わず、配信が静かに全部 401 になる（実際に踏んだ）
+    await call(`/repos/${org}/${encodeURIComponent(name)}/hooks/${found.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ active: true, events, config }),
+    });
+    return found.id;
+  }
 
   const hook = await call<{ id: number }>(
     `/repos/${org}/${encodeURIComponent(name)}/hooks`,
     {
       method: "POST",
-      body: JSON.stringify({
-        type: "gitea",
-        active: true,
-        // pull_request_comment まで取るのは活動種別20（PRへのコメント）のため
-        events: ["push", "pull_request", "pull_request_comment"],
-        config: {
-          url,
-          content_type: "json",
-          secret,
-        },
-      }),
+      body: JSON.stringify({ type: "gitea", active: true, events, config }),
     },
   );
   return hook.id;

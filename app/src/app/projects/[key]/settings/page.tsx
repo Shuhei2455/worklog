@@ -17,6 +17,13 @@ import {
   addWebhook,
   deleteWebhook,
 } from "./actions";
+import {
+  createRepository,
+  toggleLinkCommits,
+  detachRepository,
+} from "./git-actions";
+import { giteaEnabled } from "@/lib/gitea";
+import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 
 function Section({
   title,
@@ -62,7 +69,7 @@ export default async function ProjectSettings({
   const canManageMasters = can(user, "issueType.manage", ctx);
   const canAssignAdmin = can(user, "projectAdmin.assign", ctx);
 
-  const [statuses, issueTypes, categories, versions, members, webhooks] =
+  const [statuses, issueTypes, categories, versions, members, webhooks, repositories] =
     await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
@@ -88,6 +95,10 @@ export default async function ProjectSettings({
     prisma.webhook.findMany({
       where: { projectId: project.id },
       orderBy: { id: "asc" },
+    }),
+    prisma.repository.findMany({
+      where: { projectId: project.id },
+      orderBy: { displayOrder: "asc" },
     }),
   ]);
 
@@ -346,6 +357,91 @@ export default async function ProjectSettings({
           ))}
         </div>
       </Section>
+
+      {/* ---------------- Git ---------------- */}
+      {canEditProject && (
+        <Section
+          title="Gitリポジトリ"
+          note="リポジトリの実体は Gitea に置きます（Gitホスティングは自作しません）。ここで作ると organization・メンバー・webhook まで用意されます。"
+        >
+          {!giteaEnabled() ? (
+            <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Gitea が設定されていません。<code>GITEA_URL</code> と{" "}
+              <code>GITEA_ADMIN_TOKEN</code> を入れて app を再起動してください
+              （トークンの作り方は <code>scripts/gitea-setup.sh</code>）。
+            </p>
+          ) : repositories.length === 0 ? (
+            <p className="text-xs text-slate-400">なし</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 rounded border border-slate-200">
+              {repositories.map((r) => (
+                <li key={r.id} className="px-3 py-2 text-sm">
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={`/projects/${key}/git/${encodeURIComponent(r.name)}`}
+                      className="font-medium text-sky-700 hover:underline"
+                    >
+                      {r.name}
+                    </a>
+                    <span className="flex-1 truncate text-xs text-slate-500">
+                      {r.description ?? ""}
+                    </span>
+                    <form action={bind(toggleLinkCommits)}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <button
+                        className={`rounded border px-2 py-0.5 text-xs ${
+                          r.linkCommitsToIssues
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                            : "border-slate-300 text-slate-500"
+                        }`}
+                        title="コミットメッセージの課題キーから、課題へコメントを自動登録します"
+                      >
+                        課題連携 {r.linkCommitsToIssues ? "ON" : "OFF"}
+                      </button>
+                    </form>
+                    <form action={bind(detachRepository)}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <button className="text-xs text-red-700 hover:underline">
+                        登録解除
+                      </button>
+                    </form>
+                  </div>
+                  <div className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-500">
+                    <div>{httpCloneUrl(project.giteaOrg ?? project.key, r.name)}</div>
+                    <div>{sshCloneUrl(project.giteaOrg ?? project.key, r.name)}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {giteaEnabled() && (
+            <form
+              action={bind(createRepository)}
+              className="mt-3 flex flex-wrap items-end gap-2"
+            >
+              <label className="text-sm">
+                <span className="block text-xs text-slate-500">リポジトリ名</span>
+                <input
+                  name="name"
+                  required
+                  placeholder="web"
+                  className="mt-1 rounded border border-slate-300 px-2 py-1"
+                />
+              </label>
+              <label className="flex-1 text-sm">
+                <span className="block text-xs text-slate-500">説明</span>
+                <input
+                  name="description"
+                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
+                />
+              </label>
+              <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+                作成
+              </button>
+            </form>
+          )}
+        </Section>
+      )}
 
       {/* ---------------- webhook ---------------- */}
       {canEditProject && (
