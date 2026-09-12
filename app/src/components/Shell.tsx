@@ -41,6 +41,12 @@ export async function Shell({
             ダッシュボード
           </Link>
           <Link
+            href="/search"
+            className="text-sm text-slate-500 hover:text-brand-700"
+          >
+            検索
+          </Link>
+          <Link
             href="/notifications"
             className="flex items-center gap-1 text-sm text-slate-500 hover:text-brand-700"
           >

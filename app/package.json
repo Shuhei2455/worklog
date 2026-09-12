@@ -31,7 +31,10 @@
     "@dnd-kit/utilities": "^3.2.2",
     "react-markdown": "^9.0.1",
     "remark-gfm": "^4.0.0",
-    "rehype-sanitize": "^6.0.0"
+    "rehype-sanitize": "^6.0.0",
+    "bullmq": "^5.34.2",
+    "ioredis": "^5.4.2",
+    "meilisearch": "^0.46.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

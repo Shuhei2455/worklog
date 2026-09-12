@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import { createNotifications } from "@/lib/notify";
+import { enqueueSearch } from "@/lib/queue";
 
 /** Wiki のサーバーアクション。入口で必ず assertCan を通す */
 
@@ -36,7 +37,7 @@ export async function createWiki(key: string, formData: FormData) {
     redirect(`/projects/${key}/wiki/new?error=${encodeURIComponent(`同じ名前のページがあります: ${name}`)}`);
   }
 
-  await prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     const page = await tx.wikiPage.create({
       data: {
         projectId: project.id,
@@ -67,8 +68,10 @@ export async function createWiki(key: string, formData: FormData) {
       actorId: actor.id,
       texts: [content],
     });
+    return page;
   });
 
+  await enqueueSearch({ kind: "wiki", op: "upsert", id: created.id });
   revalidatePath(`/projects/${key}/wiki`);
   redirect(`/projects/${key}/wiki/${encodeURIComponent(name)}`);
 }
@@ -137,6 +140,7 @@ export async function updateWiki(key: string, name: string, formData: FormData) 
     });
   });
 
+  await enqueueSearch({ kind: "wiki", op: "upsert", id: page.id });
   revalidatePath(`/projects/${key}/wiki`);
   redirect(`/projects/${key}/wiki/${encodeURIComponent(newName)}`);
 }
@@ -146,9 +150,13 @@ export async function deleteWiki(key: string, name: string) {
   const project = await projectByKey(key);
   await assertCan(actor, "wiki.edit", project.id);
 
+  const page = await prisma.wikiPage.findUnique({
+    where: { projectId_name: { projectId: project.id, name } },
+  });
   await prisma.wikiPage.deleteMany({
     where: { projectId: project.id, name },
   });
+  if (page) await enqueueSearch({ kind: "wiki", op: "delete", id: page.id });
   revalidatePath(`/projects/${key}/wiki`);
   redirect(`/projects/${key}/wiki`);
 }

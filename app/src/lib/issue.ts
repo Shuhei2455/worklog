@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { nextKeyId } from "@/lib/numbering";
 import { DEFAULT_PRIORITY_ID, STATUS_ID_OPEN, STATUS_ID_CLOSED } from "@/lib/constants";
 import { createNotifications } from "@/lib/notify";
+import { enqueueSearch } from "@/lib/queue";
 
 /**
  * 課題の作成・更新・削除。
@@ -66,7 +67,7 @@ async function assertParentIsValid(
 }
 
 export async function createIssue(input: CreateIssueInput) {
-  return prisma.$transaction(async (tx) => {
+  const issue = await prisma.$transaction(async (tx) => {
     const project = await tx.project.findUnique({
       where: { id: input.projectId },
     });
@@ -166,6 +167,10 @@ export async function createIssue(input: CreateIssueInput) {
 
     return issue;
   });
+
+  // 検索インデックスの更新は非同期。失敗しても課題の作成は成立させる
+  await enqueueSearch({ kind: "issue", op: "upsert", id: issue.id });
+  return issue;
 }
 
 /** 変更差分。describeChanges() が日本語に解決する */
@@ -220,7 +225,7 @@ function toStr(v: unknown): string | null {
 }
 
 export async function updateIssue(input: UpdateIssueInput) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const before = await tx.issue.findUnique({
       where: { id: input.issueId },
       include: { categories: true, milestones: true, versions: true },
@@ -365,6 +370,9 @@ export async function updateIssue(input: UpdateIssueInput) {
 
     return tx.issue.findUniqueOrThrow({ where: { id: input.issueId } });
   });
+
+  await enqueueSearch({ kind: "issue", op: "upsert", id: input.issueId });
+  return result;
 }
 
 /**
@@ -374,11 +382,12 @@ export async function updateIssue(input: UpdateIssueInput) {
  * 本家の挙動は未確認だが、子ごと消えると取り返しがつかない。
  */
 export async function deleteIssue(issueId: number) {
-  return prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     await tx.issue.updateMany({
       where: { parentIssueId: issueId },
       data: { parentIssueId: null },
     });
     await tx.issue.delete({ where: { id: issueId } });
   });
+  await enqueueSearch({ kind: "issue", op: "delete", id: issueId });
 }

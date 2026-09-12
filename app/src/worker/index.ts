@@ -1,4 +1,125 @@
-// 非同期処理(通知・メール・検索インデックス)の入口。
-// M0-a の時点では待機するだけ。キューの実装は M2 以降。
-console.log("[worker] 起動しました（M0-a: 処理は未実装）");
-setInterval(() => {}, 1 << 30);
+import { Worker } from "bullmq";
+import { redis, SEARCH_QUEUE, type SearchJob } from "@/lib/queue";
+import { prisma } from "@/lib/db";
+import {
+  meili,
+  ensureIndexes,
+  ISSUE_INDEX,
+  WIKI_INDEX,
+  type IssueDoc,
+  type WikiDoc,
+} from "@/lib/search";
+
+/**
+ * 非同期処理。
+ *
+ * いまは検索インデックスの更新だけ。メール送信と webhook 配信も
+ * ここに足していく(docs/01-design.md 2章)。
+ *
+ * 画面の応答をこれらで遅くしないために別プロセスにしてある。
+ */
+
+async function issueDoc(id: number): Promise<IssueDoc | null> {
+  const issue = await prisma.issue.findUnique({
+    where: { id },
+    include: {
+      project: { select: { key: true } },
+      activities: { select: { content: true } },
+    },
+  });
+  if (!issue) return null;
+  return {
+    id: issue.id,
+    projectId: issue.projectId,
+    projectKey: issue.project.key,
+    keyId: issue.keyId,
+    summary: issue.summary,
+    description: issue.description ?? "",
+    // コメントも検索対象にする。「あの話どこで見たか」を探せないと使い物にならない
+    comments: issue.activities
+      .map((a) => a.content)
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+async function wikiDoc(id: number): Promise<WikiDoc | null> {
+  const page = await prisma.wikiPage.findUnique({
+    where: { id },
+    include: { project: { select: { key: true } }, tags: true },
+  });
+  if (!page) return null;
+  return {
+    id: page.id,
+    projectId: page.projectId,
+    projectKey: page.project.key,
+    name: page.name,
+    content: page.content,
+    tags: page.tags.map((t) => t.tag),
+  };
+}
+
+async function handle(job: SearchJob): Promise<string> {
+  if (job.kind === "reindex-project") {
+    const [issues, wikis] = await Promise.all([
+      prisma.issue.findMany({ where: { projectId: job.id }, select: { id: true } }),
+      prisma.wikiPage.findMany({ where: { projectId: job.id }, select: { id: true } }),
+    ]);
+    const issueDocs = (await Promise.all(issues.map((i) => issueDoc(i.id)))).filter(
+      (d): d is IssueDoc => d !== null,
+    );
+    const wikiDocs = (await Promise.all(wikis.map((w) => wikiDoc(w.id)))).filter(
+      (d): d is WikiDoc => d !== null,
+    );
+    if (issueDocs.length) await meili.index(ISSUE_INDEX).addDocuments(issueDocs);
+    if (wikiDocs.length) await meili.index(WIKI_INDEX).addDocuments(wikiDocs);
+    return `project ${job.id}: 課題${issueDocs.length} / Wiki${wikiDocs.length}`;
+  }
+
+  const index = job.kind === "issue" ? ISSUE_INDEX : WIKI_INDEX;
+
+  if (job.op === "delete") {
+    await meili.index(index).deleteDocument(job.id);
+    return `${job.kind} ${job.id} を削除`;
+  }
+
+  const doc = job.kind === "issue" ? await issueDoc(job.id) : await wikiDoc(job.id);
+  if (!doc) {
+    // 積んだ後に消されていた場合。インデックスからも消しておく
+    await meili.index(index).deleteDocument(job.id);
+    return `${job.kind} ${job.id} は既に無いので削除`;
+  }
+  await meili.index(index).addDocuments([doc]);
+  return `${job.kind} ${job.id} を更新`;
+}
+
+async function main() {
+  // インデックスの設定は起動時に流す。filterable が無いと権限で絞れない
+  try {
+    await ensureIndexes();
+    console.log("[worker] Meilisearch のインデックスを用意しました");
+  } catch (e) {
+    console.error("[worker] Meilisearch に繋がりません:", e);
+  }
+
+  const worker = new Worker<SearchJob>(
+    SEARCH_QUEUE,
+    async (job) => {
+      const msg = await handle(job.data);
+      console.log(`[worker] ${msg}`);
+      return msg;
+    },
+    { connection: redis, concurrency: 4 },
+  );
+
+  worker.on("failed", (job, err) => {
+    console.error(`[worker] 失敗 ${job?.id}:`, err.message);
+  });
+
+  console.log("[worker] 検索インデックスの更新を待機します");
+}
+
+main().catch((e) => {
+  console.error("[worker] 起動に失敗しました:", e);
+  process.exit(1);
+});

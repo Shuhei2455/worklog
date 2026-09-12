@@ -9,6 +9,7 @@ import {
   buildIssueOrderBy,
 } from "@/lib/issue-filter";
 import { PRIORITIES } from "@/lib/constants";
+import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
 import { saveFilter } from "./actions";
 
@@ -35,7 +36,13 @@ export default async function IssueList({
   // 一覧には権限条件を注入する。取得後にフィルタすると件数とページングが壊れる
   const visible = await visibleProjectIds(user.id);
   const filter = parseIssueFilter({ ...sp, projectId: String(project.id) });
-  const where = buildIssueWhere(filter, visible);
+  // キーワードは Meilisearch に投げ、返ったIDでDBを絞る二段構え。
+  // 繋がらないときは buildIssueWhere 側の部分一致にフォールバックする
+  let keywordIds: number[] | undefined;
+  if (filter.keyword && (await searchAvailable())) {
+    keywordIds = await searchIssueIds(filter.keyword, visible);
+  }
+  const where = buildIssueWhere(filter, visible, keywordIds);
 
   const [total, issues, statuses, members] = await Promise.all([
     prisma.issue.count({ where }),
