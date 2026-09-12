@@ -201,6 +201,19 @@ tags: [開発, backlog-clone]
 
 共有する定数や純関数は `src/lib/` に分ける。M0 と M3 で2回踏んだ。
 
+### 開発コンテナで `pnpm build` を実行しない
+
+`next dev` が使っている `/work/.next` を本番ビルドの成果物で上書きしてしまい、
+開発サーバが `MODULE_NOT_FOUND` と `fallback-build-manifest.json が無い` で
+500 を返すようになる。復旧は `.next` を消して app を再起動。
+
+型チェックを含む本番ビルドの確認は、本番イメージをビルドすれば足りる
+（ビルド段が別なので `.next` を汚さない）。
+
+```bash
+docker build -f docker/app.prod.Dockerfile -t backlog-clone-app:<タグ> .
+```
+
 ### 採番
 
 `keyId` は必ずトランザクション内で。アプリ側で MAX+1 を取らない。

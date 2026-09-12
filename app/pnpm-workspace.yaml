@@ -1,6 +1,14 @@
+# ビルドスクリプトの実行を許可する依存。
+#
+# pnpm 10 以降は依存のインストール時スクリプトを既定で全部無視し、
+# ここに挙げたものだけ実行する。package.json の `pnpm` フィールドは
+# もう読まれない（pnpm 12 は ERR_PNPM_IGNORED_BUILDS でインストール自体を止める）。
+#
+# Prisma を許可しないとクエリエンジンが入らず、esbuild は実行バイナリが入らない。
+# いずれも入らないと起動時に落ちる。
 allowBuilds:
-  '@prisma/client': set this to true or false
-  '@prisma/engines': set this to true or false
-  esbuild: set this to true or false
-  msgpackr-extract: set this to true or false
-  prisma: set this to true or false
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
+  esbuild: true
+  msgpackr-extract: true

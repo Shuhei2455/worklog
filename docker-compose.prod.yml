@@ -1,0 +1,260 @@
+# backlog-clone 本番スタック（職場VM用）
+#
+# 開発用(docker-compose.yml)との違い:
+#   - build しない。`docker load` で入れたイメージをタグで指定して使う
+#     → 職場VMにソースコードもNode環境も要らない
+#   - ソースをバインドマウントしない
+#   - 公開するポートは Caddy の HTTP と Gitea の SSH だけ。
+#     DB・Redis・Meilisearch・アプリはコンテナ間ネットワークの中だけに置く
+#   - 外部へ出る通信（テレメトリ・更新確認・アナリティクス）を全部切る
+#
+# 使い方は docs/04-deploy.md を見る。
+# 注意: `docker compose down -v` は実行しない（データが消える）。
+
+name: backlog-clone
+
+x-app-image: &app_image
+  image: backlog-clone-app:${APP_IMAGE_TAG}
+  # イメージが無いときにレジストリへ取りに行かせない。
+  # 職場VMは外に出られない前提なので、黙って固まるより即座に失敗させる
+  pull_policy: never
+
+services:
+
+  # ---- 入口 -------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "${CADDY_HTTP_PORT}:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - gitea
+
+  # ---- Next.js（ビルド済み standalone サーバ） ---------------------
+  app:
+    <<: *app_image
+    restart: unless-stopped
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    command: ["node", "server.js"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      MEILI_URL: ${MEILI_URL}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
+      APP_URL: ${APP_URL}
+      MAIL_ENABLED: ${MAIL_ENABLED}
+      GITEA_URL: ${GITEA_URL}
+      FILES_DIR: ${FILES_DIR}
+      MAX_ATTACHMENT_MB: ${MAX_ATTACHMENT_MB}
+      RATE_LIMIT_READ: ${RATE_LIMIT_READ}
+      RATE_LIMIT_UPDATE: ${RATE_LIMIT_UPDATE}
+      RATE_LIMIT_SEARCH: ${RATE_LIMIT_SEARCH}
+      RATE_LIMIT_ICON: ${RATE_LIMIT_ICON}
+    volumes:
+      - files:/data/files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # /login は未ログインでも 200 を返す唯一の画面。
+      # / だと 307（ログインへの誘導）になり異常と区別できない
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---- 非同期処理 -------------------------------------------------
+  worker:
+    <<: *app_image
+    restart: unless-stopped
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    command: ["worker.sh"]
+    environment:
+      APP_URL: ${APP_URL}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      MEILI_URL: ${MEILI_URL}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MAIL_ENABLED: ${MAIL_ENABLED}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      FILES_DIR: ${FILES_DIR}
+    volumes:
+      - files:/data/files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---- マイグレーション（手で1回だけ動かす） -----------------------
+  # docker compose -f docker-compose.prod.yml run --rm migrate
+  migrate:
+    <<: *app_image
+    profiles: ["tools"]
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    command: ["migrate.sh"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---- 初期データ投入（新規構築のときだけ） ------------------------
+  # docker compose -f docker-compose.prod.yml run --rm seed
+  seed:
+    <<: *app_image
+    profiles: ["tools"]
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    command: ["seed.sh"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SEED_ADMIN_USER_ID: ${SEED_ADMIN_USER_ID}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---- 検索インデックスの作り直し（移設・復元の後に1回） -----------
+  # docker compose -f docker-compose.prod.yml run --rm reindex
+  reindex:
+    <<: *app_image
+    profiles: ["tools"]
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    command: ["reindex.sh"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      MEILI_URL: ${MEILI_URL}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---- パスワードの再設定 -------------------------------------------
+  # docker compose -f docker-compose.prod.yml run --rm set-password <ID> <新パスワード>
+  #
+  # command ではなく entrypoint にしているのは、`run` の後ろに書いた引数が
+  # command を上書きしてしまうため（こうすると引数として渡る）
+  set-password:
+    <<: *app_image
+    profiles: ["tools"]
+    user: "${RUN_UID:-1000}:${RUN_GID:-1000}"
+    entrypoint: ["set-password.sh"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---- PostgreSQL ------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ---- Redis -----------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    pull_policy: never
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ---- Meilisearch -----------------------------------------------
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      # production にするとマスターキー必須になり、Webの管理UIも無効になる
+      MEILI_ENV: production
+      # 既定では利用統計を meilisearch.com へ送る。切る
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilidata:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # ---- Gitea -----------------------------------------------------
+  gitea:
+    image: gitea/gitea:1.22
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      USER_UID: ${RUN_UID:-1000}
+      USER_GID: ${RUN_GID:-1000}
+      GITEA__database__DB_TYPE: postgres
+      GITEA__database__HOST: postgres:5432
+      GITEA__database__NAME: gitea
+      GITEA__database__USER: ${POSTGRES_USER}
+      GITEA__database__PASSWD: ${POSTGRES_PASSWORD}
+      GITEA__server__ROOT_URL: ${APP_URL}/git/
+      GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
+      # 新版の確認で dl.gitea.com へ出る。明示的に切る。
+      # セクション名のドットは `_0X2E_` と書く決まり。`_2E_` と書くと
+      # [cron_2e_update_checker] という別セクションが生まれて黙って無視される
+      # （gitea/gitea:1.22 の environment-to-ini で実測して確認した）
+      GITEA__cron__ENABLED: "true"
+      GITEA__cron_0X2E_update_checker__ENABLED: "false"
+      # 新規登録とメール通知は閉じる。社内で管理者が作る運用
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__mailer__ENABLED: "false"
+    volumes:
+      - giteadata:/data
+    ports:
+      # Git over SSH を使うなら要る。HTTPはCaddy経由なので公開しない
+      - "${GITEA_SSH_PORT}:22"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  meilidata:
+  giteadata:
+  caddy_data:
+  caddy_config:
+  files:

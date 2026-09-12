@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+**/cache
+.git
+.env
+docs
+examples
+caddy/caddy_data
+*.log

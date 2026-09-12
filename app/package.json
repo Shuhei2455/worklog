@@ -14,7 +14,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio --hostname 0.0.0.0",
     "postinstall": "prisma generate",
-    "db:password": "tsx prisma/set-password.ts"
+    "db:password": "tsx prisma/set-password.ts",
+    "reindex": "tsx src/scripts/reindex.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -50,12 +51,5 @@
     "autoprefixer": "^10.4.20",
     "@types/nodemailer": "^6.4.17"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/client",
-      "@prisma/engines",
-      "prisma",
-      "esbuild"
-    ]
-  }
+  "packageManager": "pnpm@12.4.1"
 }
