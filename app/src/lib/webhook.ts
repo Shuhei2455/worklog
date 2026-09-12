@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ACTIVITY_TYPE_ID } from "@/lib/activity-type";
+import { toBacklogChanges } from "@/lib/api/changes";
 import type { ActivityType } from "@prisma/client";
 
 /**
@@ -77,8 +78,11 @@ export async function buildPayload(activityId: number): Promise<WebhookPayload |
     content.key_id = a.issue.keyId;
     content.summary = a.issue.summary;
     content.description = a.issue.description ?? "";
-    if (a.content) content.comment = { content: a.content };
-    if (Array.isArray(a.changes)) content.changes = a.changes;
+    if (a.content) content.comment = { id: a.id, content: a.content };
+    // 内部の {field, from, to} をそのまま出すと、本家向けに作られた
+    // 受け側が読めない。{field, new_value, old_value, type} に直す
+    const changes = toBacklogChanges(a.changes);
+    if (changes.length > 0) content.changes = changes;
   } else if (a.wikiPage) {
     content.id = a.wikiPage.id;
     content.name = a.wikiPage.name;
