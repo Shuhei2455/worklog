@@ -117,3 +117,87 @@ describe("1行にまとめる", () => {
     expect(summarizeChanges([])).toBe("");
   });
 });
+
+describe("カスタム属性の変更（M5）", () => {
+  const lookups = {
+    customFields: new Map([
+      [
+        1,
+        {
+          id: 1,
+          name: "顧客名",
+          typeId: "text" as const,
+          required: false,
+          settings: {},
+          items: [],
+        },
+      ],
+      [
+        3,
+        {
+          id: 3,
+          name: "対応区分",
+          typeId: "single_list" as const,
+          required: false,
+          settings: {},
+          items: [
+            { id: 2, name: "新規" },
+            { id: 4, name: "調査" },
+          ],
+        },
+      ],
+    ]),
+  };
+
+  it("属性名と読める値に直す（生のJSONを出さない）", () => {
+    const out = describeChanges(
+      [
+        {
+          field: "customField_1",
+          from: JSON.stringify({ kind: "text", value: "A社" }),
+          to: JSON.stringify({ kind: "text", value: "B社" }),
+        },
+      ],
+      lookups,
+    );
+    expect(out).toEqual([{ label: "顧客名", from: "A社", to: "B社" }]);
+  });
+
+  it("リスト型は選択肢名に直す", () => {
+    const out = describeChanges(
+      [
+        {
+          field: "customField_3",
+          from: JSON.stringify({ kind: "list", itemIds: [2] }),
+          to: JSON.stringify({ kind: "list", itemIds: [4] }),
+        },
+      ],
+      lookups,
+    );
+    expect(out).toEqual([{ label: "対応区分", from: "新規", to: "調査" }]);
+  });
+
+  it("未入力は null", () => {
+    const out = describeChanges(
+      [{ field: "customField_1", from: null, to: JSON.stringify({ kind: "text", value: "A社" }) }],
+      lookups,
+    );
+    expect(out).toEqual([{ label: "顧客名", from: null, to: "A社" }]);
+  });
+
+  it("定義が消えていても落ちない", () => {
+    const out = describeChanges(
+      [{ field: "customField_99", from: null, to: '{"kind":"text","value":"x"}' }],
+      lookups,
+    );
+    expect(out[0].label).toBe("カスタム属性#99");
+  });
+
+  it("読めない古い履歴は生のまま出す（例外で落とさない）", () => {
+    const out = describeChanges(
+      [{ field: "customField_1", from: "壊れたJSON", to: null }],
+      lookups,
+    );
+    expect(out).toEqual([{ label: "顧客名", from: "壊れたJSON", to: null }]);
+  });
+});

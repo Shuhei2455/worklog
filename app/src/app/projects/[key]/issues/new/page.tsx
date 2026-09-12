@@ -5,6 +5,8 @@ import { currentUser, projectContext } from "@/lib/session";
 import { PRIORITIES, DEFAULT_PRIORITY_ID } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
 import { addIssue } from "../actions";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { loadFieldDefs } from "@/lib/custom-field-form";
 
 export default async function NewIssue({
   params,
@@ -23,7 +25,7 @@ export default async function NewIssue({
   const ctx = await projectContext(project.id, user.id);
   if (!can(user, "issue.create", ctx)) notFound();
 
-  const [issueTypes, members] = await Promise.all([
+  const [issueTypes, members, customFields] = await Promise.all([
     prisma.issueType.findMany({
       where: { projectId: project.id },
       orderBy: { displayOrder: "asc" },
@@ -32,6 +34,7 @@ export default async function NewIssue({
       where: { projectId: project.id },
       include: { user: true },
     }),
+    loadFieldDefs(project.id),
   ]);
 
   return (
@@ -131,6 +134,16 @@ export default async function NewIssue({
           <p className="text-xs text-slate-500">
             このプロジェクトは「チャートを使用する」がOFFのため、開始日・期限日を入力できません。
           </p>
+        )}
+
+        {/* カスタム属性。課題種別ごとの絞り込みは送信後に行う
+            （種別を選ぶたびに出し入れするには client JS が必要なため、
+            ここでは全件出して、保存時に有効なものだけを使う） */}
+        {customFields.length > 0 && (
+          <div className="rounded border border-slate-200 bg-slate-50 p-3">
+            <h2 className="mb-2 text-xs font-medium text-slate-500">カスタム属性</h2>
+            <CustomFieldInputs fields={customFields} />
+          </div>
         )}
 
         <label className="block">

@@ -28,6 +28,8 @@ export type CreateIssueInput = {
   milestoneIds?: number[];
   versionIds?: number[];
   notifiedUserIds?: number[];
+  /** カスタム属性の値。{ カスタム属性のid: 保存する形 }（src/lib/custom-field.ts） */
+  customFieldValues?: Record<number, unknown>;
   createdBy: number;
 };
 
@@ -125,6 +127,19 @@ export async function createIssue(input: CreateIssueInput) {
       },
     });
 
+    // カスタム属性の値。検証は parseFieldValue() を通したものが渡ってくる
+    const cfEntries = Object.entries(input.customFieldValues ?? {});
+    if (cfEntries.length > 0) {
+      await tx.issueCustomFieldValue.createMany({
+        data: cfEntries.map(([customFieldId, value]) => ({
+          issueId: issue.id,
+          projectId: input.projectId,
+          customFieldId: Number(customFieldId),
+          value: value as Prisma.InputJsonValue,
+        })),
+      });
+    }
+
     // 登録者と担当者は自動で参加者になる(docs/00-spec-verified.md 3章)
     const participants = new Set<number>([input.createdBy]);
     if (input.assigneeId) participants.add(input.assigneeId);
@@ -204,6 +219,11 @@ export type UpdateIssueInput = {
    */
   comment?: string;
   notifiedUserIds?: number[];
+  /**
+   * カスタム属性の値。渡したものだけ更新する。
+   * 要素に null を入れると「未入力に戻す」（値の行を消す）
+   */
+  customFieldValues?: Record<number, unknown>;
 };
 
 const scalarFields = [
@@ -320,6 +340,47 @@ export async function updateIssue(input: UpdateIssueInput) {
           versionId,
         })),
       });
+    }
+
+    // カスタム属性。渡されたものだけ触る。
+    // 差分は `customField_{id}` という field 名で履歴に残す
+    // （本家が値を渡すときのパラメータ名と同じ形。11.1）
+    if (input.customFieldValues) {
+      const prevValues = await tx.issueCustomFieldValue.findMany({
+        where: { issueId: input.issueId },
+      });
+      const prevById = new Map(prevValues.map((v) => [v.customFieldId, v.value]));
+
+      for (const [idStr, next] of Object.entries(input.customFieldValues)) {
+        const customFieldId = Number(idStr);
+        const prev = prevById.get(customFieldId) ?? null;
+        if (JSON.stringify(prev) === JSON.stringify(next ?? null)) continue;
+
+        changes.push({
+          field: `customField_${customFieldId}`,
+          from: prev === null ? null : JSON.stringify(prev),
+          to: next == null ? null : JSON.stringify(next),
+        });
+
+        if (next == null) {
+          await tx.issueCustomFieldValue.deleteMany({
+            where: { issueId: input.issueId, customFieldId },
+          });
+        } else {
+          await tx.issueCustomFieldValue.upsert({
+            where: {
+              issueId_customFieldId: { issueId: input.issueId, customFieldId },
+            },
+            create: {
+              issueId: input.issueId,
+              projectId: before.projectId,
+              customFieldId,
+              value: next as Prisma.InputJsonValue,
+            },
+            update: { value: next as Prisma.InputJsonValue },
+          });
+        }
+      }
     }
 
     const hasComment = Boolean(input.comment?.trim());

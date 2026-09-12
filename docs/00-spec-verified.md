@@ -640,6 +640,70 @@ TODO(要確認): `status` と `milestone` 以外の `field` の値。
 
 ---
 
+## 11. カスタム属性・チーム・監査ログ（2026-09-13 に一次情報で確認）
+
+### 11.1 カスタム属性
+
+出典: https://developer.nulab.com/docs/backlog/api/2/get-custom-field-list/
+
+`GET /api/v2/projects/:projectIdOrKey/customFields`
+
+| キー | 型 | 備考 |
+|---|---|---|
+| `id` | Number | |
+| `projectId` | Number | |
+| `typeId` | Number | 10.1 の8種 |
+| `name` | String | |
+| `description` | String | |
+| `required` | Boolean | |
+| `applicableIssueTypes` | Array | 有効な課題種別のID。空なら全種別 |
+| `allowAddItem` | Boolean | リスト型で項目の追加を許すか |
+| `items` | Array | リスト型の選択肢。`{id, name, displayOrder}` |
+
+**課題への値の渡し方** — 出典: https://developer.nulab.com/docs/backlog/api/2/add-issue/
+
+- `customField_{id}` に値を入れる
+- リスト型の「その他」欄は `customField_{id}_otherValue`
+  （**`_otherItem` ではない**）
+
+TODO(要確認): 課題のレスポンスに入る `customFields` の各要素の構造。
+Get Issue の例は `"customFields": []` で中身が出ていない。
+本アプリは `{id, fieldTypeId, name, value}` で返す（決定 D24）。
+
+### 11.2 チーム
+
+出典: https://developer.nulab.com/docs/backlog/api/2/get-list-of-teams/
+
+`GET /api/v2/teams` — `order`(asc/desc、既定 desc) / `offset` / `count`(1〜100、既定20)
+
+| キー | 型 | 備考 |
+|---|---|---|
+| `id` | Number | |
+| `name` | String | |
+| `members` | Array | ユーザーオブジェクトの配列 |
+| `displayOrder` | Number/null | **null を返しうる** |
+| `createdUser` / `created` / `updatedUser` / `updated` | | |
+
+プロジェクトへの割り当て:
+
+- `GET /api/v2/projects/:projectIdOrKey/teams`
+- `POST /api/v2/projects/:projectIdOrKey/teams`（追加）
+- `DELETE /api/v2/projects/:projectIdOrKey/teams`（削除）
+
+チームは課題の「お知らせ」先に指定でき、メンション記法 `<@T{id}>` の
+`{id}` はこの `id`（3.1 で確認済み）。
+
+### 11.3 監査ログ
+
+**APIは無い。** Nulab Pass（組織向けの認証基盤）の機能として提供されており、
+Backlog のAPIドキュメントにエンドポイントが存在しない。
+ヘルプセンターの該当ページは機械的な取得が拒否される（HTTP 403）ため、
+記録項目も確認できない。
+
+→ 本アプリは独自に設計する（決定 D25）。本家に合わせる対象ではない。
+
+---
+
 ## 10. 実装時の判断（未確認項目と本アプリの決定）
 
 一次情報を確認できなかった項目は、**本家の仕様として断定せず**「本アプリの決定」として記録する。
@@ -699,6 +763,11 @@ TODO(要確認): `status` と `milestone` 以外の `field` の値。
 | D19 | コミットメッセージ中の課題キーの扱い | **出現した全部**に紐づける。同じキーが複数回出ても1回だけ | 本家が何個認識するかは未確認（4.1のTODO）。1つに絞ると「AA-1 と AA-2 をまとめて直した」コミットが片方にしか残らず、後から追えない。多く拾いすぎても誤リンクを消せばよい |
 | D20 | PRの状態の持ち方 | 内部は文字列（`open` / `closed` / `merged`）。APIでは `status: {id, name}` に写像し、id は 1=Open / 2=Closed / 3=Merged | 本家は 1=Open しか公開していない（4.1のTODO）。Gitea の状態をそのまま持つと本家形式で返せないため写像する。2と3の値が判明したら合わせる |
 | D21 | コミットが参照できる課題の範囲 | **同じプロジェクトの課題だけ**。他プロジェクトのキーは無視する | 課題キーは全体で一意なので技術的には他プロジェクトにも書ける。しかし書けてしまうと、そのリポジトリに触れる人が**見る権限の無い課題にコメントを残せる**。権限の穴になるので同一プロジェクトに限る |
+| D22 | ガントの「Excelエクスポート」の形式 | **CSV**（xlsxは作らない） | 2026-09-13 にユーザーが選択。xlsx を書くにはライブラリが必要で、帯の見た目を再現する実務価値が薄い。Excel で開けて再集計できれば足りる |
+| D23 | CSVインポートの入力形式 | **CSVのみ**（xlsx は読まない）。UTF-8・BOM付き・Shift_JIS を自動判別 | 2026-09-13 にユーザーが選択。Excel から「CSV UTF-8」で保存し直す前提。文字化けだけはこちらで面倒を見る |
+| D24 | 課題APIの `customFields` の形 | `{id, fieldTypeId, name, value}`。リスト型の `value` は `{id, name}`（複数リストは配列）、その他欄は `otherValue` | 本家のレスポンス例が空配列で中身が不明（11.1のTODO）。`fieldTypeId` という名前は本家の他の箇所の命名（`issueTypeId` など）に合わせた |
+| D25 | 監査ログの記録項目 | `{発生時刻, 実行者, 操作, 対象, 詳細(JSONB), IPアドレス}` | 本家は API も記録項目も公開していない（11.3）。合わせる対象が無いので、職場の要求（誰がいつ何を消したか）に必要な最小限を独自に決めた |
+| D26 | バーンダウンの定義 | マイルストーン単位。縦軸は**残り課題数**と**残り予定時間**の2本立て、横軸はマイルストーンの開始日〜終了日。理想線は初日の残量から終了日のゼロへの直線 | 本家の計算式は非公開。予定時間が未入力の課題が多い運用でも読めるように、件数ベースも並べる |
 | D16 | Wiki の同時編集 | 楽観ロックで競合を警告する | 本家の更新APIに楽観ロック用の引数が無く、後勝ちと思われる。設計書(01-design.md 4.6)が「楽観ロック＋競合警告」を求めているのでそちらに従う。APIでは引数を任意にして、省略時は本家と同じ後勝ちにする |
 
 ### 10.3 まだ確認できていないこと
