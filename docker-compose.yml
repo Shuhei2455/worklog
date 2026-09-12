@@ -51,6 +51,10 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME}
+      RATE_LIMIT_READ: ${RATE_LIMIT_READ}
+      RATE_LIMIT_UPDATE: ${RATE_LIMIT_UPDATE}
+      RATE_LIMIT_SEARCH: ${RATE_LIMIT_SEARCH}
+      RATE_LIMIT_ICON: ${RATE_LIMIT_ICON}
     volumes:
       - ./app:/work
       - app_node_modules:/work/node_modules
