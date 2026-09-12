@@ -291,3 +291,38 @@ export async function toggleProjectAdmin(key: string, formData: FormData) {
   });
   back(key, "プロジェクト管理者の設定を変更しました");
 }
+
+/** webhook の追加。Slack や Teams への連携を想定している */
+export async function addWebhook(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const name = String(formData.get("name") ?? "").trim();
+  const hookUrl = String(formData.get("hookUrl") ?? "").trim();
+  if (!name || !hookUrl) back(key, "名前とURLを入力してください", true);
+  if (!/^https?:\/\//.test(hookUrl)) back(key, "URLは http(s) で始めてください", true);
+
+  await prisma.webhook.create({
+    data: {
+      projectId: project.id,
+      name,
+      hookUrl,
+      description: String(formData.get("description") ?? ""),
+      // 既定では全イベント。絞りたければ後から編集する
+      allEvent: true,
+      enabled: true,
+    },
+  });
+  back(key, `webhook「${name}」を追加しました`);
+}
+
+export async function deleteWebhook(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+  await prisma.webhook.deleteMany({
+    where: { id: Number(formData.get("id")), projectId: project.id },
+  });
+  back(key, "webhook を削除しました");
+}

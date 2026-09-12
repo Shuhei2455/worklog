@@ -4,6 +4,7 @@ import { nextKeyId } from "@/lib/numbering";
 import { DEFAULT_PRIORITY_ID, STATUS_ID_OPEN, STATUS_ID_CLOSED } from "@/lib/constants";
 import { createNotifications } from "@/lib/notify";
 import { enqueueSearch } from "@/lib/queue";
+import { dispatchActivity } from "@/lib/dispatch";
 
 /**
  * 課題の作成・更新・削除。
@@ -165,12 +166,14 @@ export async function createIssue(input: CreateIssueInput) {
       texts: [input.description],
     });
 
-    return issue;
+    return { issue, activityId: activity.id };
   });
 
   // 検索インデックスの更新は非同期。失敗しても課題の作成は成立させる
-  await enqueueSearch({ kind: "issue", op: "upsert", id: issue.id });
-  return issue;
+  await enqueueSearch({ kind: "issue", op: "upsert", id: issue.issue.id });
+  // webhook とメールもトランザクションの外で積む
+  await dispatchActivity(issue.activityId, input.projectId, "issue_created");
+  return issue.issue;
 }
 
 /** 変更差分。describeChanges() が日本語に解決する */
@@ -368,11 +371,19 @@ export async function updateIssue(input: UpdateIssueInput) {
       skipDuplicates: true,
     });
 
-    return tx.issue.findUniqueOrThrow({ where: { id: input.issueId } });
+    return {
+      issue: await tx.issue.findUniqueOrThrow({ where: { id: input.issueId } }),
+      activityId: activity.id,
+      type: activity.type,
+      projectId: before.projectId,
+    };
   });
 
   await enqueueSearch({ kind: "issue", op: "upsert", id: input.issueId });
-  return result;
+  if (result && "activityId" in result) {
+    await dispatchActivity(result.activityId, result.projectId, result.type);
+  }
+  return "issue" in result ? result.issue : result;
 }
 
 /**

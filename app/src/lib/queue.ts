@@ -14,6 +14,8 @@ import IORedis from "ioredis";
 const globalForQueue = globalThis as unknown as {
   redis?: IORedis;
   searchQueue?: Queue;
+  webhookQueue?: Queue;
+  mailQueue?: Queue;
 };
 
 export const redis =
@@ -31,6 +33,11 @@ redis.on("error", () => {
 if (process.env.NODE_ENV !== "production") globalForQueue.redis = redis;
 
 export const SEARCH_QUEUE = "search-index";
+export const WEBHOOK_QUEUE = "webhook";
+export const MAIL_QUEUE = "mail";
+
+export type WebhookJob = { activityId: number; hookUrl: string; webhookId: number };
+export type MailJob = { notificationId: number };
 
 export type SearchJob =
   | { kind: "issue"; op: "upsert" | "delete"; id: number }
@@ -50,6 +57,55 @@ export const searchQueue =
   });
 
 if (process.env.NODE_ENV !== "production") globalForQueue.searchQueue = searchQueue;
+
+export const webhookQueue =
+  globalForQueue.webhookQueue ??
+  new Queue<WebhookJob>(WEBHOOK_QUEUE, {
+    connection: redis,
+    defaultJobOptions: {
+      // 外部が一時的に落ちていることがあるので、検索より粘る
+      attempts: 5,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 500,
+    },
+  });
+
+export const mailQueue =
+  globalForQueue.mailQueue ??
+  new Queue<MailJob>(MAIL_QUEUE, {
+    connection: redis,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 10000 },
+      removeOnComplete: 100,
+      removeOnFail: 500,
+    },
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForQueue.webhookQueue = webhookQueue;
+  globalForQueue.mailQueue = mailQueue;
+}
+
+/** webhook の送信を積む。失敗しても呼び出し元を止めない */
+export async function enqueueWebhook(job: WebhookJob): Promise<void> {
+  try {
+    await webhookQueue.add("deliver", job);
+  } catch {
+    // Redis が落ちていても本体は動かす
+  }
+}
+
+/** メール送信を積む。MAIL_ENABLED=false なら積まない */
+export async function enqueueMail(job: MailJob): Promise<void> {
+  if (process.env.MAIL_ENABLED !== "true") return;
+  try {
+    await mailQueue.add("send", job);
+  } catch {
+    // 同上
+  }
+}
 
 /**
  * 検索インデックスの更新を積む。

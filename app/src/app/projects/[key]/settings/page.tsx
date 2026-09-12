@@ -14,6 +14,8 @@ import {
   addMember,
   removeMember,
   toggleProjectAdmin,
+  addWebhook,
+  deleteWebhook,
 } from "./actions";
 
 function Section({
@@ -60,7 +62,8 @@ export default async function ProjectSettings({
   const canManageMasters = can(user, "issueType.manage", ctx);
   const canAssignAdmin = can(user, "projectAdmin.assign", ctx);
 
-  const [statuses, issueTypes, categories, versions, members] = await Promise.all([
+  const [statuses, issueTypes, categories, versions, members, webhooks] =
+    await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
       orderBy: { displayOrder: "asc" },
@@ -81,6 +84,10 @@ export default async function ProjectSettings({
       where: { projectId: project.id },
       include: { user: true },
       orderBy: { userId: "asc" },
+    }),
+    prisma.webhook.findMany({
+      where: { projectId: project.id },
+      orderBy: { id: "asc" },
     }),
   ]);
 
@@ -339,6 +346,59 @@ export default async function ProjectSettings({
           ))}
         </div>
       </Section>
+
+      {/* ---------------- webhook ---------------- */}
+      {canEditProject && (
+        <Section
+          title="webhook"
+          note="課題の追加・更新などを外部へ通知します。Slack や Teams の受け口を想定しています。送信は非同期なので、相手が遅くても画面は待ちません。"
+        >
+          {webhooks.length === 0 ? (
+            <p className="text-xs text-slate-400">なし</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 rounded border border-slate-200">
+              {webhooks.map((w) => (
+                <li key={w.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <span className="font-medium">{w.name}</span>
+                  <span className="flex-1 truncate font-mono text-xs text-slate-500">
+                    {w.hookUrl}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {w.allEvent ? "全イベント" : `${w.activityTypes.length}種`}
+                  </span>
+                  <form action={bind(deleteWebhook)}>
+                    <input type="hidden" name="id" value={w.id} />
+                    <button className="text-xs text-red-700 hover:underline">削除</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form action={bind(addWebhook)} className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="text-sm">
+              <span className="block text-xs text-slate-500">名前</span>
+              <input
+                name="name"
+                required
+                placeholder="Slack 通知"
+                className="mt-1 rounded border border-slate-300 px-2 py-1"
+              />
+            </label>
+            <label className="flex-1 text-sm">
+              <span className="block text-xs text-slate-500">送信先URL</span>
+              <input
+                name="hookUrl"
+                required
+                placeholder="https://hooks.example.com/..."
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs"
+              />
+            </label>
+            <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+              追加
+            </button>
+          </form>
+        </Section>
+      )}
 
       {/* ---------------- 参加ユーザー ---------------- */}
       <Section

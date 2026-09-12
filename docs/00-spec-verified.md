@@ -473,6 +473,54 @@ POST   /api/v2/wikis/:wikiId/sharedFiles                       Wikiへのリン�
 
 ---
 
+## 9.3 活動の種類と通知の理由（2026-09-12 に一次情報で確認）
+
+出典: https://developer.nulab.com/docs/backlog/api/2/get-recent-updates/
+
+M0 で `TODO(要確認)` にしていた「activities の type の整数対応」が判明した。
+**本家APIは type も reason も整数で返す。** webhook の `activityTypeIds` も同じ値。
+
+### 活動の種類（type / activityTypeId）
+
+| id | 内容 | id | 内容 |
+|---|---|---|---|
+| 1 | Issue Created | 14 | Issue Multi Updated |
+| 2 | Issue Updated | 15 | Project User Added |
+| 3 | Issue Commented | 16 | Project User Deleted |
+| 4 | Issue Deleted | 17 | Comment Notification Added |
+| 5 | Wiki Created | 18 | Pull Request Added |
+| 6 | Wiki Updated | 19 | Pull Request Updated |
+| 7 | Wiki Deleted | 20 | Comment Added on Pull Request |
+| 8 | File Added | 21 | Pull Request Deleted |
+| 9 | File Updated | 22〜24 | Milestone Created / Updated / Deleted |
+| 10 | File Deleted | 25, 26 | Project Group Added / Deleted |
+| 11 | SVN Committed | 36〜49 | Document 関連（本アプリでは作らない） |
+| 12 | Git Pushed | | |
+| 13 | Git Repository Created | | |
+
+### 通知の理由（reason）
+
+| id | 内容 |
+|---|---|
+| 1 | Assigned to Issue |
+| 2 | Issue Commented |
+| 3 | Issue Created |
+| 4 | Issue Updated |
+| 5 | File Added |
+| 6 | Project User Added |
+| 9 | Other |
+| 10〜13 | Pull Request 関連 |
+| 14〜17 | Document 関連 |
+
+**内部モデルとは別物である点に注意。** 本アプリの `notifications.reason` は
+「なぜ通知が飛んだか」（notified / assigned / mentioned / watching）で、
+本家の `reason` は「何が起きたか」に近い。API で返すときに写像する。
+
+TODO(要確認): 本家の reason に「メンションされた」に当たる値が見当たらない
+（Document 用の 17 はある）。課題のメンションは 9:Other になると思われる
+
+---
+
 ## 10. 実装時の判断（未確認項目と本アプリの決定）
 
 一次情報を確認できなかった項目は、**本家の仕様として断定せず**「本アプリの決定」として記録する。

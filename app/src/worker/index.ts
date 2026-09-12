@@ -1,5 +1,12 @@
 import { Worker } from "bullmq";
-import { redis, SEARCH_QUEUE, type SearchJob } from "@/lib/queue";
+import {
+  redis,
+  SEARCH_QUEUE,
+  WEBHOOK_QUEUE,
+  type SearchJob,
+  type WebhookJob,
+} from "@/lib/queue";
+import { buildPayload, deliver } from "@/lib/webhook";
 import { prisma } from "@/lib/db";
 import {
   meili,
@@ -113,10 +120,33 @@ async function main() {
   );
 
   worker.on("failed", (job, err) => {
-    console.error(`[worker] 失敗 ${job?.id}:`, err.message);
+    console.error(`[worker] 検索インデックス失敗 ${job?.id}:`, err.message);
   });
 
-  console.log("[worker] 検索インデックスの更新を待機します");
+  // webhook の配信。外部が遅くても画面を待たせないために非同期にしている
+  const hookWorker = new Worker<WebhookJob>(
+    WEBHOOK_QUEUE,
+    async (job) => {
+      const payload = await buildPayload(job.data.activityId);
+      if (!payload) return "活動が既に無い";
+      const res = await deliver(job.data.hookUrl, payload);
+      if (!res.ok) {
+        // 落として再試行させる。相手が一時的に落ちていることがある
+        throw new Error(`HTTP ${res.status} ${res.body}`);
+      }
+      return `webhook ${job.data.webhookId} へ送信 (HTTP ${res.status})`;
+    },
+    { connection: redis, concurrency: 4 },
+  );
+
+  hookWorker.on("completed", (job, result) => {
+    console.log(`[worker] ${result}`);
+  });
+  hookWorker.on("failed", (job, err) => {
+    console.error(`[worker] webhook失敗 ${job?.data?.webhookId}:`, err.message);
+  });
+
+  console.log("[worker] 検索インデックスと webhook の配信を待機します");
 }
 
 main().catch((e) => {
