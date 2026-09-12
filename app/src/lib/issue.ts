@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { nextKeyId } from "@/lib/numbering";
 import { DEFAULT_PRIORITY_ID, STATUS_ID_OPEN, STATUS_ID_CLOSED } from "@/lib/constants";
+import { createNotifications } from "@/lib/notify";
 
 /**
  * 課題の作成・更新・削除。
@@ -150,6 +151,18 @@ export async function createIssue(input: CreateIssueInput) {
         skipDuplicates: true,
       });
     }
+
+    // 通知は活動履歴と同じトランザクションで作る。
+    // ずれると通知だけ残って中身が無い状態になる
+    await createNotifications(tx, {
+      activityId: activity.id,
+      issueId: issue.id,
+      projectId: input.projectId,
+      actorId: input.createdBy,
+      notifiedUserIds: input.notifiedUserIds,
+      assigneeId: input.assigneeId ?? null,
+      texts: [input.description],
+    });
 
     return issue;
   });
@@ -327,6 +340,20 @@ export async function updateIssue(input: UpdateIssueInput) {
         skipDuplicates: true,
       });
     }
+
+    await createNotifications(tx, {
+      activityId: activity.id,
+      issueId: before.id,
+      projectId: before.projectId,
+      actorId: input.updatedBy,
+      notifiedUserIds: input.notifiedUserIds,
+      // 担当者が変わったときだけ、新しい担当者に知らせる
+      assigneeId:
+        input.assigneeId !== undefined && input.assigneeId !== before.assigneeId
+          ? input.assigneeId
+          : null,
+      texts: [input.comment, input.description],
+    });
 
     // 更新した人・新しい担当者は参加者になる
     const participants = new Set<number>([input.updatedBy]);

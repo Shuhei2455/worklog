@@ -18,7 +18,10 @@ import {
   setParent,
   addRelation,
   removeRelation,
+  toggleWatching,
+  toggleStar,
 } from "@/app/projects/[key]/issues/actions";
+import { renderMentions } from "@/lib/mention";
 
 const PRIORITY_LABEL = new Map(PRIORITIES.map((p) => [p.id, p.label]));
 const jst = (d: Date) =>
@@ -53,7 +56,8 @@ export default async function IssueDetail({
   const canComment = can(user, "comment.manage", ctx);
   const canDelete = can(user, "issue.delete", ctx);
 
-  const [statuses, members, attachments] = await Promise.all([
+  const [statuses, members, attachments, watching, myStar, starCount, teams] =
+    await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
       orderBy: { displayOrder: "asc" },
@@ -67,6 +71,12 @@ export default async function IssueDetail({
       include: { attachment: true },
       orderBy: { attachmentId: "asc" },
     }),
+    prisma.watching.findUnique({
+      where: { userId_issueId: { userId: user.id, issueId: issue.id } },
+    }),
+    prisma.star.findFirst({ where: { userId: user.id, issueId: issue.id } }),
+    prisma.star.count({ where: { issueId: issue.id } }),
+    prisma.team.findMany(),
   ]);
 
   const fullKey = `${project.key}-${issue.keyId}`;
@@ -101,6 +111,29 @@ export default async function IssueDetail({
           <p className="font-mono text-xs text-slate-500">{fullKey}</p>
           <h1 className="text-xl font-semibold">{issue.summary}</h1>
         </div>
+        <form action={toggleStar.bind(null, fullKey)}>
+          <button
+            className={`rounded border px-3 py-1 text-sm ${
+              myStar
+                ? "border-amber-300 bg-amber-50 text-amber-700"
+                : "border-slate-300 hover:bg-slate-50"
+            }`}
+            title="スター"
+          >
+            ★ {starCount}
+          </button>
+        </form>
+        <form action={toggleWatching.bind(null, fullKey)}>
+          <button
+            className={`rounded border px-3 py-1 text-sm ${
+              watching
+                ? "border-brand-300 bg-brand-50 text-brand-700"
+                : "border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            {watching ? "ウォッチ中" : "ウォッチ"}
+          </button>
+        </form>
         {canDelete && (
           <form action={removeIssue.bind(null, fullKey)}>
             <button className="rounded border border-slate-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50">
@@ -210,7 +243,14 @@ export default async function IssueDetail({
                 )}
 
                 {t.content && (
-                  <p className="mt-2 whitespace-pre-wrap">{t.content}</p>
+                  <p className="mt-2 whitespace-pre-wrap">
+                    {/* 本文には <@U5> のまま保存し、表示時に名前へ直す。
+                        名前を埋め込むと改名に追随できない */}
+                    {renderMentions(t.content, {
+                      users: new Map(members.map((m) => [m.userId, m.user.name])),
+                      teams: new Map(teams.map((tm) => [tm.id, tm.name])),
+                    })}
+                  </p>
                 )}
               </li>
             ))}
@@ -380,6 +420,25 @@ export default async function IssueDetail({
                 ))}
               </ul>
             </div>
+          )}
+
+          {watching && (
+            <form
+              action={toggleWatching.bind(null, fullKey)}
+              className="rounded border border-slate-200 bg-white p-3"
+            >
+              <input type="hidden" name="intent" value="note" />
+              <p className="text-xs text-slate-500">ウォッチのメモ</p>
+              <input
+                name="note"
+                defaultValue={watching.note ?? ""}
+                placeholder="なぜ見ているか"
+                className="mt-1 w-full rounded border border-slate-300 px-1.5 py-1 text-xs"
+              />
+              <button className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">
+                メモを保存
+              </button>
+            </form>
           )}
 
           <div className="rounded border border-slate-200 bg-white p-3">

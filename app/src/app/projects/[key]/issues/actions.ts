@@ -317,3 +317,63 @@ export async function saveFilter(key: string, formData: FormData) {
   revalidatePath("/dashboard");
   redirect(`/projects/${key}/issues?${query}`);
 }
+
+/* ------------------------------------------------------------------ *
+ * ウォッチ・スター
+ * ------------------------------------------------------------------ */
+
+/** ウォッチの登録・解除。ウォッチにはメモを付けられる */
+export async function toggleWatching(issueKey: string, formData: FormData) {
+  const actor = await currentUser();
+  const { project, issue } = await issueByKey(issueKey);
+  await assertCan(actor, "issue.view", project.id);
+
+  const existing = await prisma.watching.findUnique({
+    where: { userId_issueId: { userId: actor.id, issueId: issue.id } },
+  });
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (existing) {
+    // メモだけ変えたい場合は解除しない
+    if (formData.get("intent") === "note") {
+      await prisma.watching.update({
+        where: { id: existing.id },
+        data: { note: note || null },
+      });
+      backToIssue(issueKey, "ウォッチのメモを更新しました");
+      return;
+    }
+    await prisma.watching.delete({ where: { id: existing.id } });
+    backToIssue(issueKey, "ウォッチを解除しました");
+    return;
+  }
+
+  await prisma.watching.create({
+    data: { userId: actor.id, issueId: issue.id, note: note || null },
+  });
+  backToIssue(issueKey, "ウォッチしました");
+}
+
+/** スター。課題・コメント・Wikiに付けられる */
+export async function toggleStar(issueKey: string, formData: FormData) {
+  const actor = await currentUser();
+  const { project, issue } = await issueByKey(issueKey);
+  await assertCan(actor, "issue.view", project.id);
+
+  const activityId = Number(formData.get("activityId")) || null;
+
+  if (activityId) {
+    const found = await prisma.star.findFirst({
+      where: { userId: actor.id, activityId },
+    });
+    if (found) await prisma.star.delete({ where: { id: found.id } });
+    else await prisma.star.create({ data: { userId: actor.id, activityId } });
+  } else {
+    const found = await prisma.star.findFirst({
+      where: { userId: actor.id, issueId: issue.id },
+    });
+    if (found) await prisma.star.delete({ where: { id: found.id } });
+    else await prisma.star.create({ data: { userId: actor.id, issueId: issue.id } });
+  }
+  backToIssue(issueKey);
+}
