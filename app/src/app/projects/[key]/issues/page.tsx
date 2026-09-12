@@ -77,6 +77,15 @@ export default async function IssueList({
     >
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">課題</h1>
+        <div className="flex items-center gap-3">
+        {project.chartEnabled && (
+          <Link
+            href={`/projects/${key}/gantt`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            ガントチャート
+          </Link>
+        )}
         {can(user, "issue.create", ctx) && (
           <Link
             href={`/projects/${key}/issues/new`}
@@ -85,6 +94,7 @@ export default async function IssueList({
             課題を追加
           </Link>
         )}
+        </div>
       </div>
 
       {/* 絞り込みはURLクエリ。この形のURLを貼れば同じ条件を再現できる */}
