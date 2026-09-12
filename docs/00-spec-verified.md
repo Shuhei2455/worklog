@@ -108,6 +108,67 @@ stars         []
 
 `parentChild` の値: `0=すべて` `1=子課題のみ` `2=親課題のみ` `3=子課題以外` `4=子課題を持たない`
 
+### 2.1 一覧の並び替えとページング（2026-09-12 に一次情報で確認）
+
+出典: https://developer.nulab.com/docs/backlog/api/2/get-issue-list/
+
+`sort` に指定できる値は20種:
+
+```
+issueType  category  version  milestone  summary  status  priority
+attachment sharedFile created  createdUser updated updatedUser assignee
+startDate  dueDate   estimatedHours actualHours childIssue customField_${id}
+```
+
+- `order` は `asc` / `desc`。**既定は `desc`**
+- `count` は 1〜100、**既定は 20**
+- `offset` でページング
+
+**`sort` の既定値はドキュメントに書かれていない。** 一覧の初期表示は体感を
+大きく左右する箇所なので、本アプリの決定として 10.2 に記録する。
+
+### 2.2 課題の更新と活動履歴（2026-09-12 に一次情報で確認）
+
+出典: https://developer.nulab.com/docs/backlog/api/2/update-issue/
+
+`PATCH /api/v2/issues/:issueIdOrKey` のフォームパラメータ:
+
+```
+summary  parentIssueId  description  statusId  resolutionId
+startDate  dueDate  estimatedHours  actualHours  issueTypeId
+categoryId[]  versionId[]  milestoneId[]  priorityId  assigneeId
+notifiedUserId[]  attachmentId[]  comment
+```
+
+**設計に効く点が2つある。**
+
+1. **更新時に `comment` を一緒に送れる。** つまり「状態を変えつつコメントを書く」が
+   1リクエストで起きる。`activities` は1テーブルに統合しているので、
+   このとき `changes` と `content` の**両方を持つ1レコード**になる。
+   変更履歴とコメントを別レコードにすると本家の表示と食い違う。
+2. **`notifiedUserId[]` は更新時にも指定できる。** 「お知らせ」は課題登録時だけの
+   仕組みではない。コメント単位でも `POST /issues/:key/comments/:commentId/notifications`
+   がある。
+
+### 2.3 添付ファイルの流れ（2026-09-12 に一次情報で確認）
+
+出典: https://developer.nulab.com/docs/backlog/api/2/post-attachment-file/
+
+**2段階。** 先に `POST /api/v2/space/attachment` でファイルを送って id を受け取り、
+課題の作成・更新時に `attachmentId[]` で紐づける。
+スペース単位のエンドポイントで、課題にもWikiにも使える。
+`attachments` を実体1本＋紐づけテーブルに分けた設計と整合している。
+
+### 2.4 関連課題のエンドポイント（2026-09-12 に確認）
+
+```
+GET    /api/v2/issues/:issueIdOrKey/relatedIssues
+POST   /api/v2/issues/:issueIdOrKey/relatedIssues
+DELETE /api/v2/issues/:issueIdOrKey/relatedIssues/:id
+```
+
+9章に `/issues/:key/relatedIssues` と書いてあったパスは正しい。
+
 ---
 
 ## 3. 通知の3経路（設計上ここが重要）
@@ -349,6 +410,10 @@ GitHub Action の backlog-notify は、課題キーは**先頭の1つのみ**、
 | D8 | プロジェクト作成時の既定マスタ | 課題種別に「タスク」「バグ」「要望」「その他」を投入。カテゴリーは空 | 本家が何を自動生成するかは未確認。運用上この4つがあれば足りる |
 | D9 | 添付ファイルのサイズ上限 | 10MB（`MAX_ATTACHMENT_MB` で変更可） | 本家の上限は未確認。職場VMのディスクを考えた値 |
 | D10 | 通知の理由の優先順 | `notified > assigned > mentioned > watching` | 本家の挙動は未確認。明示指定を最優先にするのが自然 |
+| D11 | 課題一覧の既定ソート | `updated` の降順 | 本家の既定は未記載。`order` の既定が `desc` であること、「最近動いた課題から見る」のが実務の基本であることから。インデックス `(project_id, updated_at desc)` もこれに合わせてある |
+| D12 | 課題一覧の既定件数 | 20（本家と同じ） | ドキュメントに `default=20` と明記されている |
+| D13 | 課題削除時の子課題 | 子課題は削除せず、親への参照だけ外す | 本家の挙動は未確認。子ごと消えると取り返しがつかない |
+| D14 | 変更履歴に残すフィールド | 課題のスカラー項目と多対多（カテゴリー・バージョン・マイルストーン） | 本家が何を記録するかの網羅は未確認。`changes` がJSONBなので後から増やせる |
 
 ### 10.3 まだ確認できていないこと
 
@@ -359,3 +424,7 @@ GitHub Action の backlog-notify は、課題キーは**先頭の1つのみ**、
 - `TODO(要確認)`: プロジェクト作成時に本家が自動生成するマスタの内容
 - `TODO(要確認)`: 添付ファイルのサイズ上限
 - `TODO(要確認)`: 状態を「完了」にするとき完了理由が必須か
+- `TODO(要確認)`: 課題一覧の `sort` の既定値
+- `TODO(要確認)`: 課題を削除したとき子課題がどうなるか
+- `TODO(要確認)`: `keyword` 検索が見る範囲（件名・詳細・コメントのどこまでか）
+- `TODO(要確認)`: 変更履歴に記録されるフィールドの網羅
