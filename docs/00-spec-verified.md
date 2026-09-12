@@ -226,6 +226,74 @@ DELETE /api/v2/issues/:issueIdOrKey/relatedIssues/:id
 
 GitHub Action の backlog-notify は、課題キーは**先頭の1つのみ**、キーワードは**末尾の1つのみ**認識する。`#fix|#fixes|#fixed` で処理済み、`#close|#closes|#closed` で完了。本家廃止機能を再現したい場合はこの仕様を参考にする。
 
+### 4.1 Git関連のAPI（2026-09-13 に一次情報で確認）
+
+#### プロジェクトの機能フラグ
+
+出典: https://developer.nulab.com/docs/backlog/api/2/get-project/
+
+Git に関係するのは `useGit` と `useSubversion`、それに `useDevAttributes`。
+**`link_commits_to_issues` に当たるフィールドはプロジェクトオブジェクトに無い。**
+「コミットと課題を連携する」の設定はAPIに出てこない（画面だけの設定）。
+本アプリはこれを**リポジトリ単位**で持つ（決定 D18）。
+
+#### リポジトリ
+
+`GET /api/v2/projects/:projectIdOrKey/git/repositories`
+`GET /api/v2/projects/:projectIdOrKey/git/repositories/:repoIdOrName`
+
+| キー | 型 | 備考 |
+|---|---|---|
+| `id` | Number | |
+| `projectId` | Number | |
+| `name` | String | |
+| `description` | String | |
+| `hookUrl` | String/null | |
+| `httpUrl` | String | |
+| `sshUrl` | String | |
+| `displayOrder` | Number | |
+| `pushedAt` | String/null | 最後に push された時刻 |
+| `createdUser` / `created` / `updatedUser` / `updated` | | |
+
+#### プルリクエスト
+
+`GET /api/v2/projects/:projectIdOrKey/git/repositories/:repoIdOrName/pullRequests`
+
+絞り込み: `statusId[]` `assigneeId[]` `issueId[]` `createdUserId[]` `offset`
+`count`（1〜100、既定20。課題一覧と同じ）
+
+| キー | 型 | 備考 |
+|---|---|---|
+| `id` | Number | |
+| `projectId` | Number | |
+| `repositoryId` | Number | |
+| `number` | Number | リポジトリ内の連番。課題の `keyId` と同じ役回り |
+| `summary` | String | **`title` ではない** |
+| `description` | String | |
+| `base` | String | マージ先のブランチ |
+| `branch` | String | マージ元のブランチ |
+| `status` | Object | `{id, name}`。`id: 1` は `Open` |
+| `assignee` | User/null | |
+| `issue` | Object/null | `{id}` だけ。関連課題 |
+| `baseCommit` / `branchCommit` / `mergeCommit` | Object/null | |
+| `closeAt` / `mergeAt` | String/null | **`closedAt` ではない** |
+| `createdUser` / `created` / `updatedUser` / `updated` | | |
+
+`PATCH .../pullRequests/:number` の受け取るパラメータは
+`summary` `description` `issueId` `assigneeId` `notifiedUserId[]` `comment`。
+**`statusId` は無い**（APIからPRの状態は変えられない）。
+
+TODO(要確認): PRの `status.id` は 1 = Open しか確認できていない。
+Closed / Merged に当たる値があると思われるが、一覧・更新のどちらの
+ドキュメントにも値の表が無い。
+
+TODO(要確認): コミットメッセージ中の課題キーを何個認識するか
+（先頭の1つだけか、出現した全部か）。本家のヘルプに記述が見つからない。
+本アプリは**出現した全部**に紐づける（決定 D19）。
+
+TODO(要確認): Git push（活動種別12）と PRコメント（同20）の `content` の構造。
+課題とWikiの例しか公開されていない。
+
 ---
 
 ## 5. ガントチャート
@@ -627,6 +695,9 @@ TODO(要確認): `status` と `milestone` 以外の `field` の値。
 | D14 | 変更履歴に残すフィールド | 課題のスカラー項目と多対多（カテゴリー・バージョン・マイルストーン） | 本家が何を記録するかの網羅は未確認。`changes` がJSONBなので後から増やせる |
 | D15 | 課題が複数のマイルストーンを持つときのガントの位置 | 最も早い終了日を使う | 本家の挙動は未確認。早い方に寄せた方が期限を見落としにくい |
 | D17 | APIのレート制限の上限値 | read 600 / update 150 / search 150 / icon 60（1分あたり、環境変数で変更可） | **2026-09-13 訂正**: 「プランごとで非公開」と書いていたが誤り。Get Rate Limit のレスポンス例に read 600 / update 150 / search 150 / icon 60 が明記されており、本アプリの既定値はこれと一致する（偶然一致していた）。数え方（ユーザー単位・4種別・429・X-RateLimit-* ヘッダ）も本家に合わせた。出典: https://developer.nulab.com/docs/backlog/api/2/get-rate-limit/ |
+| D18 | 「コミットと課題を連携する」の持ち方 | **リポジトリ単位**（`repositories.link_commits_to_issues`） | 本家はこの設定をAPIに出していないため、置き場所を決める必要があった。プロジェクト単位にすると「社内向けリポジトリだけ連携したい」ができない。OFFで連携が止まることは受け入れ条件（02-roadmap.md フェーズ4） |
+| D19 | コミットメッセージ中の課題キーの扱い | **出現した全部**に紐づける。同じキーが複数回出ても1回だけ | 本家が何個認識するかは未確認（4.1のTODO）。1つに絞ると「AA-1 と AA-2 をまとめて直した」コミットが片方にしか残らず、後から追えない。多く拾いすぎても誤リンクを消せばよい |
+| D20 | PRの状態の持ち方 | 内部は文字列（`open` / `closed` / `merged`）。APIでは `status: {id, name}` に写像し、id は 1=Open / 2=Closed / 3=Merged | 本家は 1=Open しか公開していない（4.1のTODO）。Gitea の状態をそのまま持つと本家形式で返せないため写像する。2と3の値が判明したら合わせる |
 | D16 | Wiki の同時編集 | 楽観ロックで競合を警告する | 本家の更新APIに楽観ロック用の引数が無く、後勝ちと思われる。設計書(01-design.md 4.6)が「楽観ロック＋競合警告」を求めているのでそちらに従う。APIでは引数を任意にして、省略時は本家と同じ後勝ちにする |
 
 ### 10.3 まだ確認できていないこと

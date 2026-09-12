@@ -232,6 +232,16 @@ services:
       GITEA__database__PASSWD: ${POSTGRES_PASSWORD}
       GITEA__server__ROOT_URL: ${APP_URL}/git/
       GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
+      # SSH と HTTP のホスト名。クローンURLに出るので localhost のままにしない
+      GITEA__server__DOMAIN: ${GITEA_DOMAIN}
+      GITEA__server__SSH_DOMAIN: ${GITEA_DOMAIN}
+      # インストールウィザードを出さない。手作業なしで立てるため
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__service__ENABLE_CAPTCHA: "false"
+      GITEA__api__ENABLE_SWAGGER: "false"
+      # webhook の送信先がコンテナ名(http://app:3000)になるため、
+      # 既定のプライベートアドレス禁止を解除する必要がある
+      GITEA__webhook__ALLOWED_HOST_LIST: "*"
       # 新版の確認で dl.gitea.com へ出る。明示的に切る。
       # セクション名のドットは `_0X2E_` と書く決まり。`_2E_` と書くと
       # [cron_2e_update_checker] という別セクションが生まれて黙って無視される

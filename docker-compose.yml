@@ -166,6 +166,24 @@ services:
       GITEA__database__PASSWD: ${POSTGRES_PASSWORD}
       GITEA__server__ROOT_URL: ${APP_URL}/git/
       GITEA__server__SSH_PORT: ${GITEA_SSH_PORT}
+      # SSH と HTTP のホスト名。クローンURLに出るので localhost のままにしない
+      GITEA__server__DOMAIN: ${GITEA_DOMAIN}
+      GITEA__server__SSH_DOMAIN: ${GITEA_DOMAIN}
+      # インストールウィザードを出さない。職場でも手作業なしで立てたいので、
+      # 設定は全部ここに書く。DBのマイグレーションは起動時に自動で走る
+      GITEA__security__INSTALL_LOCK: "true"
+      # 新規登録を閉じる。ユーザーはアプリ側から同期して作る
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__service__ENABLE_CAPTCHA: "false"
+      # アプリからAPIを叩くのでトークン認証を許可する
+      GITEA__api__ENABLE_SWAGGER: "false"
+      # webhook の送信先がコンテナ名(http://app:3000)になるため、
+      # 既定のプライベートアドレス禁止を解除する必要がある
+      GITEA__webhook__ALLOWED_HOST_LIST: "*"
+      GITEA__mailer__ENABLED: "false"
+      # 更新確認で dl.gitea.com へ出る。開発側でも切っておく
+      GITEA__cron__ENABLED: "true"
+      GITEA__cron_0X2E_update_checker__ENABLED: "false"
     volumes:
       - giteadata:/data
     ports:
