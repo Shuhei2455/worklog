@@ -16,6 +16,8 @@ import {
   toggleProjectAdmin,
   addWebhook,
   deleteWebhook,
+  addProjectTeam,
+  removeProjectTeam,
 } from "./actions";
 import {
   createRepository,
@@ -88,6 +90,7 @@ export default async function ProjectSettings({
     members,
     webhooks,
     repositories,
+    projectTeams,
     customFields,
   ] = await Promise.all([
     prisma.status.findMany({
@@ -118,6 +121,10 @@ export default async function ProjectSettings({
     prisma.repository.findMany({
       where: { projectId: project.id },
       orderBy: { displayOrder: "asc" },
+    }),
+    prisma.projectTeam.findMany({
+      where: { projectId: project.id },
+      include: { team: { include: { _count: { select: { members: true } } } } },
     }),
     prisma.customField.findMany({
       where: { projectId: project.id },
@@ -381,6 +388,50 @@ export default async function ProjectSettings({
           ))}
         </div>
       </Section>
+
+      {/* ---------------- チーム ---------------- */}
+      {canEditProject && (
+        <Section
+          title="チーム"
+          note="チームは課題の「お知らせ」先にまとめて指定できます。割り当てても参加ユーザーにはなりません（権限は個人単位で持っています）。"
+        >
+          {projectTeams.length === 0 ? (
+            <p className="text-xs text-slate-400">なし</p>
+          ) : (
+            <ul className="flex flex-wrap gap-2">
+              {projectTeams.map((pt) => (
+                <li
+                  key={pt.teamId}
+                  className="flex items-center gap-2 rounded bg-slate-100 px-2 py-1 text-sm"
+                >
+                  {pt.team.name}
+                  <span className="text-xs text-slate-500">
+                    {pt.team._count.members} 人
+                  </span>
+                  <form action={bind(removeProjectTeam)}>
+                    <input type="hidden" name="teamId" value={pt.teamId} />
+                    <button className="text-xs text-red-700 hover:underline">外す</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form action={bind(addProjectTeam)} className="mt-3 flex items-end gap-2">
+            <label className="text-sm">
+              <span className="block text-xs text-slate-500">チーム名</span>
+              <input
+                name="team"
+                required
+                placeholder="開発"
+                className="mt-1 rounded border border-slate-300 px-2 py-1"
+              />
+            </label>
+            <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+              割り当て
+            </button>
+          </form>
+        </Section>
+      )}
 
       {/* ---------------- カスタム属性 ---------------- */}
       {canEditProject && (

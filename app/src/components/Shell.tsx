@@ -9,7 +9,7 @@ export async function Shell({
   breadcrumbs = [],
   children,
 }: {
-  user: { name: string; id?: number };
+  user: { name: string; id?: number; userType?: "admin" | "member" | "guest" };
   breadcrumbs?: Array<{ label: string; href?: string }>;
   children: React.ReactNode;
 }) {
@@ -72,6 +72,15 @@ export async function Shell({
             ))}
           </nav>
           <span className="text-sm text-slate-600">{user.name}</span>
+          {/* スペース管理者だけに出す。チームはプロジェクトを跨ぐ設定 */}
+          {user.userType === "admin" && (
+            <Link
+              href="/teams"
+              className="text-sm text-slate-500 hover:text-brand-700"
+            >
+              チーム
+            </Link>
+          )}
           {/* 個人設定。どちらもURLを直打ちしないと辿れない状態だった */}
           <Link
             href="/settings/api"

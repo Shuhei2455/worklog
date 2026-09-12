@@ -381,3 +381,43 @@ async function syncGiteaMembership(projectId: number): Promise<string> {
     return "（※Gitへの反映に失敗しました。設定を確認してください）";
   }
 }
+
+/**
+ * プロジェクトにチームを割り当てる。
+ *
+ * 本家は `POST /api/v2/projects/:projectIdOrKey/teams`（11.2）。
+ * **チームを足してもプロジェクトの参加ユーザーにはしない。**
+ * 本家の参加ユーザーとチームは別の概念で、権限（`project_members`）は
+ * 個人単位で持っているため。チームは「お知らせ先にまとめて指定できる単位」。
+ */
+export async function addProjectTeam(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const name = String(formData.get("team") ?? "").trim();
+  if (!name) back(key, "チーム名を入れてください", true);
+
+  const team = await prisma.team.findUnique({ where: { name } });
+  if (!team) back(key, `チームが見つかりません: ${name}`, true);
+
+  await prisma.projectTeam.upsert({
+    where: { projectId_teamId: { projectId: project.id, teamId: team!.id } },
+    update: {},
+    create: { projectId: project.id, teamId: team!.id },
+  });
+  back(key, `チーム「${name}」を割り当てました`);
+}
+
+/** プロジェクトからチームの割り当てを外す */
+export async function removeProjectTeam(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const teamId = numberField(formData, "teamId", key);
+  await prisma.projectTeam.delete({
+    where: { projectId_teamId: { projectId: project.id, teamId } },
+  });
+  back(key, "チームの割り当てを外しました");
+}

@@ -145,6 +145,8 @@ model User {
   recentIssues         RecentlyViewedIssue[]
   recentProjects       RecentlyViewedProject[]
   recentWikis          RecentlyViewedWiki[]
+  createdTeams         Team[]                 @relation("TeamCreatedBy")
+  updatedTeams         Team[]                 @relation("TeamUpdatedBy")
   createdRepositories  Repository[]           @relation("RepositoryCreatedBy")
   assignedPullRequests PullRequest[]          @relation("PullRequestAssignee")
   createdPullRequests  PullRequest[]          @relation("PullRequestCreatedBy")
@@ -155,11 +157,17 @@ model User {
 
 model Team {
   id        Int      @id @default(autoincrement())
-  name      String
+  name      String   @unique
   iconUrl   String?  @map("icon_url")
+  /// 本家は null を返しうる（00-spec-verified.md 11.2）
+  displayOrder Int?  @map("display_order")
+  createdById  Int?  @map("created_by")
+  updatedById  Int?  @map("updated_by")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  createdBy    User?         @relation("TeamCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?         @relation("TeamUpdatedBy", fields: [updatedById], references: [id])
   members      TeamMember[]
   projectTeams ProjectTeam[]
 
