@@ -14,6 +14,17 @@ export const PRIORITIES = [
 ] as const;
 
 export const PRIORITY_IDS = PRIORITIES.map((p) => p.id);
+
+/**
+ * 優先度IDから表示名を引く。
+ *
+ * キーを number にしているのは、`PRIORITIES` が `as const` のため
+ * `new Map(...)` だとキーが `2 | 3 | 4` に狭まり、DBから来た number を
+ * 渡せなくなるから（本番ビルドの型チェックだけで落ちる）。
+ */
+export const PRIORITY_LABEL: Map<number, string> = new Map(
+  PRIORITIES.map((p) => [p.id, p.label]),
+);
 export const DEFAULT_PRIORITY_ID = 3; // 中
 
 /** 完了理由。id が 0 始まりである点に注意 */

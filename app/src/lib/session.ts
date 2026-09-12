@@ -12,7 +12,7 @@ import { can, type Action, type ActorUser } from "@/lib/permissions";
  */
 export async function currentUser(): Promise<ActorUser & { name: string; userId: string }> {
   const session = await auth();
-  const id = (session?.user as { id?: number } | undefined)?.id;
+  const id = session?.uid;
   if (!id) redirect("/login");
 
   const user = await prisma.user.findUnique({ where: { id } });

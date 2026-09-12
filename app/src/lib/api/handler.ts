@@ -53,16 +53,15 @@ async function authenticate(req: Request): Promise<ApiContext["user"]> {
  * 使い方:
  *   export const GET = apiRoute(async (req, ctx) => ({ ...body }));
  */
-export function apiRoute<P = unknown>(
-  fn: (
-    req: Request,
-    ctx: ApiContext,
-    params: P,
-  ) => Promise<unknown>,
+export function apiRoute<P extends Record<string, string> = Record<string, never>>(
+  fn: (req: Request, ctx: ApiContext, params: P) => Promise<unknown>,
 ) {
+  // Next.js 15 のルートハンドラは第2引数を必ず受け取る形を要求する。
+  // 省略可能(`route?`)にすると本番ビルドの型チェックで落ちる
+  // （dev では通ってしまうので気づきにくい）。
   return async (
     req: Request,
-    route?: { params: Promise<P> },
+    route: { params: Promise<P> },
   ): Promise<NextResponse> => {
     let rateHeaders: Record<string, string> = {};
     try {
@@ -84,7 +83,7 @@ export function apiRoute<P = unknown>(
         select: { projectId: true },
       });
 
-      const params = (route ? await route.params : ({} as P)) as P;
+      const params = ((await route?.params) ?? ({} as P)) as P;
       const body = await fn(req, {
         user,
         visibleProjectIds: members.map((m) => m.projectId),

@@ -24,7 +24,10 @@ async function projectByKey(key: string) {
   return project;
 }
 
-function back(key: string, message?: string, isError = false) {
+// 戻り値を never と明示する。redirect() は never を返すが、関数宣言では
+// TypeScript が void と推論してしまい、呼び出し後のコードが
+// 到達不能と見なされず型が絞られない（本番ビルドのみで落ちる）。
+function back(key: string, message?: string, isError = false): never {
   const q = message
     ? `?${isError ? "error" : "ok"}=${encodeURIComponent(message)}`
     : "";

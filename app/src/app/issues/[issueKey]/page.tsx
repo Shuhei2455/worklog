@@ -8,7 +8,7 @@ import {
   loadIssueDetail,
   recordRecentlyViewed,
 } from "@/lib/issue-view";
-import { PRIORITIES, RESOLUTIONS } from "@/lib/constants";
+import { PRIORITIES, PRIORITY_LABEL, RESOLUTIONS } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
 import {
   editIssue,
@@ -27,7 +27,6 @@ import {
   unlinkSharedFileFromIssue,
 } from "@/app/projects/[key]/files/actions";
 
-const PRIORITY_LABEL = new Map(PRIORITIES.map((p) => [p.id, p.label]));
 const jst = (d: Date) =>
   d.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });
 

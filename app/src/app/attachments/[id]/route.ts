@@ -16,7 +16,7 @@ export async function GET(
 ) {
   const { id } = await params;
   const session = await auth();
-  const userId = (session?.user as { id?: number } | undefined)?.id;
+  const userId = session?.uid;
   if (!userId) return new NextResponse("認証が必要です", { status: 401 });
 
   const user = await prisma.user.findUnique({ where: { id: userId } });

@@ -76,7 +76,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       // 種別や制限はトークンに埋めない。権限判定のたびにDBから読む。
       // 埋めるとユーザーの権限を変更してもログアウトまで反映されない
-      if (token.uid) (session.user as { id?: number }).id = Number(token.uid);
+      // 数値のIDは session.uid に入れる（型は src/types/next-auth.d.ts）
+      if (token.uid) session.uid = Number(token.uid);
       return session;
     },
   },

@@ -8,12 +8,11 @@ import {
   buildIssueWhere,
   buildIssueOrderBy,
 } from "@/lib/issue-filter";
-import { PRIORITIES } from "@/lib/constants";
+import { PRIORITIES, PRIORITY_LABEL } from "@/lib/constants";
 import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
 import { saveFilter } from "./actions";
 
-const PRIORITY_LABEL = new Map(PRIORITIES.map((p) => [p.id, p.label]));
 
 export default async function IssueList({
   params,
