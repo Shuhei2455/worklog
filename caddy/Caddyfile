@@ -8,6 +8,18 @@
 	}
 
 	handle {
-		reverse_proxy app:3000
+		reverse_proxy app:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+
+			# Auth.js v5 が内部で作るリダイレクト先は、リクエストのホストではなく
+			# Next のバインドアドレス(0.0.0.0:3000)から組み立てられる。
+			# X-Forwarded-Host を渡しても直らなかった。
+			# 入口が LAN・Tailscale・職場VM と複数あり設定でホスト名を固定したくないので、
+			# 戻りの Location からオリジンを剥がして相対パスにする。
+			# ブラウザは現在のオリジンで解決するため、どの経路でも正しく戻る。
+			header_down Location "^https?://0\.0\.0\.0:3000" ""
+		}
 	}
 }
