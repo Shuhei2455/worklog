@@ -1,81 +1,125 @@
+import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
-import { toRoleType } from "@/lib/permissions";
+import { createProject } from "@/lib/project";
+import { can } from "@/lib/permissions";
+import { currentUser, visibleProjectIds } from "@/lib/session";
+import { Shell } from "@/components/Shell";
 
-export default async function Home() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const user = await currentUser();
+  const { error } = await searchParams;
 
-  const userId = (session.user as { id?: number }).id;
-  const user = userId
-    ? await prisma.user.findUnique({ where: { id: userId } })
-    : null;
-  if (!user) redirect("/login");
+  // 一覧には権限条件を注入する。取得後にフィルタすると件数とページングが壊れる。
+  // 管理者であっても参加していないプロジェクトは見えない
+  const ids = await visibleProjectIds(user.id);
+  const projects = await prisma.project.findMany({
+    where: { id: { in: ids }, archived: false },
+    orderBy: { key: "asc" },
+    include: { _count: { select: { members: true } } },
+  });
 
-  async function logout() {
+  const canCreate = can(user, "project.create");
+
+  async function create(formData: FormData) {
     "use server";
-    await signOut({ redirectTo: "/login" });
+    const actor = await currentUser();
+    if (!can(actor, "project.create")) {
+      redirect("/?error=" + encodeURIComponent("プロジェクトを作る権限がありません"));
+    }
+    const key = String(formData.get("key") ?? "").trim().toUpperCase();
+    const name = String(formData.get("name") ?? "").trim();
+    try {
+      await createProject({ key, name, createdBy: actor.id });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "作成に失敗しました";
+      redirect("/?error=" + encodeURIComponent(msg));
+    }
+    revalidatePath("/");
+    redirect(`/projects/${key}/settings`);
   }
 
-  const typeLabel = { admin: "管理者", member: "一般ユーザー", guest: "ゲスト" }[
-    user.userType
-  ];
-  const restrictionLabel = {
-    none: "制限なし",
-    issue_create_only: "課題の登録のみ",
-    issue_view_only: "課題の閲覧のみ",
-  }[user.restriction];
-
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", padding: 40 }}>
-      <h1 style={{ fontSize: 24 }}>Kadai</h1>
-      <p style={{ marginTop: 8 }}>
-        {user.name} さんでログインしています（{user.userId}）
-      </p>
+    <Shell user={user}>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">プロジェクト</h1>
+      </div>
 
-      <table style={{ marginTop: 16, borderCollapse: "collapse", fontSize: 14 }}>
-        <tbody>
-          {[
-            ["ユーザー種別", typeLabel],
-            ["制限", restrictionLabel],
-            ["API の roleType", String(toRoleType(user))],
-          ].map(([k, v]) => (
-            <tr key={k}>
-              <th
-                style={{
-                  textAlign: "left",
-                  padding: "4px 16px 4px 0",
-                  color: "#555",
-                  fontWeight: 500,
-                }}
+      {error && (
+        <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
+
+      {projects.length === 0 ? (
+        <p className="mt-6 text-sm text-slate-500">
+          参加しているプロジェクトはありません。
+        </p>
+      ) : (
+        <ul className="mt-6 divide-y divide-slate-200 rounded border border-slate-200 bg-white">
+          {projects.map((p) => (
+            <li key={p.id} className="flex items-center gap-4 px-4 py-3">
+              <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
+                {p.key}
+              </span>
+              <span className="flex-1">{p.name}</span>
+              <span className="text-xs text-slate-500">
+                参加 {p._count.members} 人
+              </span>
+              <Link
+                href={`/projects/${p.key}/settings`}
+                className="text-sm text-brand-700 hover:underline"
               >
-                {k}
-              </th>
-              <td style={{ padding: "4px 0" }}>{v}</td>
-            </tr>
+                設定
+              </Link>
+            </li>
           ))}
-        </tbody>
-      </table>
+        </ul>
+      )}
 
-      <p style={{ marginTop: 24, color: "#666", fontSize: 14 }}>
-        M0-c: 認証と権限関数まで完了。プロジェクト管理は M0-d で作ります。
-      </p>
-
-      <form action={logout} style={{ marginTop: 24 }}>
-        <button
-          type="submit"
-          style={{
-            padding: "8px 16px",
-            border: "1px solid #ccc",
-            borderRadius: 6,
-            background: "#fff",
-            cursor: "pointer",
-          }}
+      {canCreate ? (
+        <form
+          action={create}
+          className="mt-8 rounded border border-slate-200 bg-white p-4"
         >
-          ログアウト
-        </button>
-      </form>
-    </main>
+          <h2 className="text-sm font-semibold">プロジェクトを追加</h2>
+          <div className="mt-3 flex gap-3">
+            <label className="text-sm">
+              <span className="block text-slate-600">キー</span>
+              <input
+                name="key"
+                required
+                placeholder="PROJ"
+                className="mt-1 w-32 rounded border border-slate-300 px-2 py-1 font-mono uppercase"
+              />
+            </label>
+            <label className="flex-1 text-sm">
+              <span className="block text-slate-600">名前</span>
+              <input
+                name="name"
+                required
+                className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
+              />
+            </label>
+            <button className="mt-6 h-8 rounded bg-brand-700 px-4 text-sm text-white hover:bg-brand-800">
+              追加
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            キーは英大文字で始まる1〜10文字（英大文字・数字・アンダースコア）。
+            作成後は変更できません。
+          </p>
+        </form>
+      ) : (
+        <p className="mt-8 text-xs text-slate-500">
+          プロジェクトの追加は管理者のみ行えます。
+        </p>
+      )}
+    </Shell>
   );
 }
