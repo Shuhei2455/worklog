@@ -78,6 +78,16 @@ export default async function IssueList({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">課題</h1>
         <div className="flex items-center gap-3">
+        {/* 制限のあるユーザーは共有ファイルを閲覧すらできないので、
+            リンク自体を出さない(押しても404になるだけ) */}
+        {project.fileSharingEnabled && can(user, "sharedFile.access", ctx) && (
+          <Link
+            href={`/projects/${key}/files`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            ファイル
+          </Link>
+        )}
         {project.wikiEnabled && (
           <Link
             href={`/projects/${key}/wiki`}

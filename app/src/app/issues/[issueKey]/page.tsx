@@ -22,6 +22,10 @@ import {
   toggleStar,
 } from "@/app/projects/[key]/issues/actions";
 import { renderMentions } from "@/lib/mention";
+import {
+  linkSharedFileToIssue,
+  unlinkSharedFileFromIssue,
+} from "@/app/projects/[key]/files/actions";
 
 const PRIORITY_LABEL = new Map(PRIORITIES.map((p) => [p.id, p.label]));
 const jst = (d: Date) =>
@@ -56,8 +60,17 @@ export default async function IssueDetail({
   const canComment = can(user, "comment.manage", ctx);
   const canDelete = can(user, "issue.delete", ctx);
 
-  const [statuses, members, attachments, watching, myStar, starCount, teams] =
-    await Promise.all([
+  const [
+    statuses,
+    members,
+    attachments,
+    watching,
+    myStar,
+    starCount,
+    teams,
+    linkedFiles,
+    projectFiles,
+  ] = await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
       orderBy: { displayOrder: "asc" },
@@ -77,6 +90,15 @@ export default async function IssueDetail({
     prisma.star.findFirst({ where: { userId: user.id, issueId: issue.id } }),
     prisma.star.count({ where: { issueId: issue.id } }),
     prisma.team.findMany(),
+    prisma.issueSharedFile.findMany({
+      where: { issueId: issue.id },
+      include: { sharedFile: true },
+    }),
+    prisma.sharedFile.findMany({
+      where: { projectId: project.id },
+      orderBy: [{ dir: "asc" }, { name: "asc" }],
+      take: 200,
+    }),
   ]);
 
   const fullKey = `${project.key}-${issue.keyId}`;
@@ -200,6 +222,58 @@ export default async function IssueDetail({
               </form>
             )}
           </div>
+
+          {/* 共有ファイルへのリンク。添付とは別物で、
+              プロジェクトの置き場にあるものを参照する */}
+          {project.fileSharingEnabled && can(user, "sharedFile.access", ctx) && (
+            <div className="mt-4 rounded border border-slate-200 bg-white p-3">
+              <h2 className="text-sm font-semibold text-slate-600">共有ファイル</h2>
+              {linkedFiles.length === 0 ? (
+                <p className="mt-1 text-xs text-slate-400">なし</p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-sm">
+                  {linkedFiles.map((l) => (
+                    <li key={l.sharedFileId} className="flex items-center gap-2">
+                      <a
+                        href={`/shared-files/${l.sharedFileId}`}
+                        className="text-brand-700 hover:underline"
+                      >
+                        {l.sharedFile.dir}
+                        {l.sharedFile.name}
+                      </a>
+                      <form action={unlinkSharedFileFromIssue.bind(null, fullKey)}>
+                        <input type="hidden" name="sharedFileId" value={l.sharedFileId} />
+                        <button className="text-xs text-red-700 hover:underline">
+                          外す
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {projectFiles.length > 0 && (
+                <form
+                  action={linkSharedFileToIssue.bind(null, fullKey)}
+                  className="mt-3 flex items-center gap-2"
+                >
+                  <select
+                    name="sharedFileId"
+                    className="rounded border border-slate-300 px-2 py-1 text-xs"
+                  >
+                    {projectFiles.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.dir}
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">
+                    リンク
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
 
           <h2 className="mt-6 text-sm font-semibold text-slate-600">
             コメントと変更履歴

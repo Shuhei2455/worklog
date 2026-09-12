@@ -442,6 +442,37 @@ TODO(要確認): 本家が同時編集をどう扱うか（後勝ちか、警告
 
 ---
 
+## 9.2 共有ファイル（2026-09-12 に一次情報で確認）
+
+出典: https://developer.nulab.com/docs/backlog/api/2/get-list-of-shared-files/
+
+```
+GET    /api/v2/projects/:projectIdOrKey/files/metadata/:path   ディレクトリの中身
+GET    /api/v2/projects/:projectIdOrKey/files/:sharedFileId    ファイルの取得
+POST   /api/v2/issues/:issueIdOrKey/sharedFiles                課題へのリンク
+DELETE /api/v2/issues/:issueIdOrKey/sharedFiles/:id            リンクの解除
+POST   /api/v2/wikis/:wikiId/sharedFiles                       Wikiへのリンク
+```
+
+レスポンスの形:
+
+```
+{ id, projectId, type: "file" | "directory", dir: "/design/", name, size,
+  createdUser, created, updatedUser, updated }
+```
+
+実装で効く点:
+
+- **`dir` は前後にスラッシュを付けた文字列**（`/design/`、ルートは `/`）。
+  ディレクトリを別テーブルにせず、この文字列で階層を表す
+- **`type` にディレクトリも含まれる。** 一覧は同じ配列にファイルとディレクトリが混ざる
+- 共有ファイルは添付とは別物。**プロジェクトのファイル置き場**で、
+  課題やWikiから「リンク」して参照する
+- 権限は 7.1 のとおり、**制限のあるユーザーは閲覧すらできない**
+  （課題・Wikiと扱いが違う）
+
+---
+
 ## 10. 実装時の判断（未確認項目と本アプリの決定）
 
 一次情報を確認できなかった項目は、**本家の仕様として断定せず**「本アプリの決定」として記録する。
