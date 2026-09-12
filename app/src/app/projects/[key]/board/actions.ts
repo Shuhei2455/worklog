@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import { updateIssue } from "@/lib/issue";
+import { publish } from "@/lib/events";
 import {
   orderForPosition,
   needsRenumber,
@@ -73,6 +74,14 @@ export async function moveCard(
   if (statusChanged) {
     await updateIssue({ issueId, updatedBy: actor.id, statusId: toStatusId });
   }
+
+  // 同じボードを開いている他の人へ流す
+  publish(project.id, {
+    type: "issue.moved",
+    issueId,
+    statusId: toStatusId,
+    by: actor.id,
+  });
 
   revalidatePath(`/projects/${projectKey}/board`);
 }

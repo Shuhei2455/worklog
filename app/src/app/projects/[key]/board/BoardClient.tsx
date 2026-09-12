@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   DndContext,
@@ -139,6 +140,34 @@ export function BoardClient({
   const [cards, setCards] = useState(initialCards);
   const [dragging, setDragging] = useState<Card | null>(null);
   const [, startTransition] = useTransition();
+  const [live, setLive] = useState(false);
+  const router = useRouter();
+  // 自分の操作で返ってくるイベントでは再取得しない。
+  // ドラッグ直後に再取得すると、まだ反映前の状態で画面が巻き戻る
+  const selfMoves = useRef(new Set<number>());
+
+  // サーバー側の更新を受け取って画面を作り直す。
+  // WebSocket ではなく SSE なのは、職場のプロキシで詰まる可能性があるため
+  useEffect(() => {
+    const es = new EventSource(`/api/projects/${projectKey}/events`);
+    es.addEventListener("ready", () => setLive(true));
+    es.addEventListener("issue.moved", (ev) => {
+      try {
+        const data = JSON.parse((ev as MessageEvent).data) as { issueId: number };
+        if (selfMoves.current.delete(data.issueId)) return;
+      } catch {
+        // 壊れたイベントでも再取得しておけば表示は合う
+      }
+      router.refresh();
+    });
+    es.onerror = () => setLive(false);
+    return () => es.close();
+  }, [projectKey, router]);
+
+  // サーバーから新しい一覧が来たら、楽観的に動かした状態を捨てて合わせる
+  useEffect(() => {
+    setCards(initialCards);
+  }, [initialCards]);
 
   // 少し動かしてからドラッグを開始する。
   // そうしないと課題キーのリンクが押せない
@@ -193,6 +222,7 @@ export function BoardClient({
       return [...others, ...target];
     });
 
+    selfMoves.current.add(card.id);
     startTransition(async () => {
       await moveCard(projectKey, card.id, toStatusId, toIndex);
     });
@@ -200,7 +230,15 @@ export function BoardClient({
 
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-4">
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
+        <span
+          className={`inline-block h-2 w-2 rounded-full ${
+            live ? "bg-emerald-500" : "bg-slate-300"
+          }`}
+        />
+        {live ? "他の人の変更がリアルタイムに反映されます" : "接続していません"}
+      </p>
+      <div className="mt-2 flex gap-3 overflow-x-auto pb-4">
         {columns.map((col) => (
           <ColumnView
             key={col.id}
