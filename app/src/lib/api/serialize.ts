@@ -204,3 +204,109 @@ export function serializeComment(a: {
     notifications: [],
   };
 }
+
+// ---- Git（00-spec-verified.md 4.1） ----------------------------------------
+
+/**
+ * リポジトリ。
+ *
+ * `httpUrl` / `sshUrl` は保存せず、その場で組み立てる
+ * （ホスト名が変わったときに古い値が残らないようにするため）。
+ *
+ * `updatedUser` は返さない（null）。こちらはリポジトリの最終更新者を
+ * 持っていない。リポジトリの属性を編集する画面が無く、持つ意味が薄いため。
+ */
+export function serializeRepository(
+  r: {
+    id: number;
+    projectId: number;
+    name: string;
+    description: string | null;
+    displayOrder: number;
+    pushedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    createdBy?: UserLike | null;
+  },
+  urls: { httpUrl: string; sshUrl: string },
+) {
+  return {
+    id: r.id,
+    projectId: r.projectId,
+    name: r.name,
+    description: r.description ?? "",
+    // 本家は「このリポジトリに登録された webhook のURL」を返す。
+    // こちらは webhook をプロジェクト単位で持つので常に null
+    hookUrl: null,
+    httpUrl: urls.httpUrl,
+    sshUrl: urls.sshUrl,
+    displayOrder: r.displayOrder,
+    pushedAt: r.pushedAt ? stamp(r.pushedAt) : null,
+    createdUser: r.createdBy ? serializeUser(r.createdBy) : null,
+    created: stamp(r.createdAt),
+    updatedUser: null,
+    updated: stamp(r.updatedAt),
+  };
+}
+
+/**
+ * プルリクエストの状態。決定 D20。
+ *
+ * 本家は 1=Open しか公開していない（4.1のTODO）。2/3 はこちらで決めた値。
+ */
+export const PR_STATUS: Record<string, { id: number; name: string }> = {
+  open: { id: 1, name: "Open" },
+  closed: { id: 2, name: "Closed" },
+  merged: { id: 3, name: "Merged" },
+};
+
+/**
+ * プルリクエスト。
+ *
+ * 本家のキー名に合わせる。**`title` ではなく `summary`**、
+ * **`closedAt` ではなく `closeAt`**（4.1で確認）。
+ */
+export function serializePullRequest(pr: {
+  id: number;
+  repositoryId: number;
+  giteaPrNumber: number;
+  title: string;
+  body: string | null;
+  baseBranch: string;
+  headBranch: string;
+  state: string;
+  baseCommitSha: string | null;
+  branchCommitSha: string | null;
+  mergeCommitSha: string | null;
+  closeAt: Date | null;
+  mergeAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  issueId: number | null;
+  assignee?: UserLike | null;
+  createdBy?: UserLike | null;
+  projectId: number;
+}) {
+  return {
+    id: pr.id,
+    projectId: pr.projectId,
+    repositoryId: pr.repositoryId,
+    number: pr.giteaPrNumber,
+    summary: pr.title,
+    description: pr.body ?? "",
+    base: pr.baseBranch,
+    branch: pr.headBranch,
+    status: PR_STATUS[pr.state] ?? { id: 1, name: "Open" },
+    assignee: pr.assignee ? serializeUser(pr.assignee) : null,
+    issue: pr.issueId ? { id: pr.issueId } : null,
+    baseCommit: pr.baseCommitSha,
+    branchCommit: pr.branchCommitSha,
+    mergeCommit: pr.mergeCommitSha,
+    closeAt: pr.closeAt ? stamp(pr.closeAt) : null,
+    mergeAt: pr.mergeAt ? stamp(pr.mergeAt) : null,
+    createdUser: pr.createdBy ? serializeUser(pr.createdBy) : null,
+    created: stamp(pr.createdAt),
+    updatedUser: null,
+    updated: stamp(pr.updatedAt),
+  };
+}

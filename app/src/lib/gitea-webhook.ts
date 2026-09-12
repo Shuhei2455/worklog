@@ -94,6 +94,15 @@ export async function handlePush(payload: PushPayload): Promise<string> {
 
   const actorId = await actorFor(repo.createdById, payload.pusher?.login);
 
+  // 最終push時刻を記録する。APIの `pushedAt` がこれを返す（4.1）
+  const pushedAt = payload.commits.length
+    ? new Date(payload.commits[payload.commits.length - 1].timestamp)
+    : new Date();
+  await prisma.repository.update({
+    where: { id: repo.id },
+    data: { pushedAt },
+  });
+
   // 活動は連携のON/OFFに関係なく残す。「いつ誰が push したか」は
   // 連携を切っていても追いたい情報
   const pushActivity = await prisma.activity.create({
