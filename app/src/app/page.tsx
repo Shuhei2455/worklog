@@ -72,8 +72,14 @@ export default async function Home({
                 参加 {p._count.members} 人
               </span>
               <Link
-                href={`/projects/${p.key}/settings`}
+                href={`/projects/${p.key}/issues`}
                 className="text-sm text-brand-700 hover:underline"
+              >
+                課題
+              </Link>
+              <Link
+                href={`/projects/${p.key}/settings`}
+                className="text-sm text-slate-500 hover:underline"
               >
                 設定
               </Link>
