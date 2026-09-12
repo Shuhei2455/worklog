@@ -13,7 +13,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio --hostname 0.0.0.0",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:password": "tsx prisma/set-password.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
