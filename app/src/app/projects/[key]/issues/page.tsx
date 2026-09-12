@@ -108,6 +108,14 @@ export default async function IssueList({
         >
           ボード
         </Link>
+        {project.gitEnabled && can(user, "git.access", ctx) && (
+          <Link
+            href={`/projects/${key}/git`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            Git
+          </Link>
+        )}
         {project.chartEnabled && (
           <Link
             href={`/projects/${key}/gantt`}

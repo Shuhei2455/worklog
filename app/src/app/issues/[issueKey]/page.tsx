@@ -69,6 +69,8 @@ export default async function IssueDetail({
     teams,
     linkedFiles,
     projectFiles,
+    commitLinks,
+    relatedPulls,
   ] = await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
@@ -97,6 +99,18 @@ export default async function IssueDetail({
       where: { projectId: project.id },
       orderBy: [{ dir: "asc" }, { name: "asc" }],
       take: 200,
+    }),
+    // 課題 → コミット / PR。逆方向（コミット→課題）はGitの画面側にある。
+    // 双方向に辿れることが受け入れ条件（02-roadmap.md フェーズ4）
+    prisma.commitIssueLink.findMany({
+      where: { issueId: issue.id },
+      include: { repository: { select: { name: true } } },
+      orderBy: { committedAt: "desc" },
+    }),
+    prisma.pullRequest.findMany({
+      where: { issueId: issue.id },
+      include: { repository: { select: { name: true } } },
+      orderBy: { giteaPrNumber: "desc" },
     }),
   ]);
 
@@ -221,6 +235,50 @@ export default async function IssueDetail({
               </form>
             )}
           </div>
+
+          {/* Git の連携。コミットメッセージに課題キーを書くと自動で増える */}
+          {(commitLinks.length > 0 || relatedPulls.length > 0) && (
+            <div className="mt-4 rounded border border-slate-200 bg-white p-3">
+              <h2 className="text-sm font-semibold text-slate-600">Git</h2>
+
+              {relatedPulls.length > 0 && (
+                <ul className="mt-2 space-y-1 text-sm">
+                  {relatedPulls.map((p) => (
+                    <li key={p.id} className="flex items-baseline gap-2">
+                      <a
+                        href={`/projects/${project.key}/git/${encodeURIComponent(p.repository.name)}/pulls/${p.giteaPrNumber}`}
+                        className="text-brand-700 hover:underline"
+                      >
+                        {p.repository.name} #{p.giteaPrNumber} {p.title}
+                      </a>
+                      <span className="text-xs text-slate-400">{p.state}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {commitLinks.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {commitLinks.map((l) => (
+                    <li key={l.id} className="flex items-baseline gap-2 text-sm">
+                      <a
+                        href={`/projects/${project.key}/git/${encodeURIComponent(l.repository.name)}/commits/${l.commitSha}`}
+                        className="font-mono text-xs text-brand-700 hover:underline"
+                      >
+                        {l.commitSha.slice(0, 7)}
+                      </a>
+                      <span className="flex-1 truncate text-slate-700">
+                        {l.message.split("\n")[0]}
+                      </span>
+                      <span className="shrink-0 text-xs text-slate-400">
+                        {l.repository.name}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* 共有ファイルへのリンク。添付とは別物で、
               プロジェクトの置き場にあるものを参照する */}
