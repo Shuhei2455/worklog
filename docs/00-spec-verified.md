@@ -416,6 +416,32 @@ GitHub Action の backlog-notify は、課題キーは**先頭の1つのみ**、
 
 ---
 
+## 9.1 Wiki（2026-09-12 に一次情報で確認）
+
+出典: https://developer.nulab.com/docs/backlog/api/2/get-wiki-page/ ほか
+
+```
+GET    /api/v2/wikis?projectIdOrKey=      一覧（content を含まない）
+GET    /api/v2/wikis/:wikiId              1件（content / tags / attachments / sharedFiles / stars を含む）
+PATCH  /api/v2/wikis/:wikiId              更新（name / content / mailNotify）
+GET    /api/v2/wikis/:wikiId/history      履歴
+```
+
+実装で効く点:
+
+- **一覧には `content` が含まれない。** 一覧で本文まで返すと重くなるため。
+  こちらも一覧では select で落とす
+- Wikiページは `name` `content` `tags` `attachments` `sharedFiles` `stars` を持つ
+- 履歴は `{ pageId, version, name, content, createdUser, created }`。
+  **`version` は履歴側が持つ連番**で、本文の全文スナップショットも履歴に入る
+- **更新APIに楽観ロック用の引数は無い**（`name` `content` `mailNotify` のみ）。
+  本家は後勝ちと思われる
+- `mailNotify` で更新時にメール通知するかを選べる
+
+TODO(要確認): 本家が同時編集をどう扱うか（後勝ちか、警告を出すか）
+
+---
+
 ## 10. 実装時の判断（未確認項目と本アプリの決定）
 
 一次情報を確認できなかった項目は、**本家の仕様として断定せず**「本アプリの決定」として記録する。
@@ -470,6 +496,7 @@ GitHub Action の backlog-notify は、課題キーは**先頭の1つのみ**、
 | D13 | 課題削除時の子課題 | 子課題は削除せず、親への参照だけ外す | 本家の挙動は未確認。子ごと消えると取り返しがつかない |
 | D14 | 変更履歴に残すフィールド | 課題のスカラー項目と多対多（カテゴリー・バージョン・マイルストーン） | 本家が何を記録するかの網羅は未確認。`changes` がJSONBなので後から増やせる |
 | D15 | 課題が複数のマイルストーンを持つときのガントの位置 | 最も早い終了日を使う | 本家の挙動は未確認。早い方に寄せた方が期限を見落としにくい |
+| D16 | Wiki の同時編集 | 楽観ロックで競合を警告する | 本家の更新APIに楽観ロック用の引数が無く、後勝ちと思われる。設計書(01-design.md 4.6)が「楽観ロック＋競合警告」を求めているのでそちらに従う。APIでは引数を任意にして、省略時は本家と同じ後勝ちにする |
 
 ### 10.3 まだ確認できていないこと
 

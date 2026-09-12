@@ -7,3 +7,30 @@ html {
   font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
     "Noto Sans JP", sans-serif;
 }
+
+/* Markdown の描画。prose プラグインは入れず最低限だけ自前で書く */
+.prose-kadai { font-size: 0.875rem; line-height: 1.7; }
+.prose-kadai h1 { font-size: 1.5rem; font-weight: 700; margin: 1.2em 0 0.5em; }
+.prose-kadai h2 { font-size: 1.25rem; font-weight: 700; margin: 1.1em 0 0.5em;
+                  border-bottom: 1px solid #e2e8f0; padding-bottom: 0.2em; }
+.prose-kadai h3 { font-size: 1.05rem; font-weight: 600; margin: 1em 0 0.4em; }
+.prose-kadai p { margin: 0.6em 0; }
+.prose-kadai ul, .prose-kadai ol { margin: 0.6em 0; padding-left: 1.5em; }
+.prose-kadai ul { list-style: disc; }
+.prose-kadai ol { list-style: decimal; }
+.prose-kadai li { margin: 0.2em 0; }
+.prose-kadai code { background: #f1f5f9; padding: 0.1em 0.35em; border-radius: 3px;
+                    font-size: 0.85em; }
+.prose-kadai pre { background: #0f172a; color: #e2e8f0; padding: 0.8em 1em;
+                   border-radius: 6px; overflow-x: auto; margin: 0.8em 0; }
+.prose-kadai pre code { background: none; padding: 0; color: inherit; }
+.prose-kadai blockquote { border-left: 3px solid #cbd5e1; padding-left: 1em;
+                          color: #475569; margin: 0.8em 0; }
+.prose-kadai table { border-collapse: collapse; margin: 0.8em 0; display: block;
+                     overflow-x: auto; }
+.prose-kadai th, .prose-kadai td { border: 1px solid #e2e8f0; padding: 0.35em 0.7em; }
+.prose-kadai th { background: #f8fafc; font-weight: 600; }
+.prose-kadai hr { border: 0; border-top: 1px solid #e2e8f0; margin: 1.2em 0; }
+/* GFM のタスクリスト */
+.prose-kadai input[type="checkbox"] { margin-right: 0.4em; }
+.prose-kadai li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.3em; }

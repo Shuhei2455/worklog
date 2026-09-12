@@ -22,7 +22,8 @@ const REASON_RANK: Record<NotificationReason, number> = {
 
 export type NotifyInput = {
   activityId: number;
-  issueId: number;
+  /** 課題の通知なら課題ID。Wiki など課題に紐づかない活動では省く */
+  issueId?: number;
   projectId: number;
   /** この活動を起こした人。自分の操作では自分に通知しない */
   actorId: number;
@@ -83,12 +84,14 @@ export async function createNotifications(
     for (const id of targets) add(id, "mentioned");
   }
 
-  // 4. ウォッチ
-  const watchers = await tx.watching.findMany({
-    where: { issueId: input.issueId },
-    select: { userId: true },
-  });
-  for (const w of watchers) add(w.userId, "watching");
+  // 4. ウォッチ（課題にしか無い。Wiki のウォッチは本家にも無い）
+  if (input.issueId !== undefined) {
+    const watchers = await tx.watching.findMany({
+      where: { issueId: input.issueId },
+      select: { userId: true },
+    });
+    for (const w of watchers) add(w.userId, "watching");
+  }
 
   if (candidates.size === 0) return 0;
 
