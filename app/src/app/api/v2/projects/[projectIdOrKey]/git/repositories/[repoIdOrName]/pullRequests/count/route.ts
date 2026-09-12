@@ -1,6 +1,6 @@
 import { apiRoute, findProject } from "@/lib/api/handler";
 import { prisma } from "@/lib/db";
-import { findRepository } from "../../route";
+import { findRepository } from "@/lib/api/git-lookup";
 import { pullRequestWhere, pullRequestQuery } from "@/lib/api/pull-request-filter";
 
 /**

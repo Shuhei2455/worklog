@@ -6,11 +6,8 @@ import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import {
   giteaEnabled,
-  ensureGiteaUser,
   ensureOrg,
   giteaOrgOf,
-  giteaLoginOf,
-  addOrgMember,
   createGiteaRepo,
   ensureRepoWebhook,
 } from "@/lib/gitea";
@@ -69,18 +66,6 @@ export async function createRepository(key: string, formData: FormData) {
 
   try {
     const org = await ensureOrg(project.id);
-
-    // プロジェクトのメンバーを organization に入れる。
-    // ここを飛ばすと、作った本人以外はクローンできない
-    const members = await prisma.projectMember.findMany({
-      where: { projectId: project.id },
-      select: { userId: true },
-    });
-    for (const m of members) {
-      await ensureGiteaUser(m.userId);
-      await addOrgMember(org, await giteaLoginOf(m.userId));
-    }
-
     const repo = await createGiteaRepo(org, name, description);
     await ensureRepoWebhook(org, name, process.env.GITEA_WEBHOOK_SECRET ?? "");
 
@@ -103,6 +88,11 @@ export async function createRepository(key: string, formData: FormData) {
         data: { gitEnabled: true },
       });
     }
+
+    // メンバーを organization に入れる。**`git.access` を持つ人だけ**。
+    // 行を作ってから呼ぶ（リポジトリが無いと syncOrgMembers は何もしない）
+    const { syncOrgMembers } = await import("@/lib/gitea-members");
+    await syncOrgMembers(project.id);
   } catch (e) {
     back(key, `Gitea でのリポジトリ作成に失敗しました: ${(e as Error).message}`, true);
   }

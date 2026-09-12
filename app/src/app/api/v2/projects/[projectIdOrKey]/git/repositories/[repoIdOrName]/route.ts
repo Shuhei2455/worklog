@@ -1,7 +1,6 @@
 import { apiRoute, findProject } from "@/lib/api/handler";
-import { ApiError } from "@/lib/api/errors";
 import { serializeRepository } from "@/lib/api/serialize";
-import { prisma } from "@/lib/db";
+import { findRepository } from "@/lib/api/git-lookup";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 import { giteaOrgOf } from "@/lib/gitea";
 
@@ -23,18 +22,3 @@ export const GET = apiRoute<{ projectIdOrKey: string; repoIdOrName: string }>(
   },
 );
 
-/** id か名前でリポジトリを引く。共通で使うのでここに置く */
-export async function findRepository(projectId: number, idOrName: string) {
-  const asNumber = Number(idOrName);
-  const repo = Number.isInteger(asNumber)
-    ? await prisma.repository.findFirst({
-        where: { id: asNumber, projectId },
-        include: { createdBy: true },
-      })
-    : await prisma.repository.findFirst({
-        where: { projectId, name: decodeURIComponent(idOrName) },
-        include: { createdBy: true },
-      });
-  if (!repo) throw ApiError.notFound("repository");
-  return repo;
-}

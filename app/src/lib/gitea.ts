@@ -319,6 +319,26 @@ export async function removeOrgMember(org: string, giteaLogin: string): Promise<
   });
 }
 
+/** organization のメンバーのログイン名 */
+export async function listOrgMembers(org: string): Promise<string[]> {
+  const members = await call<Array<{ login: string }>>(`/orgs/${org}/members`);
+  return members.map((m) => m.login);
+}
+
+/**
+ * アプリが API を叩くのに使っているアカウントのログイン名。
+ *
+ * organization のメンバーを整理するときに、このアカウントを外さないために要る
+ * （外すと以後の操作ができなくなる）。
+ */
+let serviceLogin: string | null = null;
+export async function giteaServiceLogin(): Promise<string> {
+  if (serviceLogin) return serviceLogin;
+  const me = await call<{ login: string }>("/user");
+  serviceLogin = me.login;
+  return serviceLogin;
+}
+
 async function ownersTeamId(org: string): Promise<number> {
   const teams = await call<Array<{ id: number; name: string }>>(`/orgs/${org}/teams`);
   const owners = teams.find((t) => t.name === "Owners") ?? teams[0];

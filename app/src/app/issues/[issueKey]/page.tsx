@@ -236,8 +236,11 @@ export default async function IssueDetail({
             )}
           </div>
 
-          {/* Git の連携。コミットメッセージに課題キーを書くと自動で増える */}
-          {(commitLinks.length > 0 || relatedPulls.length > 0) && (
+          {/* Git の連携。コミットメッセージに課題キーを書くと自動で増える。
+              **git.access が無い人には出さない。** 出すとリンク先が404になる
+              （M3-b で共有ファイルのリンクで同じ間違いをした） */}
+          {can(user, "git.access", ctx) &&
+            (commitLinks.length > 0 || relatedPulls.length > 0) && (
             <div className="mt-4 rounded border border-slate-200 bg-white p-3">
               <h2 className="text-sm font-semibold text-slate-600">Git</h2>
 

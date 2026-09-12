@@ -21,6 +21,7 @@ import {
   createRepository,
   toggleLinkCommits,
   detachRepository,
+  importRepository,
 } from "./git-actions";
 import { giteaEnabled } from "@/lib/gitea";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
@@ -415,6 +416,7 @@ export default async function ProjectSettings({
             </ul>
           )}
           {giteaEnabled() && (
+            <>
             <form
               action={bind(createRepository)}
               className="mt-3 flex flex-wrap items-end gap-2"
@@ -439,6 +441,29 @@ export default async function ProjectSettings({
                 作成
               </button>
             </form>
+
+            {/* Gitea に直接作ったリポジトリを、この一覧に載せる。
+                webhook も登録し直すので、連携もそこから効き始める */}
+            <form
+              action={bind(importRepository)}
+              className="mt-2 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3"
+            >
+              <label className="text-sm">
+                <span className="block text-xs text-slate-500">
+                  Gitea に既にあるリポジトリを取り込む
+                </span>
+                <input
+                  name="name"
+                  required
+                  placeholder="リポジトリ名"
+                  className="mt-1 rounded border border-slate-300 px-2 py-1"
+                />
+              </label>
+              <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+                取り込む
+              </button>
+            </form>
+            </>
           )}
         </Section>
       )}

@@ -1,7 +1,7 @@
 import { apiRoute, findProject } from "@/lib/api/handler";
 import { serializePullRequest } from "@/lib/api/serialize";
 import { prisma } from "@/lib/db";
-import { findRepository } from "../route";
+import { findRepository } from "@/lib/api/git-lookup";
 import { pullRequestWhere, pullRequestQuery } from "@/lib/api/pull-request-filter";
 
 /**

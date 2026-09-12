@@ -2,7 +2,7 @@ import { apiRoute, findProject } from "@/lib/api/handler";
 import { ApiError } from "@/lib/api/errors";
 import { serializePullRequest } from "@/lib/api/serialize";
 import { prisma } from "@/lib/db";
-import { findRepository } from "../../route";
+import { findRepository } from "@/lib/api/git-lookup";
 
 /**
  * GET .../pullRequests/:number

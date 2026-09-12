@@ -72,6 +72,19 @@ export async function Shell({
             ))}
           </nav>
           <span className="text-sm text-slate-600">{user.name}</span>
+          {/* 個人設定。どちらもURLを直打ちしないと辿れない状態だった */}
+          <Link
+            href="/settings/api"
+            className="text-sm text-slate-500 hover:text-brand-700"
+          >
+            APIキー
+          </Link>
+          <Link
+            href="/settings/git"
+            className="text-sm text-slate-500 hover:text-brand-700"
+          >
+            Git
+          </Link>
           <form action={logout}>
             <button className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50">
               ログアウト

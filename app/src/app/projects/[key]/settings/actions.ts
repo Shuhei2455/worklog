@@ -27,6 +27,19 @@ async function projectByKey(key: string) {
 // 戻り値を never と明示する。redirect() は never を返すが、関数宣言では
 // TypeScript が void と推論してしまい、呼び出し後のコードが
 // 到達不能と見なされず型が絞られない（本番ビルドのみで落ちる）。
+/**
+ * フォームから数値を取り出す。
+ *
+ * `Number(formData.get(...))` をそのまま Prisma に渡すと、値が無いときに
+ * NaN が入って PrismaClientValidationError で 500 になる。
+ * 画面からは必ず入るが、作られたリクエストでも 500 にはしない。
+ */
+function numberField(formData: FormData, name: string, key: string): number {
+  const n = Number(formData.get(name));
+  if (!Number.isInteger(n)) back(key, "不正なリクエストです", true);
+  return n;
+}
+
 function back(key: string, message?: string, isError = false): never {
   const q = message
     ? `?${isError ? "error" : "ok"}=${encodeURIComponent(message)}`
@@ -245,7 +258,12 @@ export async function addMember(key: string, formData: FormData) {
     update: {},
     create: { projectId: project.id, userId: user!.id },
   });
-  back(key, `${user!.name} を追加しました`);
+
+  // リポジトリがあるなら Gitea 側にも入れる。ここを飛ばすと、
+  // 後から参加した人はクローンできない（権限がプロジェクトと食い違う）
+  const giteaNote = await syncGiteaMembership(project.id);
+
+  back(key, `${user!.name} を追加しました${giteaNote}`);
 }
 
 export async function removeMember(key: string, formData: FormData) {
@@ -253,7 +271,7 @@ export async function removeMember(key: string, formData: FormData) {
   const project = await projectByKey(key);
   await assertCan(actor, "project.edit", project.id);
 
-  const userId = Number(formData.get("userId"));
+  const userId = numberField(formData, "userId", key);
   const remaining = await prisma.projectMember.count({
     where: { projectId: project.id },
   });
@@ -263,7 +281,12 @@ export async function removeMember(key: string, formData: FormData) {
   await prisma.projectMember.delete({
     where: { projectId_userId: { projectId: project.id, userId } },
   });
-  back(key, "参加ユーザーを外しました");
+
+  // Gitea 側からも外す。残したままだとプロジェクトから外れた人が
+  // コードを引き続き見られる
+  const giteaNote = await syncGiteaMembership(project.id);
+
+  back(key, `参加ユーザーを外しました${giteaNote}`);
 }
 
 /** プロジェクト管理者フラグ。ゲストには付けられない */
@@ -272,7 +295,7 @@ export async function toggleProjectAdmin(key: string, formData: FormData) {
   const project = await projectByKey(key);
   await assertCan(actor, "projectAdmin.assign", project.id);
 
-  const userId = Number(formData.get("userId"));
+  const userId = numberField(formData, "userId", key);
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId: project.id, userId } },
     include: { user: true },
@@ -292,7 +315,11 @@ export async function toggleProjectAdmin(key: string, formData: FormData) {
     where: { projectId_userId: { projectId: project.id, userId } },
     data: { isProjectAdmin: !member!.isProjectAdmin },
   });
-  back(key, "プロジェクト管理者の設定を変更しました");
+  // プロジェクト管理者になると git.access が付く（制限があっても）。
+  // Gitea 側の権限も合わせる
+  const giteaNote = await syncGiteaMembership(project.id);
+
+  back(key, `プロジェクト管理者の設定を変更しました${giteaNote}`);
 }
 
 /** webhook の追加。Slack や Teams への連携を想定している */
@@ -328,4 +355,29 @@ export async function deleteWebhook(key: string, formData: FormData) {
     where: { id: Number(formData.get("id")), projectId: project.id },
   });
   back(key, "webhook を削除しました");
+}
+
+
+/**
+ * プロジェクトのメンバーを Gitea の organization に反映する。
+ *
+ * 判定は syncOrgMembers に集約してある（**`git.access` を持つ人だけ**を入れる）。
+ * Gitea が落ちていてもメンバー操作自体は成立させる——権限の変更を
+ * Gitea の都合で止めない。結果は画面に出す。
+ */
+async function syncGiteaMembership(projectId: number): Promise<string> {
+  const { giteaEnabled } = await import("@/lib/gitea");
+  if (!giteaEnabled()) return "";
+
+  try {
+    const { syncOrgMembers } = await import("@/lib/gitea-members");
+    const out = await syncOrgMembers(projectId);
+    if (out.added.length === 0 && out.removed.length === 0) return "";
+    return out.removed.length > 0
+      ? `（Gitも反映。${out.removed.length}人を外しました）`
+      : "（Gitも反映）";
+  } catch (e) {
+    console.error("[gitea] メンバーの同期に失敗:", e);
+    return "（※Gitへの反映に失敗しました。設定を確認してください）";
+  }
 }
