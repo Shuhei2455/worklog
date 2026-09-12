@@ -32,9 +32,20 @@ describe("パラメータの正規化", () => {
   });
 
   it("count は 100 までに丸める", () => {
-    // 上限超えは zod が弾き、既定に寄る
+    // 上限超えはその項目だけ既定に寄る
     expect(f({ count: "500" }).count).toBe(DEFAULT_COUNT);
     expect(f({ count: "50" }).count).toBe(50);
+  });
+
+  it("壊れた値が1つあっても他の条件は生き残る", () => {
+    // 完了時レビューで見つけたバグ。以前は count=500 を付けると
+    // safeParse 全体が失敗し、statusId も keyword も消えていた
+    const p = f({ statusId: "1,2", count: "500", keyword: "テスト", sort: "x", offset: "-5" });
+    expect(p.statusId).toEqual([1, 2]);
+    expect(p.keyword).toBe("テスト");
+    expect(p.count).toBe(DEFAULT_COUNT);
+    expect(p.sort).toBe(DEFAULT_SORT);
+    expect(p.offset).toBe(0);
   });
 
   it("未知の sort は既定に寄る", () => {
@@ -175,6 +186,31 @@ describe("並び替え", () => {
       { dueDate: "asc" },
       { id: "asc" },
     ]);
+  });
+
+  it("添付・共有ファイル・子課題の有無は件数で並べる", () => {
+    // 完了時レビューで見つけたバグ。以前は受け付けるだけで
+    // 黙って更新日順に落ちていた
+    expect(buildIssueOrderBy(f({ sort: "attachment", order: "asc" }))[0]).toEqual({
+      attachments: { _count: "asc" },
+    });
+    expect(buildIssueOrderBy(f({ sort: "sharedFile" }))[0]).toEqual({
+      sharedFiles: { _count: "desc" },
+    });
+    expect(buildIssueOrderBy(f({ sort: "childIssue" }))[0]).toEqual({
+      children: { _count: "desc" },
+    });
+  });
+
+  it("多対多の3種は既定に寄せる（意図的な相違）", () => {
+    // category/version/milestone は値そのものでは並べられず、
+    // 本家の並べ替え基準も未確認。誤った並びを出すより既定に寄せる
+    for (const sort of ["category", "version", "milestone"]) {
+      expect(buildIssueOrderBy(f({ sort }))).toEqual([
+        { updatedAt: "desc" },
+        { id: "desc" },
+      ]);
+    }
   });
 
   it("同値でぶれないよう必ず一意キーを最後に足す", () => {

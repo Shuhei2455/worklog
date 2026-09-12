@@ -109,25 +109,30 @@ export const issueFilterSchema = z.object({
   startDateUntil: dateish,
   dueDateSince: dateish,
   dueDateUntil: dateish,
-  sort: z.enum(SORT_KEYS).default(DEFAULT_SORT),
-  order: z.enum(["asc", "desc"]).default(DEFAULT_ORDER),
-  offset: z.coerce.number().int().min(0).default(0),
-  count: z.coerce.number().int().min(1).max(MAX_COUNT).default(DEFAULT_COUNT),
+  // .catch() を付けて、壊れた値はその項目だけ既定に落とす。
+  // 付けないと safeParse 全体が失敗し、?count=500 のような1箇所の誤りで
+  // statusId や keyword まで丸ごと失われる
+  sort: z.enum(SORT_KEYS).catch(DEFAULT_SORT),
+  order: z.enum(["asc", "desc"]).catch(DEFAULT_ORDER),
+  offset: z.coerce.number().int().min(0).catch(0),
+  count: z.coerce.number().int().min(1).max(MAX_COUNT).catch(DEFAULT_COUNT),
 });
 
 export type IssueFilter = z.infer<typeof issueFilterSchema>;
 
-/** 壊れた値を落としつつ、必ずフィルタを返す */
+/**
+ * 壊れた値を落としつつ、必ずフィルタを返す。
+ *
+ * 各項目に .catch() を付けてあるので、1箇所が壊れていても
+ * 他の条件は生き残る。壊れたURLを踏んでも一覧が出る方が実用的。
+ */
 export function parseIssueFilter(
   params: Record<string, string | string[] | undefined>,
 ): IssueFilter {
   const result = issueFilterSchema.safeParse(params);
   if (result.success) return result.data;
-  // 一部が壊れていても残りは活かす
-  return issueFilterSchema.parse({
-    sort: DEFAULT_SORT,
-    order: DEFAULT_ORDER,
-  });
+  // ここには来ない想定だが、来ても既定で返す
+  return issueFilterSchema.parse({});
 }
 
 /** 日付範囲を Prisma の gte/lte に畳む。両方 undefined なら undefined */
@@ -263,7 +268,21 @@ export function buildIssueOrderBy(
     updatedUser: { updatedBy: dir },
   };
 
-  const primary = map[filter.sort];
+  // 「添付あり」「共有ファイルあり」「子課題あり」は件数で並べる。
+  // 本家も有無での並べ替えなので、0件/1件以上の順序は一致する
+  const byCount: Partial<Record<SortKey, Prisma.IssueOrderByWithRelationInput>> = {
+    attachment: { attachments: { _count: dir } },
+    sharedFile: { sharedFiles: { _count: dir } },
+    childIssue: { children: { _count: dir } },
+  };
+
+  const primary = map[filter.sort] ?? byCount[filter.sort];
+
+  // category / version / milestone は多対多で、値そのものでは並べられない。
+  // 本家が何を基準に並べるか（先頭要素か、displayOrder か）は未確認なので、
+  // 誤った並びを出すより既定に寄せる。
+  // TODO(要確認): 本家の category/version/milestone の並べ替え基準
+
   // 並びが同値のときに順序がぶれるとページングで取りこぼす。
   // 必ず一意なキーを最後に足す
   return primary ? [primary, { id: dir }] : [{ updatedAt: dir }, { id: dir }];
