@@ -36,7 +36,11 @@ compose() {
 set -a; . "$ENV_FILE"; set +a
 
 GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-kadai-admin}"
-GITEA_ADMIN_EMAIL="${GITEA_ADMIN_EMAIL:-${SEED_ADMIN_EMAIL:-admin@example.local}}"
+# 人のメールアドレスと**必ず別にする**。Gitea はメールの重複を拒むので、
+# アプリの管理者と同じアドレスにすると、そのユーザーを Gitea へ同期できない
+# （422 e-mail already in use）。実際に踏んだ
+_seed_domain="${SEED_ADMIN_EMAIL#*@}"
+GITEA_ADMIN_EMAIL="${GITEA_ADMIN_EMAIL:-${GITEA_ADMIN_USER}@${_seed_domain:-example.local}}"
 # 人がこのアカウントでログインすることは想定していない（APIのための管理者）。
 # パスワードは指定が無ければその場で作る
 GITEA_ADMIN_PASSWORD="${GITEA_ADMIN_PASSWORD:-$(openssl rand -base64 24)}"

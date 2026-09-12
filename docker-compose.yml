@@ -44,6 +44,10 @@ services:
       APP_URL: ${APP_URL}
       MAIL_ENABLED: ${MAIL_ENABLED}
       GITEA_URL: ${GITEA_URL}
+      GITEA_ADMIN_TOKEN: ${GITEA_ADMIN_TOKEN}
+      GITEA_DOMAIN: ${GITEA_DOMAIN}
+      GITEA_SSH_PORT: ${GITEA_SSH_PORT}
+      GITEA_WEBHOOK_SECRET: ${GITEA_WEBHOOK_SECRET}
       FILES_DIR: ${FILES_DIR}
       MAX_ATTACHMENT_MB: ${MAX_ATTACHMENT_MB}
       # シード投入(pnpm db:seed)でのみ使う
@@ -93,6 +97,9 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       MAIL_FROM: ${MAIL_FROM}
+      GITEA_URL: ${GITEA_URL}
+      GITEA_ADMIN_TOKEN: ${GITEA_ADMIN_TOKEN}
+      GITEA_DOMAIN: ${GITEA_DOMAIN}
       FILES_DIR: ${FILES_DIR}
     volumes:
       - ./app:/work
