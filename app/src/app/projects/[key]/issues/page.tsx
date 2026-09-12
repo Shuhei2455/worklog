@@ -78,6 +78,12 @@ export default async function IssueList({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">課題</h1>
         <div className="flex items-center gap-3">
+        <Link
+          href={`/projects/${key}/board`}
+          className="text-sm text-brand-700 hover:underline"
+        >
+          ボード
+        </Link>
         {project.chartEnabled && (
           <Link
             href={`/projects/${key}/gantt`}
