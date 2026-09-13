@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button } from "@/components/ui";
 import {
   buildBurndown,
@@ -113,13 +114,18 @@ export default async function Burndown({
       ]}
     >
       <div className="flex items-center justify-between">
-        <PageTitle>バーンダウンチャート</PageTitle>
-        <Link
-          href={`/projects/${key}/issues`}
-          className="text-sm text-brand-700 hover:underline"
-        >
-          課題一覧へ
-        </Link>
+        <ProjectNav
+        projectKey={key}
+        current="burndown"
+        show={{
+          wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+          files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+          chart: project.chartEnabled,
+          git: project.gitEnabled && can(user, "git.access", ctx),
+          settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+        }}
+      />
+      <PageTitle>バーンダウンチャート</PageTitle>
       </div>
 
       {milestones.length === 0 ? (

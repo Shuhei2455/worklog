@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { ProjectNav } from "@/components/ProjectNav";
 import { ActionResult, PageTitle, Button } from "@/components/ui";
 import { uploadSharedFile, deleteSharedFile } from "./actions";
 import { normalizeDir, parentDir } from "@/lib/shared-file-path";
@@ -31,7 +32,7 @@ export default async function Files({
   if (!project.fileSharingEnabled) {
     return (
       <Shell user={user} breadcrumbs={[{ label: project.name }, { label: "ファイル" }]}>
-        <PageTitle>ファイル</PageTitle>
+      <PageTitle>ファイル</PageTitle>
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           このプロジェクトは「ファイル共有を使用する」が無効です。
           <Link href={`/projects/${key}/settings`} className="ml-2 underline">
@@ -78,6 +79,17 @@ export default async function Files({
         { label: "ファイル" },
       ]}
     >
+      <ProjectNav
+        projectKey={key}
+        current="files"
+        show={{
+          wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+          files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+          chart: project.chartEnabled,
+          git: project.gitEnabled && can(user, "git.access", ctx),
+          settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+        }}
+      />
       <PageTitle>ファイル</PageTitle>
       <p className="mt-1 text-xs text-slate-500">
         課題やWikiから参照できる、プロジェクト共通の置き場です。課題の添付とは別物です。

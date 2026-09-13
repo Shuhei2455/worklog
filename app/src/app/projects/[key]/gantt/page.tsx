@@ -15,6 +15,7 @@ import {
   type GanttBar,
 } from "@/lib/gantt";
 import { Shell } from "@/components/Shell";
+import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button, ButtonLink, PillLink } from "@/components/ui";
 
 /** 帯の色。種類ごとに変えて、なぜそこに出ているか分かるようにする */
@@ -68,7 +69,7 @@ export default async function GanttPage({
         ]}
       >
         <div className="flex items-baseline justify-between">
-          <PageTitle>ガントチャート</PageTitle>
+      <PageTitle>ガントチャート</PageTitle>
           <a
             href={`/projects/${key}/gantt/export`}
             className="text-sm text-brand-700 hover:underline"
@@ -220,6 +221,17 @@ export default async function GanttPage({
       ]}
     >
       <div className="flex items-center justify-between">
+        <ProjectNav
+        projectKey={key}
+        current="gantt"
+        show={{
+          wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+          files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+          chart: project.chartEnabled,
+          git: project.gitEnabled && can(user, "git.access", ctx),
+          settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+        }}
+      />
         <PageTitle>ガントチャート</PageTitle>
         <div className="flex items-center gap-3">
           {/* 絞り込みを引き継ぐ。画面と同じ resolveGanttBar を使うので内容が一致する */}
@@ -229,12 +241,6 @@ export default async function GanttPage({
           >
             CSV出力
           </a>
-          <Link
-            href={`/projects/${key}/issues`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            課題一覧へ
-          </Link>
         </div>
       </div>
 

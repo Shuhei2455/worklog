@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext, visibleProjectIds } from "@/lib/session";
 import { parseIssueFilter, buildIssueWhere } from "@/lib/issue-filter";
 import { Shell } from "@/components/Shell";
+import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { saveFilter } from "../issues/actions";
 import { BoardClient, type Card } from "./BoardClient";
@@ -99,7 +100,18 @@ export default async function BoardPage({
       ]}
     >
       <div className="flex items-center justify-between">
-        <PageTitle>ボード</PageTitle>
+        <ProjectNav
+        projectKey={key}
+        current="board"
+        show={{
+          wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+          files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+          chart: project.chartEnabled,
+          git: project.gitEnabled && can(user, "git.access", ctx),
+          settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+        }}
+      />
+      <PageTitle>ボード</PageTitle>
         <div className="flex gap-3 text-sm">
           <Link href={`/projects/${key}/issues`} className="text-brand-700 hover:underline">
             課題一覧

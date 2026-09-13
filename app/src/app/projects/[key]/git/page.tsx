@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
+import { ProjectNav } from "@/components/ProjectNav";
+import { can } from "@/lib/permissions";
 import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext } from "@/lib/git-view";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
@@ -11,7 +13,7 @@ export default async function GitRepositories({
   params: Promise<{ key: string }>;
 }) {
   const { key } = await params;
-  const { user, project, repositories, org } = await loadGitContext(key);
+  const { user, project, ctx, repositories, org } = await loadGitContext(key);
 
   return (
     <Shell
@@ -21,6 +23,17 @@ export default async function GitRepositories({
         { label: "Git" },
       ]}
     >
+      <ProjectNav
+        projectKey={key}
+        current="git"
+        show={{
+          wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+          files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+          chart: project.chartEnabled,
+          git: true,
+          settings: can(user, "project.edit", ctx),
+        }}
+      />
       <PageTitle>Gitリポジトリ</PageTitle>
 
       {repositories.length === 0 ? (

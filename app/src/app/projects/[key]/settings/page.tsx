@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { ProjectNav } from "@/components/ProjectNav";
 import {
   Section,
   PageTitle,
@@ -135,6 +136,17 @@ export default async function ProjectSettings({
         { label: "設定" },
       ]}
     >
+      <ProjectNav
+        projectKey={key}
+        current="settings"
+        show={{
+          wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+          files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+          chart: project.chartEnabled,
+          git: project.gitEnabled && can(user, "git.access", ctx),
+          settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+        }}
+      />
       <PageTitle>
         <span className="mr-2 rounded bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-600">
           {project.key}

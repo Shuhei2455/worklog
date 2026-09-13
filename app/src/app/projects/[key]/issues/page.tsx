@@ -11,6 +11,7 @@ import {
 import { PRIORITIES, PRIORITY_LABEL } from "@/lib/constants";
 import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
+import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { saveFilter } from "./actions";
 
@@ -88,80 +89,47 @@ export default async function IssueList({
         { label: "課題" },
       ]}
     >
-      <div className="flex items-center justify-between">
-        <PageTitle>課題</PageTitle>
-        <div className="flex items-center gap-3">
-        {/* 制限のあるユーザーは共有ファイルを閲覧すらできないので、
-            リンク自体を出さない(押しても404になるだけ) */}
-        {project.fileSharingEnabled && can(user, "sharedFile.access", ctx) && (
-          <Link
-            href={`/projects/${key}/files`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            ファイル
-          </Link>
-        )}
-        {project.wikiEnabled && (
-          <Link
-            href={`/projects/${key}/wiki`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            Wiki
-          </Link>
-        )}
-        <Link
-          href={`/projects/${key}/board`}
-          className="text-sm text-brand-700 hover:underline"
-        >
-          ボード
-        </Link>
-        {project.gitEnabled && can(user, "git.access", ctx) && (
-          <Link
-            href={`/projects/${key}/git`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            Git
-          </Link>
-        )}
-        {project.chartEnabled && (
-          <Link
-            href={`/projects/${key}/burndown`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            バーンダウン
-          </Link>
-        )}
-        {project.chartEnabled && (
-          <Link
-            href={`/projects/${key}/gantt`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            ガントチャート
-          </Link>
-        )}
-        {/* CSV。エクスポートは**いま見ている絞り込みをそのまま引き継ぐ**
-            （buildIssueWhere を共有しているので内容がずれない） */}
-        <a
-          href={`/projects/${key}/issues/export${queryString ? `?${queryString}` : ""}`}
-          className="text-sm text-brand-700 hover:underline"
-        >
-          CSV出力
-        </a>
-        {can(user, "issue.create", ctx) && (
-          <Link
-            href={`/projects/${key}/issues/import`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            CSV取り込み
-          </Link>
-        )}
-        {can(user, "issue.create", ctx) && (
-          <ButtonLink href={`/projects/${key}/issues/new`} variant="primary">
-            課題を追加
-          </ButtonLink>
-        )}
-        </div>
-      </div>
+      <ProjectNav
+        projectKey={key}
+        current="issues"
+        show={{
+          wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+          files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+          chart: project.chartEnabled,
+          git: project.gitEnabled && can(user, "git.access", ctx),
+          settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+        }}
+      />
+      {/* 画面をまたぐ移動は ProjectNav に集約した。
+          ここには**この画面固有の操作**だけを残す */}
+      <PageTitle
+        actions={
+          <>
+            <a
+              href={`/projects/${key}/issues/export${queryString ? `?${queryString}` : ""}`}
+              className="text-sm text-brand-700 hover:underline"
+              title="いま見ている絞り込みをそのまま出力します"
+            >
+              CSV出力
+            </a>
+            {can(user, "issue.create", ctx) && (
+              <Link
+                href={`/projects/${key}/issues/import`}
+                className="text-sm text-brand-700 hover:underline"
+              >
+                CSV取り込み
+              </Link>
+            )}
+            {can(user, "issue.create", ctx) && (
+              <ButtonLink href={`/projects/${key}/issues/new`} variant="primary">
+                課題を追加
+              </ButtonLink>
+            )}
+          </>
+        }
+      >
+        課題
+      </PageTitle>
 
       {/* 絞り込みはURLクエリ。この形のURLを貼れば同じ条件を再現できる */}
       <form className="mt-4 flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-white p-3 text-sm">
