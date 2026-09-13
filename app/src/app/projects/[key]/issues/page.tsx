@@ -124,6 +124,14 @@ export default async function IssueList({
         )}
         {project.chartEnabled && (
           <Link
+            href={`/projects/${key}/burndown`}
+            className="text-sm text-brand-700 hover:underline"
+          >
+            バーンダウン
+          </Link>
+        )}
+        {project.chartEnabled && (
+          <Link
             href={`/projects/${key}/gantt`}
             className="text-sm text-brand-700 hover:underline"
           >
