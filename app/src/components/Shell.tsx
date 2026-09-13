@@ -91,6 +91,12 @@ export async function Shell({
           )}
           {/* 個人設定。どちらもURLを直打ちしないと辿れない状態だった */}
           <Link
+            href="/settings/password"
+            className="text-sm text-slate-500 hover:text-brand-700"
+          >
+            パスワード
+          </Link>
+          <Link
             href="/settings/api"
             className="text-sm text-slate-500 hover:text-brand-700"
           >

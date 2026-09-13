@@ -17,7 +17,7 @@
  * supported with the "cjs" output format」で落ちる。
  */
 import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "../src/lib/password";
+import { hashPassword, checkPasswordStrength } from "../src/lib/password";
 
 const prisma = new PrismaClient();
 
@@ -39,6 +39,22 @@ async function main() {
       `${userId} は ${user.authProvider} 認証です。パスワードは持ちません`,
     );
     process.exit(1);
+  }
+
+  // 強度チェックは画面と同じものを通す。ここを抜け道にしない。
+  // どうしても弱いものを入れたいときは SKIP_PASSWORD_CHECK=1 を付ける
+  // （検証用。職場では使わない）
+  if (process.env.SKIP_PASSWORD_CHECK !== "1") {
+    const check = checkPasswordStrength(password, {
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+    });
+    if (!check.ok) {
+      console.error(`弱いパスワードです: ${check.error}`);
+      console.error("検証目的で通したい場合は SKIP_PASSWORD_CHECK=1 を付けてください");
+      process.exit(1);
+    }
   }
 
   await prisma.user.update({

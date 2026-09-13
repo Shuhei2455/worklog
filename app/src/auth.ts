@@ -2,6 +2,11 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
+import {
+  loginLockState,
+  recordLoginFailure,
+  clearLoginFailures,
+} from "@/lib/login-attempts";
 
 /**
  * 認証。
@@ -29,13 +34,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = typeof creds?.password === "string" ? creds.password : "";
         if (!userId || !password) return null;
 
+        // 失敗が続いているIDは、正しいパスワードでも通さない（決定 D28）。
+        // 総当たりを放置しないため。Redis が落ちていれば通す（fail-open）
+        const lock = await loginLockState(userId);
+        if (lock.locked) {
+          console.warn(`[auth] ${userId} は失敗が続いたため一時的に拒否`);
+          return null;
+        }
+
         const user = await prisma.user.findUnique({ where: { userId } });
         // 無効化されたユーザーはログインできない
-        if (!user || user.disabledAt) return null;
+        if (!user || user.disabledAt) {
+          await recordLoginFailure(userId);
+          return null;
+        }
         // ローカル認証以外はパスワードを持たない
         if (user.authProvider !== "local") return null;
-        if (!verifyPassword(password, user.passwordHash)) return null;
+        if (!verifyPassword(password, user.passwordHash)) {
+          await recordLoginFailure(userId);
+          return null;
+        }
 
+        await clearLoginFailures(userId);
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
