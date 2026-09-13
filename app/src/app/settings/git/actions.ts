@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
+import { audit } from "@/lib/audit";
 
 /**
  * 自分の Gitea のパスワードを決める。
@@ -39,6 +40,13 @@ export async function setMyGiteaPassword(formData: FormData) {
   } catch (e) {
     fail(`設定できませんでした: ${(e as Error).message}`);
   }
+
+  await audit(user.id, {
+    action: "user.password",
+    targetType: "user",
+    targetId: user.userId,
+    detail: { target: "gitea" },
+  });
 
   revalidatePath(path);
   redirect(`${path}?ok=1`);

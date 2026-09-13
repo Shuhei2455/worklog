@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
+import { audit } from "@/lib/audit";
 import { nextMasterId } from "@/lib/numbering";
 import {
   moveStatus,
@@ -263,6 +264,13 @@ export async function addMember(key: string, formData: FormData) {
   // 後から参加した人はクローンできない（権限がプロジェクトと食い違う）
   const giteaNote = await syncGiteaMembership(project.id);
 
+  await audit(actor.id, {
+    action: "project.member.add",
+    targetType: "project",
+    targetId: project.key,
+    detail: { userId: user!.userId, name: user!.name },
+  });
+
   back(key, `${user!.name} を追加しました${giteaNote}`);
 }
 
@@ -285,6 +293,13 @@ export async function removeMember(key: string, formData: FormData) {
   // Gitea 側からも外す。残したままだとプロジェクトから外れた人が
   // コードを引き続き見られる
   const giteaNote = await syncGiteaMembership(project.id);
+
+  await audit(actor.id, {
+    action: "project.member.remove",
+    targetType: "project",
+    targetId: project.key,
+    detail: { userId },
+  });
 
   back(key, `参加ユーザーを外しました${giteaNote}`);
 }

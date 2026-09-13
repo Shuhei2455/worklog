@@ -8,6 +8,7 @@ import { createIssue } from "@/lib/issue";
 import { decodeCsv } from "@/lib/csv";
 import { csvToIssues, type ImportMasters } from "@/lib/issue-csv";
 import { loadFieldDefs } from "@/lib/custom-field-form";
+import { audit } from "@/lib/audit";
 
 /**
  * CSVの取り込み。
@@ -136,6 +137,13 @@ export async function runImport(key: string, formData: FormData) {
     });
     created++;
   }
+
+  await audit(actor.id, {
+    action: "issue.import",
+    targetType: "project",
+    targetId: project.key,
+    detail: { count: created, fileName: (file as File).name },
+  });
 
   revalidatePath(`/projects/${key}/issues`);
   redirect(

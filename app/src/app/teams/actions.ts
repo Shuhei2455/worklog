@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
+import { audit } from "@/lib/audit";
 
 /**
  * チームの管理。
@@ -45,6 +46,7 @@ export async function createTeam(formData: FormData) {
       updatedById: actor.id,
     },
   });
+  await audit(actor.id, { action: "team.create", targetType: "team", detail: { name } });
   back(`チーム「${name}」を作成しました`);
 }
 
@@ -62,6 +64,12 @@ export async function renameTeam(formData: FormData) {
   await prisma.team.update({
     where: { id },
     data: { name, updatedById: actor.id },
+  });
+  await audit(actor.id, {
+    action: "team.update",
+    targetType: "team",
+    targetId: id,
+    detail: { name },
   });
   back(`チーム名を「${name}」に変更しました`);
 }
@@ -86,6 +94,13 @@ export async function deleteTeam(formData: FormData) {
   });
   if (!team) back("チームが見つかりません", true);
 
+  await audit(actor.id, {
+    action: "team.delete",
+    targetType: "team",
+    targetId: id,
+    // 消えた後に名前を引けないので、ここに残す
+    detail: { name: team!.name, members: team!._count.members },
+  });
   await prisma.team.delete({ where: { id } });
   back(
     `「${team!.name}」を削除しました（所属 ${team!._count.members} 人 / ` +

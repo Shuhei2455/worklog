@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import { CUSTOM_FIELD_TYPE_BY_ID, settingsSchema, hasItems } from "@/lib/custom-field";
+import { audit } from "@/lib/audit";
 
 /**
  * カスタム属性の定義の管理。
@@ -151,6 +152,14 @@ export async function deleteCustomField(key: string, formData: FormData) {
     include: { _count: { select: { values: true } } },
   });
   if (!field) back(key, "カスタム属性が見つかりません", true);
+
+  // 入力済みの値も一緒に消えるので、何を消したかを残す
+  await audit(actor.id, {
+    action: "customField.delete",
+    targetType: "customField",
+    targetId: `${project.key}#${id}`,
+    detail: { name: field!.name, valueCount: field!._count.values },
+  });
 
   await prisma.customField.delete({
     where: { projectId_id: { projectId: project.id, id } },

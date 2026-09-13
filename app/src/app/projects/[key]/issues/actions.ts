@@ -7,6 +7,7 @@ import { currentUser, assertCan } from "@/lib/session";
 import { createIssue, updateIssue, deleteIssue } from "@/lib/issue";
 import { putFile, deleteFile, MAX_ATTACHMENT_BYTES } from "@/lib/storage";
 import { loadFieldDefs, applicableTo, readFieldValues } from "@/lib/custom-field-form";
+import { audit } from "@/lib/audit";
 
 /** 課題まわりのサーバーアクション。入口で必ず assertCan を通す */
 
@@ -121,7 +122,16 @@ export async function removeIssue(issueKey: string) {
   const issue = await prisma.issue.findUnique({
     where: { projectId_keyId: { projectId: project.id, keyId: Number(keyIdRaw) } },
   });
-  if (issue) await deleteIssue(issue.id);
+  if (issue) {
+    // 消すと activities も一緒に消えるので、**何を消したかを監査ログに残す**
+    await audit(actor.id, {
+      action: "issue.delete",
+      targetType: "issue",
+      targetId: issueKey,
+      detail: { summary: issue.summary, projectKey },
+    });
+    await deleteIssue(issue.id);
+  }
 
   revalidatePath(`/projects/${projectKey}/issues`);
   redirect(`/projects/${projectKey}/issues`);

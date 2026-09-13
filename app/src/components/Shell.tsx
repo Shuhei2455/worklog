@@ -74,12 +74,20 @@ export async function Shell({
           <span className="text-sm text-slate-600">{user.name}</span>
           {/* スペース管理者だけに出す。チームはプロジェクトを跨ぐ設定 */}
           {user.userType === "admin" && (
-            <Link
-              href="/teams"
-              className="text-sm text-slate-500 hover:text-brand-700"
-            >
-              チーム
-            </Link>
+            <>
+              <Link
+                href="/teams"
+                className="text-sm text-slate-500 hover:text-brand-700"
+              >
+                チーム
+              </Link>
+              <Link
+                href="/audit"
+                className="text-sm text-slate-500 hover:text-brand-700"
+              >
+                監査ログ
+              </Link>
+            </>
           )}
           {/* 個人設定。どちらもURLを直打ちしないと辿れない状態だった */}
           <Link
