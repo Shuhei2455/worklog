@@ -12,6 +12,7 @@ import {
   ensureRepoWebhook,
 } from "@/lib/gitea";
 import { REPO_NAME_RE } from "@/lib/repo";
+import { audit } from "@/lib/audit";
 
 /**
  * リポジトリの設定。
@@ -97,6 +98,13 @@ export async function createRepository(key: string, formData: FormData) {
     back(key, `Gitea でのリポジトリ作成に失敗しました: ${(e as Error).message}`, true);
   }
 
+  await audit(actor.id, {
+    action: "repository.create",
+    targetType: "repository",
+    targetId: `${project.key}/${name}`,
+    detail: { description },
+  });
+
   back(key, `${name} を作成しました`);
 }
 
@@ -154,6 +162,13 @@ export async function detachRepository(key: string, formData: FormData) {
     where: { id, projectId: project.id },
   });
   if (!repo) back(key, "リポジトリが見つかりません", true);
+
+  await audit(actor.id, {
+    action: "repository.detach",
+    targetType: "repository",
+    targetId: `${project.key}/${repo!.name}`,
+    detail: { giteaRepoId: repo!.giteaRepoId },
+  });
 
   await prisma.repository.delete({ where: { id: repo.id } });
   back(key, `${repo.name} の登録を解除しました（Gitea 側のリポジトリは残っています）`);

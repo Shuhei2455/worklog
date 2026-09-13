@@ -234,3 +234,35 @@ describe("csvToIssues", () => {
     });
   });
 });
+
+describe("親課題の列（M5レビューで見つけた抜け）", () => {
+  it("既存の課題キーを親として解決する", () => {
+    const out = csvToIssues("件名,親課題\n子の課題,AA-1", masters());
+    expect(out.errors).toEqual([]);
+    expect(out.issues[0].parentIssueId).toBe(100);
+  });
+
+  it("小文字で書かれても引ける", () => {
+    const out = csvToIssues("件名,親課題\n子の課題,aa-1", masters());
+    expect(out.errors).toEqual([]);
+    expect(out.issues[0].parentIssueId).toBe(100);
+  });
+
+  it("存在しない課題キーはエラー（黙って無視しない）", () => {
+    const out = csvToIssues("件名,親課題\n子の課題,AA-999", masters());
+    expect(out.issues).toEqual([]);
+    expect(out.errors[0]).toContain("親課題「AA-999」");
+  });
+
+  it("同じCSV内の行を親にしようとしたらエラーで知らせる", () => {
+    // 取り込み前なのでIDが無い。黙って無視すると階層が崩れたまま入る
+    const out = csvToIssues("件名,親課題\n親になる行,\n子の行,親になる行", masters());
+    expect(out.errors.some((e) => e.includes("同じCSV内の行は親にできません"))).toBe(true);
+  });
+
+  it("空欄なら親なし", () => {
+    const out = csvToIssues("件名,親課題\n単独の課題,", masters());
+    expect(out.errors).toEqual([]);
+    expect(out.issues[0].parentIssueId).toBeNull();
+  });
+});

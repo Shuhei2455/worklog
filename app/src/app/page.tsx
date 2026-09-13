@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { createProject } from "@/lib/project";
+import { audit } from "@/lib/audit";
 import { can } from "@/lib/permissions";
 import { currentUser, visibleProjectIds } from "@/lib/session";
 import { Shell } from "@/components/Shell";
@@ -36,6 +37,12 @@ export default async function Home({
     const name = String(formData.get("name") ?? "").trim();
     try {
       await createProject({ key, name, createdBy: actor.id });
+      await audit(actor.id, {
+        action: "project.create",
+        targetType: "project",
+        targetId: key,
+        detail: { name },
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "作成に失敗しました";
       redirect("/?error=" + encodeURIComponent(msg));

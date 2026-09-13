@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
-import { STATUS_ID_CLOSED } from "@/lib/constants";
 import {
   buildBurndown,
   completedAtFrom,
@@ -92,7 +91,6 @@ export default async function Burndown({
 
       const issues: BurndownIssue[] = rows.map((r) => ({
         id: r.id,
-        closed: r.statusId === STATUS_ID_CLOSED,
         completedAt: completedAtFrom(r, byIssue.get(r.id) ?? []),
         estimatedHours: r.estimatedHours == null ? 0 : Number(r.estimatedHours),
         createdAt: r.createdAt,

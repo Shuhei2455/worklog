@@ -6,7 +6,6 @@ const d = (s: string) => new Date(`${s}T00:00:00Z`);
 
 const issue = (over: Partial<Parameters<typeof buildBurndown>[0][number]> = {}) => ({
   id: 1,
-  closed: false,
   completedAt: null,
   estimatedHours: 0,
   createdAt: d("2026-09-01"),
@@ -46,7 +45,7 @@ describe("buildBurndown", () => {
   it("完了した日から残りが減る", () => {
     const out = buildBurndown(
       [
-        issue({ id: 1, closed: true, completedAt: new Date("2026-09-03T10:00:00Z") }),
+        issue({ id: 1, completedAt: new Date("2026-09-03T10:00:00Z") }),
         issue({ id: 2 }),
       ],
       range,
@@ -73,7 +72,6 @@ describe("buildBurndown", () => {
         issue({
           id: 3,
           estimatedHours: 4,
-          closed: true,
           completedAt: new Date("2026-09-02T09:00:00Z"),
         }),
       ],

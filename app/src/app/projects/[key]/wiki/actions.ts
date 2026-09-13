@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
+import { audit } from "@/lib/audit";
 import { createNotifications } from "@/lib/notify";
 import { enqueueSearch } from "@/lib/queue";
 
@@ -153,6 +154,15 @@ export async function deleteWiki(key: string, name: string) {
   const page = await prisma.wikiPage.findUnique({
     where: { projectId_name: { projectId: project.id, name } },
   });
+  if (page) {
+    await audit(actor.id, {
+      action: "wiki.delete",
+      targetType: "wiki",
+      targetId: `${key}/${name}`,
+      detail: { name: page.name, revision: page.revision },
+    });
+  }
+
   await prisma.wikiPage.deleteMany({
     where: { projectId: project.id, name },
   });

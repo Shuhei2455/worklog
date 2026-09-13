@@ -154,6 +154,13 @@ export async function deleteStatus(key: string, formData: FormData) {
     back(key, `この状態は ${used} 件の課題で使われています（置き換え先の選択は M1 で実装）`, true);
   }
 
+  await audit(actor.id, {
+    action: "status.delete",
+    targetType: "status",
+    targetId: `${project.key}#${id}`,
+    detail: { name: status!.name },
+  });
+
   await prisma.status.delete({
     where: { projectId_id: { projectId: project.id, id } },
   });
@@ -330,6 +337,13 @@ export async function toggleProjectAdmin(key: string, formData: FormData) {
     where: { projectId_userId: { projectId: project.id, userId } },
     data: { isProjectAdmin: !member!.isProjectAdmin },
   });
+  await audit(actor.id, {
+    action: member!.isProjectAdmin ? "project.admin.revoke" : "project.admin.grant",
+    targetType: "project",
+    targetId: project.key,
+    detail: { userId: member!.user.userId, name: member!.user.name },
+  });
+
   // プロジェクト管理者になると git.access が付く（制限があっても）。
   // Gitea 側の権限も合わせる
   const giteaNote = await syncGiteaMembership(project.id);

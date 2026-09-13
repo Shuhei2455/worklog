@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
+import { audit } from "@/lib/audit";
 import { putFile, deleteFile, MAX_ATTACHMENT_BYTES } from "@/lib/storage";
 import { normalizeDir } from "@/lib/shared-file-path";
 
@@ -98,6 +99,13 @@ export async function deleteSharedFile(key: string, formData: FormData) {
     back(key, "/", "ファイルが見つかりません", true);
     return;
   }
+  await audit(actor.id, {
+    action: "sharedFile.delete",
+    targetType: "sharedFile",
+    targetId: id,
+    detail: { dir: f.dir, name: f.name, size: f.size },
+  });
+
   await prisma.sharedFile.delete({ where: { id } });
   await deleteFile(f.storageKey);
   back(key, f.dir, `「${f.name}」を削除しました`);

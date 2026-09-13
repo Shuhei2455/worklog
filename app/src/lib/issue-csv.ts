@@ -120,7 +120,9 @@ export type ParsedIssue = {
   startDate: Date | null;
   dueDate: Date | null;
   estimatedHours: number | null;
-  actualHours: number | null
+  actualHours: number | null;
+  /** 親課題。既存の課題キーで指定する。同じCSV内の行は親にできない */
+  parentIssueId: number | null;
   categoryIds: number[];
   milestoneIds: number[];
   versionIds: number[];
@@ -274,6 +276,22 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
       continue;
     }
 
+    // 親課題。**既存の課題だけ**を親にできる。
+    // 同じCSV内の行を親にしようとしても、その時点ではまだIDが無い
+    const parentRaw = at("親課題");
+    let parentIssueId: number | null = null;
+    if (parentRaw) {
+      const id = masters.issueKeys.get(parentRaw.toUpperCase());
+      if (!id) {
+        errors.push(
+          `${where}: 親課題「${parentRaw}」が見つかりません` +
+            "（既存の課題キーを書いてください。同じCSV内の行は親にできません）",
+        );
+        continue;
+      }
+      parentIssueId = id;
+    }
+
     // 名前で引けないマスタは「無視」ではなくエラーにする。
     // 黙って落とすと、取り込んだ後に気づけない
     const resolveMulti = (
@@ -346,6 +364,7 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
       dueDate,
       estimatedHours,
       actualHours,
+      parentIssueId,
       categoryIds,
       milestoneIds,
       versionIds,

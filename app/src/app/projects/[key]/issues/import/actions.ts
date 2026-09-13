@@ -129,6 +129,7 @@ export async function runImport(key: string, formData: FormData) {
       assigneeId: row.assigneeId,
       startDate: row.startDate,
       dueDate: row.dueDate,
+      parentIssueId: row.parentIssueId,
       categoryIds: row.categoryIds,
       milestoneIds: row.milestoneIds,
       versionIds: row.versionIds,

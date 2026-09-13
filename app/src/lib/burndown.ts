@@ -18,9 +18,11 @@ import { STATUS_ID_CLOSED } from "@/lib/constants";
 
 export type BurndownIssue = {
   id: number;
-  /** いま完了しているか */
-  closed: boolean;
-  /** 完了になった日時。未完了なら null */
+  /**
+   * 完了になった日時。未完了なら null。
+   * 「いま完了しているか」は別に持たない——この値の有無で判定できるため
+   * （completedAtFrom が未完了なら null を返す）
+   */
   completedAt: Date | null;
   /** 予定時間。未入力は 0 として扱う */
   estimatedHours: number;

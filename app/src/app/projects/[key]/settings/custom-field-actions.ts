@@ -77,6 +77,18 @@ export async function addCustomField(key: string, formData: FormData) {
     allowInput: formData.get("allowInput") === "on" ? true : undefined,
   });
 
+  // 有効な課題種別。**空なら全種別で有効**（本家と同じ扱い。11.1）。
+  // そのプロジェクトの種別だけを通す（他プロジェクトのIDを送られても入れない）
+  const projectTypes = await prisma.issueType.findMany({
+    where: { projectId: project.id },
+    select: { id: true },
+  });
+  const allowedTypeIds = new Set(projectTypes.map((t) => t.id));
+  const applicableIssueTypes = formData
+    .getAll("applicableIssueTypes")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n) && allowedTypeIds.has(n));
+
   // 選択肢は改行区切りで受ける。型が選択肢を持たないなら無視する
   const itemNames = hasItems(typeId)
     ? String(formData.get("items") ?? "")
@@ -112,7 +124,7 @@ export async function addCustomField(key: string, formData: FormData) {
         name,
         description: description || null,
         required,
-        applicableIssueTypes: [],
+        applicableIssueTypes,
         settings,
         displayOrder: Number(order),
       },
@@ -191,4 +203,48 @@ export async function toggleCustomFieldRequired(key: string, formData: FormData)
     data: { required: !field!.required },
   });
   back(key, `「${field!.name}」を${field!.required ? "任意" : "必須"}にしました`);
+}
+
+
+/**
+ * 有効な課題種別を変える。
+ *
+ * 空で送ると全種別で有効になる（本家と同じ扱い）。
+ * 入力欄を課題種別ごとに出し入れするのは client JS が必要なので、
+ * 定義の一覧にチェックボックスを置いて保存する形にしてある。
+ */
+export async function setCustomFieldIssueTypes(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) back(key, "不正なリクエストです", true);
+
+  const field = await prisma.customField.findUnique({
+    where: { projectId_id: { projectId: project.id, id } },
+  });
+  if (!field) back(key, "カスタム属性が見つかりません", true);
+
+  const projectTypes = await prisma.issueType.findMany({
+    where: { projectId: project.id },
+    select: { id: true },
+  });
+  const allowed = new Set(projectTypes.map((t) => t.id));
+  const applicableIssueTypes = formData
+    .getAll("issueTypeId")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n) && allowed.has(n));
+
+  await prisma.customField.update({
+    where: { projectId_id: { projectId: project.id, id } },
+    data: { applicableIssueTypes },
+  });
+
+  back(
+    key,
+    applicableIssueTypes.length === 0
+      ? `「${field!.name}」を全種別で有効にしました`
+      : `「${field!.name}」の有効な種別を ${applicableIssueTypes.length} 件にしました`,
+  );
 }

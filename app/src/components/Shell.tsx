@@ -76,6 +76,12 @@ export async function Shell({
           {user.userType === "admin" && (
             <>
               <Link
+                href="/users"
+                className="text-sm text-slate-500 hover:text-brand-700"
+              >
+                ユーザー
+              </Link>
+              <Link
                 href="/teams"
                 className="text-sm text-slate-500 hover:text-brand-700"
               >

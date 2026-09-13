@@ -29,6 +29,7 @@ import {
   addCustomField,
   deleteCustomField,
   toggleCustomFieldRequired,
+  setCustomFieldIssueTypes,
 } from "./custom-field-actions";
 import {
   CUSTOM_FIELD_TYPE_LABEL,
@@ -480,6 +481,31 @@ export default async function ProjectSettings({
                       選択肢: {f.items.map((i) => i.name).join(" / ")}
                     </p>
                   )}
+                  {/* 有効な課題種別。チェックを全部外すと全種別で有効（本家と同じ） */}
+                  <form
+                    action={bind(setCustomFieldIssueTypes)}
+                    className="mt-1 flex flex-wrap items-center gap-2 text-xs"
+                  >
+                    <input type="hidden" name="id" value={f.id} />
+                    <span className="text-slate-500">有効な種別</span>
+                    {issueTypes.map((t) => (
+                      <label key={t.id} className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          name="issueTypeId"
+                          value={t.id}
+                          defaultChecked={f.applicableIssueTypes.includes(t.id)}
+                        />
+                        {t.name}
+                      </label>
+                    ))}
+                    <button className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-50">
+                      保存
+                    </button>
+                    <span className="text-slate-400">
+                      {f.applicableIssueTypes.length === 0 ? "（いまは全種別）" : ""}
+                    </span>
+                  </form>
                 </li>
               ))}
             </ul>
