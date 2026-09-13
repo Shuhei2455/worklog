@@ -17,7 +17,9 @@ export const GET = apiRoute<{ projectIdOrKey: string; repoIdOrName: string }>(
 
     return serializeRepository(repo, {
       httpUrl: httpCloneUrl(org, repo.name),
-      sshUrl: sshCloneUrl(org, repo.name),
+      // 本家は常に sshUrl を返すのでキーは残す。
+      // SSH を使えない環境では空文字（決定 D31）
+      sshUrl: sshCloneUrl(org, repo.name) ?? "",
     });
   },
 );

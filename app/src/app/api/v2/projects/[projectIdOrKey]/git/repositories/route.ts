@@ -21,7 +21,9 @@ export const GET = apiRoute<{ projectIdOrKey: string }>(async (_req, ctx, params
   return repos.map((r) =>
     serializeRepository(r, {
       httpUrl: httpCloneUrl(org, r.name),
-      sshUrl: sshCloneUrl(org, r.name),
+      // 本家は常に sshUrl を返すのでキーは残す。
+      // SSH を使えない環境では空文字（決定 D31）
+      sshUrl: sshCloneUrl(org, r.name) ?? "",
     }),
   );
 });

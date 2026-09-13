@@ -365,18 +365,96 @@ Obsidian: `/home/shuhei/obsidian/Projects/backlog-clone/M<N>-<名前>.md`
 
 ---
 
+## 確定した構成（2026-09-14 にユーザーが回答）
+
+| # | 項目 | 回答 | 実装への反映 |
+|---|---|---|---|
+| 1 | 持ち込み経路 | **ファイル共有** | USB不要。`dist/` を共有に置いて展開する |
+| 2 | Docker / Compose v2 | **入っている** | M7 の前提確認は版の確認だけ |
+| 3 | 空き容量 | **ある** | — |
+| 4 | ホスト名 | **IP直打ち** | `APP_HOST` にIP。`default_sni` が必須（後述） |
+| 5 | HTTPS | **する** | `caddy/Caddyfile.prod` を新設。TLSをここで終端 |
+| 6 | メール | **使わない** | `MAIL_ENABLED=false` のまま。M9-b は「使わない」で確定 |
+| 7 | 2222番 | **塞がれている** | Gitea `DISABLE_SSH=true`、ポート非公開、SSHのURLを画面に出さない |
+| 8 | データ | **新規で始める** | M6 の `backup.sh` と M7 の `restore` は不要。`seed` を使う |
+
+この回答により **M9 は実質 9-a（SSE）だけ**になった。
+9-b（メール）と 9-c（SSHポート）は「使わない」で確定しているので、
+確認するのではなく**縮退した状態で正しく動くこと**を見る。
+
+### HTTPS × IP直打ちで踏んだ落とし穴（実機で再現・対処済み）
+
+> [!failure] IPアドレス宛には **SNI が送られない**
+> SNIはホスト名専用とRFCで決まっており、**ブラウザも curl も
+> IPアドレス宛にはSNIを送らない**。SNIが無いと Caddy は出す証明書を選べず、
+> **TLSハンドシェイクの段階で internal error** を返す。
+>
+> 画面には「安全な接続を確立できません」としか出ないので原因が分からない。
+> `openssl s_client -servername <IP>` では通ってしまうため、
+> 「証明書は正しいのにブラウザだけ繋がらない」という形で現れる。
+>
+> 対処: `caddy/Caddyfile.prod` のグローバル設定に `default_sni {$APP_HOST}`。
+> **これが無いと職場で全員が繋がらない。**
+
+> [!warning] 公的なCAはIPアドレスに証明書を出さない
+> 選べるのは2つだけ:
+>
+> | | 設定 | ブラウザの警告 | git clone |
+> |---|---|---|---|
+> | Caddy内蔵のローカルCA | `CADDY_TLS=internal` | **出る** | **失敗する**（要CA配布） |
+> | 社内CA発行 | `CADDY_TLS="/etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key"` | 出ない | 通る |
+>
+> `internal` のままだと `git clone` が
+> `server certificate verification failed` で落ちる（実機で確認）。
+> 各PCにルート証明書を配れば解消するが、**社内CAに発行してもらうのが本筋**。
+>
+> 発行を依頼するときは **subjectAltName にIPを入れてもらう**こと。
+> CNだけの証明書は今のブラウザが受け付けない。
+> （Caddy内蔵CAは正しく `IP Address:` のSANを付ける。実機で確認済み）
+>
+> - [ ] `TODO(要確認)`: 社内CAに**IP宛の証明書**を出してもらえるか。
+>       出してもらえないなら Caddy内蔵CA＋ルート証明書の配布になる
+
+### 実機で確認できたこと（自宅サーバ・HTTPS×IP構成）
+
+本番イメージ `0.8.3` を `https://192.168.3.50:8443` で起動して確認:
+
+| 確認 | 結果 |
+|---|---|
+| 証明書の subjectAltName | `IP Address:192.168.3.50` が入る |
+| SNI無しのHTTPS接続 | `default_sni` 追加後に **200** |
+| 80番からの転送 | **301** → `https://...:8443/`（ポート込みで正しい） |
+| ログイン（Auth.js） | **成功**。`__Host-authjs.csrf-token` / `__Secure-authjs.session-token` |
+| 認証後の8画面 | 全部 **200**（52〜239ms） |
+| **HTTPS の git clone** | **成功**（CAを信頼させた場合） |
+| **HTTPS の git push** | **成功**。リポジトリ側にコミットが入る |
+| SSHのクローンURL | `GIT_SSH_ENABLED=false` で**画面から消える** |
+
+---
+
 ## いま分かっている未確認事項（着手前に潰すもの）
 
 移設を始める前に、ユーザー側で確認が必要なもの。
 **これが埋まらないと M6 や M7 で止まる。**
 
+**上の8項目は 2026-09-14 に全部回答済み**（「確定した構成」を参照）。
+残っているのは次の1つだけ。
+
 | # | 確認すること | 止まるM | なぜ重要か |
 |---|---|---|---|
-| 1 | VMにファイルを持ち込む経路（USB可否・ファイル共有） | M6 | 塞がれていると他が全部無駄になる |
-| 2 | Docker と Compose v2 が入っているか | M7 | 要件はこれだけ。無ければ依頼から |
-| 3 | 空き容量20GB以上 | M7 | 足りないとバックアップが置けない |
-| 4 | `APP_URL` に使うホスト名（DNS登録 or IP） | M7 | `.env` に要る |
-| 5 | HTTPSにするか（社内CAの証明書） | M7 | Caddyfile を変える |
-| 6 | 職場のSMTPリレーの情報 | M9 | 無ければメール通知を使わない |
-| 7 | 2222番が外から届くか | M9 | 塞がれていればHTTPSクローンのみ |
-| 8 | 自宅のデータを持ち込むか、職場で新規に始めるか | M6 | 手順が分岐する |
+| 1 | **社内CAがIPアドレス宛の証明書を出してくれるか**（subjectAltName にIP） | M7 | 出してもらえないなら Caddy内蔵CAになり、**全PCへのルート証明書の配布**と、**開発者のgit設定**が必要になる。作業量が変わる |
+
+出してもらえない場合にやること:
+
+1. `CADDY_TLS=internal` のまま進む
+2. Caddy のルート証明書を取り出して配る
+   ```bash
+   docker compose -f docker-compose.prod.yml exec caddy \
+     cat /data/caddy/pki/authorities/local/root.crt > kadai-root.crt
+   ```
+3. 各PCの証明書ストアに入れてもらう（ブラウザの警告が消える）
+4. Git を使う人は、あわせて次のどちらかが要る
+   ```bash
+   git config --global http.sslCAInfo /path/to/kadai-root.crt
+   # または OS の証明書ストアに入れる
+   ```

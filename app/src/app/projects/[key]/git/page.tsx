@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { can } from "@/lib/permissions";
-import { EmptyState, PageTitle } from "@/components/ui";
+import { EmptyState, Notice, PageTitle } from "@/components/ui";
 import { loadGitContext } from "@/lib/git-view";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 
@@ -12,7 +12,8 @@ export default async function GitRepositories({
   params: Promise<{ key: string }>;
 }) {
   const { key } = await params;
-  const { user, project, ctx, repositories, org } = await loadGitContext(key);
+  const { user, project, ctx, repositories, org, giteaConfigured, giteaReachable } =
+    await loadGitContext(key);
 
   return (
     <Shell
@@ -32,6 +33,22 @@ export default async function GitRepositories({
       }}
     >
       <PageTitle>Gitリポジトリ</PageTitle>
+
+      {/* 移設直後（gitea-setup.sh を流す前）はここに来る。
+          以前は画面全体が 500 になっていた */}
+      {!giteaConfigured && (
+        <Notice tone="warn" className="mt-4">
+          Gitea が設定されていません。<code>GITEA_URL</code> と{" "}
+          <code>GITEA_ADMIN_TOKEN</code> を <code>.env</code> に入れて、
+          <code>scripts/gitea-setup.sh</code> を実行してください。
+        </Notice>
+      )}
+      {giteaConfigured && !giteaReachable && (
+        <Notice tone="warn" className="mt-4">
+          Gitea に繋がりません。クローンURLが正しく出ない場合があります。
+          <code>docker compose logs gitea</code> を確認してください。
+        </Notice>
+      )}
 
       {repositories.length === 0 ? (
         <EmptyState className="mt-4">
@@ -76,10 +93,14 @@ export default async function GitRepositories({
                   <span className="mr-2 font-sans text-slate-400">HTTP</span>
                   {httpCloneUrl(org, r.name)}
                 </div>
-                <div>
-                  <span className="mr-2 font-sans text-slate-400">SSH</span>
-                  {sshCloneUrl(org, r.name)}
-                </div>
+                {/* SSH が使えない環境では出さない。
+                    つながらないURLを見せると利用者が延々悩む（lib/repo.ts） */}
+                {sshCloneUrl(org, r.name) && (
+                  <div>
+                    <span className="mr-2 font-sans text-slate-400">SSH</span>
+                    {sshCloneUrl(org, r.name)}
+                  </div>
+                )}
               </dl>
               {r.pushedAt && (
                 <p className="mt-2 text-xs text-slate-400">

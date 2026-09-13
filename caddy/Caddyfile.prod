@@ -1,0 +1,98 @@
+# 職場VM用。ここでTLSを終端する。
+#
+# 開発用の `Caddyfile`（:80 のみ）とは別ファイルにしてある。
+# 開発機では証明書を持たないので、同じファイルで両方は面倒を見られない。
+#
+# ---- ホスト名ではなくIPアドレスで待ち受ける -------------------------
+#
+# 社内DNSに登録せず**IP直打ち**で使う方針（2026-09-14 にユーザーが決定）。
+# `APP_HOST` に `192.168.x.y` のようなIPを入れる。
+#
+# **公的なCAはIPアドレスに証明書を出さない。** よって選べるのは2つだけ:
+#
+#   CADDY_TLS=internal
+#       Caddy内蔵のローカルCAで自己署名する。設定はこれだけで済むが、
+#       **ブラウザが毎回警告を出す。** 各PCに Caddy のルート証明書を
+#       入れれば消える（/data/caddy/pki/authorities/local/root.crt）
+#
+#   CADDY_TLS="/etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key"
+#       社内CAに発行してもらった証明書を使う。**こちらが本筋。**
+#       社内CAのルートは業務PCに配られているのが普通なので警告が出ない。
+#       発行を依頼するとき **subjectAltName に IP を入れてもらう**こと
+#       （CN だけの証明書は今のブラウザが受け付けない）
+#
+# どちらでも `tls` を明示するので、**ACME（Let's Encrypt）は走らない**。
+# 外部に出られないVMで発行を待って固まることがない。
+
+{
+	# 管理APIは外に出さない
+	admin off
+	# 外部のCAに問い合わせない。オフラインのVMで待ちが入るのを避ける
+	auto_https disable_redirects
+
+	# ---- IPで待ち受けるとき必須 ----------------------------------------
+	# **クライアントはIPアドレス宛にSNIを送らない**（SNIはホスト名専用と
+	# RFCで決まっており、ブラウザも curl も送らない）。
+	# SNI が無いと Caddy はどの証明書を出すか決められず、
+	# **TLSハンドシェイクの段階で internal error を返す**。
+	# 画面には「安全な接続を確立できません」としか出ないので原因が分からない。
+	#
+	# 2026-09-14 に実機で踏んだ。openssl s_client -servername では通るのに
+	# curl とブラウザでは通らない、という形で出る。
+	default_sni {$APP_HOST}
+}
+
+# 80番に来たら https へ送る。IP直打ちだと http:// で開く人が必ずいる。
+# 行き先は APP_URL をそのまま使う。`https://{$APP_HOST}` と書くと
+# 443 以外のポートで動かしたときに存在しないURLへ飛ばしてしまう
+http://{$APP_HOST} {
+	redir {$APP_URL}{uri} permanent
+}
+
+https://{$APP_HOST} {
+	tls {$CADDY_TLS:internal}
+
+	encode gzip
+
+	# Gitea は /git/ 配下にぶら下げる。ユーザーからは1つのアプリに見せる方針。
+	#
+	# handle_path なので /git は剥がして渡す。Gitea 本体はルート配下で
+	# 配信し、ROOT_URL に書いた /git/ は**生成するリンク**にだけ使う。
+	#
+	# ここで 404 が返るときは、まず Gitea がインストール未完了でないかを見る
+	# （未完了だと全リクエストがインストール画面に落ちる）。
+	# プレフィックスの付け外しを疑って直すと、かえって壊れる。
+	handle_path /git/* {
+		reverse_proxy gitea:3000 {
+			# Git over HTTP（clone / push）は本文が大きく、時間もかかる。
+			# SSH(2222)が塞がれているのでこの経路しか無い（ユーザー確認済み）。
+			# 既定のタイムアウトだと大きなリポジトリの clone が途中で切れる
+			transport http {
+				read_timeout 30m
+				write_timeout 30m
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy app:3000 {
+			# Host はCaddyの既定でそのまま透過するので触らない。
+			# {host} で上書きするとポートが落ち、Next.js の Server Actions が
+			# Origin ヘッダ(ポート付き)と突き合わせて "Invalid Server Actions request"
+			# で拒否する。2026-09-12 に実機のログインで発生した。
+			#
+			# X-Forwarded-Host は明示するが、必ずポートを含む hostport を使う。
+			header_up X-Forwarded-Host {http.request.hostport}
+			header_up X-Forwarded-Proto {scheme}
+
+			# Auth.js v5 が内部で作るリダイレクト先は、リクエストのホストではなく
+			# Next のバインドアドレス(0.0.0.0:3000)から組み立てられる。
+			# 戻りの Location からオリジンを剥がして相対パスにする。
+			header_down Location "^https?://0\.0\.0\.0:3000" ""
+
+			# ボードのライブ更新(SSE)を素通しさせる。
+			# 途中でまとめられると更新が届かない
+			flush_interval -1
+		}
+	}
+}

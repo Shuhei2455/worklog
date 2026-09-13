@@ -17,8 +17,29 @@ export function httpCloneUrl(org: string, name: string): string {
   return `${process.env.APP_URL ?? ""}/git/${org}/${name}.git`;
 }
 
-/** クローンURL（SSH）。ポートが既定の22でなければ ssh:// 形式になる */
-export function sshCloneUrl(org: string, name: string): string {
+/**
+ * Git over SSH を使える環境かどうか。
+ *
+ * 職場のVMは **2222番が塞がれている**ため `false` で運用する
+ * （2026-09-14 にユーザーが確認。`docker-compose.prod.yml` でも
+ * Gitea の `DISABLE_SSH=true` にしてある）。
+ *
+ * **使えないSSHのURLを画面に出さないため**に見る。
+ * 出してしまうと、利用者がそれをコピーして延々つながらない所で悩む。
+ */
+export function isSshEnabled(): boolean {
+  // 既定は無効。「設定を忘れたら出ない」側に倒す。
+  // 出るべきものが出ないのはすぐ気づくが、出てはいけないものが出るのは気づかれない
+  return process.env.GIT_SSH_ENABLED === "true";
+}
+
+/**
+ * クローンURL（SSH）。ポートが既定の22でなければ ssh:// 形式になる。
+ *
+ * SSH を使えない環境では `null` を返す。呼び出し側はその行を出さない。
+ */
+export function sshCloneUrl(org: string, name: string): string | null {
+  if (!isSshEnabled()) return null;
   const host = process.env.GITEA_DOMAIN ?? "localhost";
   const port = process.env.GITEA_SSH_PORT ?? "22";
   return port === "22"
