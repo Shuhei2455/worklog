@@ -173,7 +173,6 @@ export default async function Files({
 
       <form
         action={uploadSharedFile.bind(null, key)}
-        encType="multipart/form-data"
         className="mt-4 rounded border border-slate-200 bg-white p-3 text-sm"
       >
         <h2 className="text-sm font-semibold">ファイルを追加</h2>

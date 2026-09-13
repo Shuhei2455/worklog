@@ -220,8 +220,7 @@ export default async function IssueDetail({
             {can(user, "issueAttachment.add", ctx) && (
               <form
                 action={attachFile.bind(null, fullKey)}
-                encType="multipart/form-data"
-                className="mt-3 flex items-center gap-2"
+                      className="mt-3 flex items-center gap-2"
               >
                 <input
                   type="file"
