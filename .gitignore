@@ -5,3 +5,15 @@ dist/
 data/
 *.log
 .DS_Store
+
+# TypeScript のインクリメンタルビルドの記録。環境ごとに変わるので入れない
+*.tsbuildinfo
+
+# TLS証明書と鍵。**絶対にコミットしない**（GitHubで公開される）
+# caddy/certs/ はディレクトリだけ残し、中身は追跡しない
+caddy/certs/*
+!caddy/certs/.gitkeep
+
+# 検証で作った使い捨ての env
+.env.prodtest
+.env.nogitea
