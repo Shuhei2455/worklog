@@ -2,14 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 日本語が主なのでフォントは OS 標準に任せる */
+/* 書体は本家と同じ並びにする（docs/00-spec-verified.md 12.2 で採寸）。
+   tailwind.config.ts の fontFamily.sans と同じものを html にも当てておく。
+   Open Sans は Web フォントを読み込まない（職場VMが外に出られない前提）。
+   入っていなければヒラギノ→Helvetica に落ちる */
 html {
-  font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
-    "Noto Sans JP", sans-serif;
+  font-family: "Open Sans", "Hiragino Sans", ヒラギノ角ゴシック,
+    "Hiragino Kaku Gothic ProN", "ヒラギノ角ゴ ProN W3", "Helvetica Neue",
+    Helvetica, Arial, sans-serif;
+}
+
+body {
+  /* 文字は本家と同じ 13px / 行の高さ 20px（docs/00-spec-verified.md 12.2）。
+     **html ではなく body に当てる。**
+     本家は html を 10px にしているが、こちらは Tailwind の余白が rem 基準なので、
+     root を変えると padding も width も一緒に縮む（h-8 が 32px→26px になった）。
+     root は既定の16pxのままにして、文字サイズだけ body で決める */
+  font-size: 13px;
+  line-height: 20px;
+  background: #f0f0f0;
+  color: #222222;
 }
 
 /* Markdown の描画。prose プラグインは入れず最低限だけ自前で書く */
-.prose-kadai { font-size: 0.875rem; line-height: 1.7; }
+.prose-kadai { font-size: 13px; line-height: 1.7; }
 .prose-kadai h1 { font-size: 1.5rem; font-weight: 700; margin: 1.2em 0 0.5em; }
 .prose-kadai h2 { font-size: 1.25rem; font-weight: 700; margin: 1.1em 0 0.5em;
                   border-bottom: 1px solid #e2e8f0; padding-bottom: 0.2em; }

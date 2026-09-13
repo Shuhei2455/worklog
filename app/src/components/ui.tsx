@@ -22,24 +22,29 @@ type ButtonSize = "md" | "sm" | "xs";
 
 // `whitespace-nowrap shrink-0` が要る。inline-flex は縮むので、狭い枠に入れると
 // 文字が折り返してボタンだけ背が高くなる（/users の「再設定」が48pxになっていた）
+// 本家のボタンは**ピル型**（角丸20px）。ここが見た目のいちばん大きな違いだった
+// （docs/00-spec-verified.md 12.2）
 const BUTTON_BASE =
-  "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-pill transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-brand-700 text-white hover:bg-brand-800",
-  secondary: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+  // 塗りは #2c9a7a（brand-600）。本家は文字色のアクセント(#00836b)と別の値
+  primary: "bg-brand-600 text-white hover:bg-brand-800",
+  // 本家の副ボタンは白背景・枠 #adadad・文字 #222
+  secondary: "border border-control bg-white text-ink hover:bg-slate-50",
   // 消す操作。枠は付けない（一覧の行に並ぶことが多く、枠があると重い）
   danger: "text-red-700 hover:underline",
   // 消す操作のうち、押し間違えると困るもの（状態の削除など）は枠を付ける
   dangerOutline:
-    "border border-slate-300 bg-white text-red-700 enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40",
+    "border border-control bg-white text-red-700 enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40",
   link: "text-brand-700 hover:underline",
 };
 
+// 本家の副ボタンは高さ32px。sm をそれに合わせ、md は目立たせる用に少し大きく
 const BUTTON_SIZE: Record<ButtonSize, string> = {
-  md: "h-9 px-4 text-sm",
-  sm: "h-8 px-3 text-sm",
-  xs: "h-6 px-2 text-xs",
+  md: "h-9 px-5 text-base",
+  sm: "h-8 px-4 text-base",
+  xs: "h-6 px-3 text-sm",
 };
 
 /** 枠を持たない種別は、サイズの余白を付けない方が行に馴染む */
@@ -137,8 +142,8 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-8 rounded border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="mt-8 rounded border border-hairline bg-white">
+      <div className="border-b border-hairline px-4 py-3">
         <h2 className="text-sm font-semibold">{title}</h2>
         {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
       </div>
@@ -156,7 +161,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded border border-slate-200 bg-white ${className}`}>
+    <div className={`rounded border border-hairline bg-white ${className}`}>
       {children}
     </div>
   );
@@ -180,7 +185,7 @@ export function EmptyState({
 }) {
   return (
     <p
-      className={`rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500 ${className}`}
+      className={`rounded border border-hairline bg-white px-3 py-6 text-center text-sm text-slate-500 ${className}`}
     >
       {children}
     </p>
@@ -252,10 +257,10 @@ export function Table({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded border border-hairline bg-white">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
+          <tr className="border-b border-hairline bg-slate-50 text-xs text-slate-500">
             {head.map((h, i) => (
               <th key={i} className="px-3 py-2 text-left font-medium">
                 {h}
@@ -304,7 +309,7 @@ type ToneName = "amber" | "emerald" | "brand" | "slate";
 const TOGGLE_ON: Record<ToneName, string> = {
   amber: "border-amber-300 bg-amber-50 text-amber-800",
   emerald: "border-emerald-300 bg-emerald-50 text-emerald-800",
-  brand: "border-brand-100 bg-brand-50 text-brand-800",
+  brand: "border-brand-600 bg-brand-600 text-white",
   slate: "border-slate-400 bg-slate-100 text-slate-700",
 };
 
@@ -328,7 +333,7 @@ export function ToggleChip({
   tone?: ToneName;
   size?: "sm" | "xs";
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const sizing = size === "xs" ? "h-6 px-2 text-xs" : "h-8 px-3 text-sm";
+  const sizing = size === "xs" ? "h-6 px-3 text-sm" : "h-8 px-4 text-base";
   const state = on
     ? TOGGLE_ON[tone]
     : "border-slate-300 bg-white text-slate-500 hover:bg-slate-50";
@@ -362,13 +367,44 @@ export function PillLink({
   return (
     <Link
       href={href}
-      className={`inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded border px-2 text-xs transition-colors ${
+      className={`inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-pill border px-3 text-sm transition-colors ${
         active
-          ? "border-brand-600 bg-brand-50 text-brand-800"
-          : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+          ? "border-brand-600 bg-brand-600 text-white"
+          : "border-control bg-white text-ink hover:bg-slate-50"
       }`}
     >
       {children}
     </Link>
+  );
+}
+
+
+// ---- 状態のラベル ------------------------------------------------------------
+
+/**
+ * 状態のラベル。
+ *
+ * 本家は**塗りのピル**（白文字・12px・角丸20px・余白 1px 6px）で、
+ * 色は状態ごとに違う（docs/00-spec-verified.md 12.1）。
+ * こちらは「小さい丸＋文字」で描いていたので、本家に合わせた。
+ *
+ * 4色とも白文字を前提に選ばれているため、文字は常に白にする。
+ */
+export function StatusLabel({
+  name,
+  color,
+  className = "",
+}: {
+  name: string;
+  color: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-pill px-[6px] py-px text-sm text-white ${className}`}
+      style={{ background: color }}
+    >
+      {name}
+    </span>
   );
 }

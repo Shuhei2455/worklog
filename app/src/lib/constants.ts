@@ -43,17 +43,26 @@ export const RESOLUTIONS = [
  * - 追加した状態は Open より前、Closed より後には置けない
  *   (docs/00-spec-verified.md 1章)
  *
- * 色は本家の配色を写さず独自に選んだ(決定 D4)。
- * 白背景でコントラスト比 4.5:1 以上になる濃さにしてある。
+ * 色は**本家と同じ値**（決定 D4 を 2026-09-13 に改訂）。
+ * 未対応の `#ed8077` は公式APIドキュメントに記載があり、残り3つは
+ * 本家の画面で `.status--N` の計算済みスタイルを読んで確定した
+ * (docs/00-spec-verified.md 12.1)。
+ *
+ * ラベルは白文字の塗りピルで表示する。4色とも白文字を前提に選ばれているので、
+ * 背景色として使い、文字は白にする（薄い色なので黒文字だと読みにくい）。
+ *
  * displayOrder は 1000 刻み(決定 D5)。本家で判明しているのは Open=1000 のみで、
  * 並べ替え制約は相対比較で足りるため実値を合わせる必要はない。
  */
 export const DEFAULT_STATUSES = [
-  { id: 1, name: "未対応", color: "#6b7280", displayOrder: 1000 },
-  { id: 2, name: "処理中", color: "#1d4ed8", displayOrder: 2000 },
-  { id: 3, name: "処理済み", color: "#0f766e", displayOrder: 3000 },
-  { id: 4, name: "完了", color: "#15803d", displayOrder: 4000 },
+  { id: 1, name: "未対応", color: "#ed8077", displayOrder: 1000 },
+  { id: 2, name: "処理中", color: "#4488c5", displayOrder: 2000 },
+  { id: 3, name: "処理済み", color: "#5eb5a6", displayOrder: 3000 },
+  { id: 4, name: "完了", color: "#a1af2f", displayOrder: 4000 },
 ] as const;
+
+/** 追加した状態の既定色。本家は `#bbbbbb`（12.1） */
+export const DEFAULT_STATUS_COLOR = "#bbbbbb";
 
 /** 「未対応」と「完了」の id。並べ替え制約の判定に使う */
 export const STATUS_ID_OPEN = 1;

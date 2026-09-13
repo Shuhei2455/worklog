@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { currentUser, visibleProjectIds } from "@/lib/session";
 import { STATUS_ID_CLOSED } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
-import { PageTitle } from "@/components/ui";
+import { PageTitle, StatusLabel } from "@/components/ui";
 
 /**
  * ダッシュボード。自分が担当・自分が登録・最近見た課題。
@@ -57,13 +57,7 @@ function IssueList({
                 >
                   {i.summary}
                 </Link>
-                <span className="flex shrink-0 items-center gap-1 text-xs text-slate-500">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: i.status.color }}
-                  />
-                  {i.status.name}
-                </span>
+                <StatusLabel name={i.status.name} color={i.status.color} />
                 {i.dueDate && (
                   <span
                     className={`shrink-0 text-xs ${overdue ? "font-medium text-red-600" : "text-slate-400"}`}

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { currentUser, visibleProjectIds } from "@/lib/session";
 import { searchIssueIds, searchWikis, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
-import { PageTitle, Button } from "@/components/ui";
+import { PageTitle, Button, StatusLabel } from "@/components/ui";
 
 /**
  * 横断検索。
@@ -109,13 +109,7 @@ export default async function Search({
                     >
                       {i.summary}
                     </Link>
-                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                      <span
-                        className="inline-block h-2 w-2 rounded-full"
-                        style={{ background: i.status.color }}
-                      />
-                      {i.status.name}
-                    </span>
+                    <StatusLabel name={i.status.name} color={i.status.color} />
                     <span className="text-xs text-slate-400">{i.project.name}</span>
                   </li>
                 ))}

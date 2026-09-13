@@ -12,7 +12,7 @@ import { PRIORITIES, PRIORITY_LABEL } from "@/lib/constants";
 import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
 import { ProjectNav } from "@/components/ProjectNav";
-import { PageTitle, Button, ButtonLink } from "@/components/ui";
+import { PageTitle, Button, ButtonLink, StatusLabel } from "@/components/ui";
 import { saveFilter } from "./actions";
 
 
@@ -272,13 +272,7 @@ export default async function IssueList({
                 </Link>
               </td>
               <td className="px-3 py-2">
-                <span className="inline-flex items-center gap-1">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: i.status.color }}
-                  />
-                  {i.status.name}
-                </span>
+                <StatusLabel name={i.status.name} color={i.status.color} />
               </td>
               <td className="px-3 py-2 text-slate-600">
                 {i.assignee?.name ?? <span className="text-slate-300">未割り当て</span>}
