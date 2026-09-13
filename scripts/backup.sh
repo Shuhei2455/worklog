@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # データを取り出す。移設のときと、職場での日々のバックアップに使う。
 #
-# 守るべきデータは2つだけ（01-design.md 1.B の設計方針）:
-#   1. PostgreSQL     課題・Wiki・ユーザー・活動履歴のすべて
-#   2. files ボリューム  添付ファイルと共有ファイルの実体
+# 守るべきデータは4つ:
+#   1. PostgreSQL の backlog  課題・Wiki・ユーザー・活動履歴・監査ログ
+#   2. files ボリューム        添付ファイルと共有ファイルの実体
+#   3. PostgreSQL の gitea     リポジトリのメタデータ・Giteaのユーザー
+#   4. giteadata ボリューム    **リポジトリの実体（コード）**と app.ini
+#
+# 3と4は M4 でリポジトリを置き始めたので対象に加えた。
+# **app.ini を含めるのが重要。** SECRET_KEY と INTERNAL_TOKEN が
+# 入っており、これが変わると既存のアクセストークンが無効になる。
 #
 # Redis は通知キューの一時置き場、Meilisearch は検索インデックスなので
 # 取らない。どちらもDBから作り直せる（復元後に再インデックスする）。
-# Gitea のデータは M4 でリポジトリを置き始めてから対象に加える。
 #
 # 使い方:
 #   scripts/backup.sh                                         # 開発スタック
@@ -62,6 +67,34 @@ docker run --rm \
   postgres:16-alpine \
   tar czf /out/files.tar.gz -C /data/files .
 echo "  ${DEST}/files.tar.gz ($(du -h "${DEST}/files.tar.gz" | cut -f1))"
+
+echo "== Gitea のデータベース =="
+# Gitea は同じ postgres の別データベースを使う（docker/postgres-init/）。
+# リポジトリのメタデータとGitea側のユーザーがここにある
+if compose exec -T postgres psql -U "$POSTGRES_USER" -lqt | cut -d'|' -f1 | grep -qw gitea; then
+  compose exec -T postgres pg_dump \
+    -U "$POSTGRES_USER" -d gitea \
+    --clean --if-exists --no-owner --no-privileges \
+    > "${DEST}/gitea.sql"
+  gzip "${DEST}/gitea.sql"
+  echo "  ${DEST}/gitea.sql.gz ($(du -h "${DEST}/gitea.sql.gz" | cut -f1))"
+else
+  echo "  gitea データベースがありません（Gitを使っていない）"
+fi
+
+echo "== Gitea のリポジトリ本体 =="
+# **ここにコードの実体がある。** app.ini も含める（SECRET_KEY が入っている）
+GITEA_CID=$(compose ps -q gitea | head -1)
+if [ -n "$GITEA_CID" ]; then
+  docker run --rm \
+    --volumes-from "$GITEA_CID" \
+    -v "$(cd "$DEST" && pwd):/out" \
+    postgres:16-alpine \
+    tar czf /out/giteadata.tar.gz -C /data .
+  echo "  ${DEST}/giteadata.tar.gz ($(du -h "${DEST}/giteadata.tar.gz" | cut -f1))"
+else
+  echo "  gitea コンテナが起動していないため取得しません"
+fi
 
 echo "== 付属情報 =="
 # どの版のイメージで取ったかを残す。復元時に版違いで詰まるのを防ぐ

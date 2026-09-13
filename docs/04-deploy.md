@@ -65,7 +65,7 @@ scripts/backup.sh
 | `caddy/Caddyfile` | リバースプロキシの設定 |
 | `docker/postgres-init/` | DB初期化SQL（Gitea用DBを作る） |
 | `docker/fix-volume-perms.sh` | ボリュームの所有者直し |
-| `scripts/` | backup / restore / egress-check |
+| `scripts/` | backup / restore / egress-check / gitea-setup |
 | `.env.production.example` | 環境変数のひな形 |
 | `docs/04-deploy.md` | この文書 |
 | （任意）`dist/backup/…` | 自宅のデータ |
@@ -178,6 +178,10 @@ docker compose -f docker-compose.prod.yml logs worker --tail 5
 | 9 | 別のブラウザで同じ課題を開き、片方でコメント | もう片方に即座に出る（SSE） | 職場のプロキシが `text/event-stream` を切っていないか |
 | 10 | 通知欄に件数が出る | 担当・メンションで増える | — |
 | 11 | APIが叩ける | 下の例で課題一覧が返る | — |
+| 12 | Gitのリポジトリを作れる | プロジェクト設定から作成でき、クローンURLが出る | `GITEA_ADMIN_TOKEN`。`scripts/gitea-setup.sh` を流したか |
+| 13 | push すると課題にコメントが付く | `AA-1 修正` のようなコミットで課題に履歴が残る | `GITEA_WEBHOOK_SECRET`。`logs app` に「署名が合わない」が出ていないか |
+| 14 | CSVを取り込める | 確認画面で件数が出て、エラー0なら取り込める | 文字コード。Excelの既定(Shift_JIS)でも読めるはず |
+| 15 | バーンダウンが出る | マイルストーンに開始日と終了日が要る | 期間未設定だと警告が出る |
 
 APIの確認:
 
@@ -223,9 +227,22 @@ docker compose -f docker-compose.prod.yml logs worker --tail 3
 COMPOSE_FILE=docker-compose.prod.yml OUT_DIR=/mnt/backup scripts/backup.sh
 ```
 
-取るのは PostgreSQL と添付ファイルの2つだけ。
+取るのは4つ:
+
+| 対象 | 中身 |
+|---|---|
+| PostgreSQL の `backlog` | 課題・Wiki・ユーザー・活動履歴・監査ログ |
+| `files` ボリューム | 添付ファイルと共有ファイルの実体 |
+| PostgreSQL の `gitea` | リポジトリのメタデータと Gitea のユーザー |
+| `giteadata` ボリューム | **リポジトリの実体（コード）**と `app.ini` |
+
+> [!warning]
+> `app.ini` を外さないこと。`SECRET_KEY` と `INTERNAL_TOKEN` が入っており、
+> これが変わると既存のアクセストークンが無効になる。
+
 Redis（通知キューの一時置き場）と Meilisearch（検索インデックス）は
-DBから作り直せるので取らない。cron に入れるなら1日1回で足りる。
+DBから作り直せるので取らない（復元スクリプトが再インデックスまでやる）。
+cron に入れるなら1日1回で足りる。
 
 > [!warning]
 > `docker compose down -v` は実行しない。ボリュームごとデータが消える。
@@ -347,6 +364,25 @@ docker compose -f docker-compose.prod.yml run --rm set-password admin <新しい
 | `set-password` が「Top-level await is ... cjs」で落ちる | イメージの `/worker` に package.json が無く CJS 扱いだった。`{"type":"module"}` を置いて開発時と揃えた |
 | `restore.sh` が別スタックのボリュームを触る | `fix-volume-perms.sh` の既定のボリューム名が固定だった。展開と所有者直しを同じコンテナでやるように変更 |
 | Gitea の更新確認が切れない書き方だった | セクション名のドットは `_0X2E_`。`_2E_` だと別セクションが生まれて黙って無視される（実測で確認） |
+
+### 2026-09-13（M5完了時）に再確認したこと
+
+M4 でリポジトリを Gitea に置き始め、M5 でカスタム属性・チーム・監査ログが
+増えたので、バックアップと復元をもう一度通した。
+
+- **バックアップの対象に Gitea を追加した。** それまでは `backlog` データベースと
+  添付だけで、**リポジトリの実体が入っていなかった**（M3-e の時点では
+  リポジトリが存在しなかったため）
+- 本番イメージ 0.5.0 をビルドし、検証用ボリュームを消して**空の別環境**を作成。
+  マイグレーション5本が順に当たることを確認
+- 復元後、**16項目の件数が完全一致**:
+  users=2 / projects=2 / issues=22 / activities=53 / wiki=1 / attachments=1 /
+  customFields=3 / cfValues=7 / teams=1 / teamMembers=1 / repos=2 / pulls=1 /
+  commitLinks=4 / auditLogs=3 / giteaUsers=5 / giteaRepos=2
+- 復元先で課題一覧・カスタム属性・チーム・監査ログ・Git・バーンダウンが開き、
+  添付も取り出せた
+- **復元先からリポジトリをクローンできた**（6コミットすべて）。
+  Gitea のパスワードもそのまま通ったので `app.ini` も正しく戻っている
 
 ### まだ確かめていないこと
 

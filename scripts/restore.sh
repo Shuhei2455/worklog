@@ -53,6 +53,31 @@ gunzip -c "${SRC}/postgres.sql.gz" \
   | grep -viE "^(NOTICE|SET|DROP|CREATE|ALTER|COPY|GRANT|REVOKE)" | head -20 | sed 's/^/  /' || true
 echo "  流し込み完了"
 
+if [ -f "${SRC}/gitea.sql.gz" ]; then
+  echo "== Gitea のデータベース =="
+  compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -c \
+    "SELECT 'CREATE DATABASE gitea' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='gitea')\gexec" \
+    >/dev/null 2>&1 || true
+  gunzip -c "${SRC}/gitea.sql.gz" \
+    | compose exec -T postgres psql -U "$POSTGRES_USER" -d gitea -q 2>&1 \
+    | grep -viE "^(NOTICE|SET|DROP|CREATE|ALTER|COPY|GRANT|REVOKE)" | head -10 | sed 's/^/  /' || true
+  echo "  流し込み完了"
+fi
+
+if [ -f "${SRC}/giteadata.tar.gz" ]; then
+  echo "== Gitea のリポジトリ本体 =="
+  # gitea を止めてから入れる。動いている最中に差し替えるとインデックスが壊れる
+  compose stop gitea 2>&1 | sed 's/^/  /'
+  GITEA_CID=$(compose ps -aq gitea | head -1)
+  docker run --rm \
+    --volumes-from "$GITEA_CID" \
+    -v "$(cd "$SRC" && pwd):/in:ro" \
+    postgres:16-alpine \
+    sh -c "rm -rf /data/git /data/gitea && tar xzf /in/giteadata.tar.gz -C /data \
+           && chown -R ${RUN_UID:-1000}:${RUN_GID:-1000} /data"
+  echo "  展開完了（app.ini も戻しました）"
+fi
+
 if [ -f "${SRC}/files.tar.gz" ]; then
   echo "== 添付ファイル =="
   # app は止めているので、ボリュームは別コンテナから書く
@@ -88,3 +113,4 @@ echo "  1. ログインできる"
 echo "  2. 課題が全部見える（件数を移設前と比べる）"
 echo "  3. 添付ファイルが開ける"
 echo "  4. 検索が効く（再インデックス後）"
+echo "  5. Gitのリポジトリが開け、クローンできる"
