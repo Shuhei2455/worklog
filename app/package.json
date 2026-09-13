@@ -15,7 +15,8 @@
     "db:studio": "prisma studio --hostname 0.0.0.0",
     "postinstall": "prisma generate",
     "db:password": "tsx prisma/set-password.ts",
-    "reindex": "tsx src/scripts/reindex.ts"
+    "reindex": "tsx src/scripts/reindex.ts",
+    "demo:seed": "tsx prisma/demo-seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
