@@ -5,7 +5,7 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext, visibleProjectIds } from "@/lib/session";
 import { parseIssueFilter, buildIssueWhere } from "@/lib/issue-filter";
 import { Shell } from "@/components/Shell";
-import { PageTitle, Button } from "@/components/ui";
+import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { saveFilter } from "../issues/actions";
 import { BoardClient, type Card } from "./BoardClient";
 
@@ -142,12 +142,9 @@ export default async function BoardPage({
         <Button variant="secondary">
           絞り込む
         </Button>
-        <Link
-          href={`/projects/${key}/board`}
-          className="h-8 rounded border border-slate-300 px-4 leading-8 hover:bg-slate-50"
-        >
+        <ButtonLink href={`/projects/${key}/board`} variant="secondary">
           クリア
-        </Link>
+        </ButtonLink>
         <p className="w-full text-xs text-slate-500">
           絞り込めるのはこの4つだけです（本家と同じ）。状態は列そのものなので条件になりません。
         </p>

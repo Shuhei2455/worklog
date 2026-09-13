@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
-import { EmptyState, PageTitle, Button } from "@/components/ui";
+import { EmptyState, PageTitle, Button, PillLink } from "@/components/ui";
 import { loadGitContext, PR_STATE_LABEL } from "@/lib/git-view";
 import { syncPullRequests } from "../../actions";
 import { RepoTabs } from "../../RepoTabs";
@@ -80,17 +80,13 @@ export default async function Pulls({
 
       <div className="mt-3 flex items-center gap-2 text-sm">
         {filters.map((f) => (
-          <Link
-            key={f.id}
-            href={`/projects/${key}/git/${encodeURIComponent(name)}/pulls?state=${f.id}`}
-            className={
-              f.id === state
-                ? "rounded bg-brand-700 px-2 py-0.5 text-white"
-                : "rounded px-2 py-0.5 text-slate-600 hover:bg-slate-100"
-            }
-          >
-            {f.label}
-          </Link>
+          <PillLink
+              key={f.id}
+              href={`/projects/${key}/git/${encodeURIComponent(name)}/pulls?state=${f.id}`}
+              active={f.id === state}
+            >
+              {f.label}
+            </PillLink>
         ))}
         <span className="flex-1" />
         {/* webhook は登録後のぶんしか来ない。取り込み直後は過去のPRが無いので、

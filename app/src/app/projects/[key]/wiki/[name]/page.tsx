@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
-import { PageTitle, Button } from "@/components/ui";
+import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 import { deleteWiki } from "../actions";
 
@@ -68,20 +68,14 @@ export default async function WikiPage({
           )}
         </div>
         <div className="flex shrink-0 gap-2 text-sm">
-          <Link
-            href={`/projects/${key}/wiki/${encodeURIComponent(page.name)}/history`}
-            className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50"
-          >
+          <ButtonLink href={`/projects/${key}/wiki/${encodeURIComponent(page.name)}/history`} variant="secondary">
             履歴 ({page._count.revisions})
-          </Link>
+          </ButtonLink>
           {canEdit && (
             <>
-              <Link
-                href={`/projects/${key}/wiki/${encodeURIComponent(page.name)}/edit`}
-                className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50"
-              >
+              <ButtonLink href={`/projects/${key}/wiki/${encodeURIComponent(page.name)}/edit`} variant="secondary">
                 編集
-              </Link>
+              </ButtonLink>
               <form action={deleteWiki.bind(null, key, page.name)}>
                 <Button variant="dangerOutline">
                   削除

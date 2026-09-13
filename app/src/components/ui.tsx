@@ -341,3 +341,34 @@ export function ToggleChip({
     />
   );
 }
+
+
+/**
+ * 選択中を示すピル（リンク版）。
+ *
+ * タイムスケール・グルーピング・タグの絞り込み・PRの状態など、
+ * **URLで切り替える選択肢**に使う。ToggleChip はフォーム送信の
+ * ボタンなので、遷移のこちらとは別にしてある。
+ */
+export function PillLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded border px-2 text-xs transition-colors ${
+        active
+          ? "border-brand-600 bg-brand-50 text-brand-800"
+          : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}

@@ -15,7 +15,7 @@ import {
   type GanttBar,
 } from "@/lib/gantt";
 import { Shell } from "@/components/Shell";
-import { PageTitle, Button } from "@/components/ui";
+import { PageTitle, Button, ButtonLink, PillLink } from "@/components/ui";
 
 /** 帯の色。種類ごとに変えて、なぜそこに出ているか分かるようにする */
 const KIND_STYLE: Record<GanttBar["kind"], { bg: string; label: string }> = {
@@ -277,12 +277,9 @@ export default async function GanttPage({
         <Button variant="secondary">
           適用
         </Button>
-        <Link
-          href={`/projects/${key}/gantt`}
-          className="h-8 rounded border border-slate-300 px-4 leading-8 hover:bg-slate-50"
-        >
+        <ButtonLink href={`/projects/${key}/gantt`} variant="secondary">
           クリア
-        </Link>
+        </ButtonLink>
       </form>
 
       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
@@ -295,40 +292,19 @@ export default async function GanttPage({
             ["quarter", "四半期"],
           ] as const
         ).map(([v, l]) => (
-          <Link
-            key={v}
-            href={link({ scale: v })}
-            className={`rounded border px-2 py-0.5 ${
-              scale === v
-                ? "border-brand-600 bg-brand-50 text-brand-700"
-                : "border-slate-300 hover:bg-slate-50"
-            }`}
-          >
+          <PillLink key={v} href={link({ scale: v })} active={scale === v}>
             {l}
-          </Link>
+          </PillLink>
         ))}
 
         <span className="ml-4 text-slate-500">グルーピング</span>
-        <Link
-          href={link({ groupBy: "" })}
-          className={`rounded border px-2 py-0.5 ${
-            !groupBy ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300 hover:bg-slate-50"
-          }`}
-        >
+        <PillLink href={link({ groupBy: "" })} active={!groupBy}>
           なし
-        </Link>
+        </PillLink>
         {(Object.keys(GANTT_GROUP_LABELS) as GanttGroupBy[]).map((g) => (
-          <Link
-            key={g}
-            href={link({ groupBy: g })}
-            className={`rounded border px-2 py-0.5 ${
-              groupBy === g
-                ? "border-brand-600 bg-brand-50 text-brand-700"
-                : "border-slate-300 hover:bg-slate-50"
-            }`}
-          >
+          <PillLink key={g} href={link({ groupBy: g })} active={groupBy === g}>
             {GANTT_GROUP_LABELS[g]}
-          </Link>
+          </PillLink>
         ))}
       </div>
 

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
-import { PageTitle, Button } from "@/components/ui";
+import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { updateWiki } from "../../actions";
 
 export default async function EditWiki({
@@ -101,12 +101,9 @@ export default async function EditWiki({
           <Button variant="primary" size="md">
             保存
           </Button>
-          <Link
-            href={`/projects/${key}/wiki/${encodeURIComponent(page.name)}`}
-            className="rounded border border-slate-300 px-5 py-2 hover:bg-slate-50"
-          >
+          <ButtonLink href={`/projects/${key}/wiki/${encodeURIComponent(page.name)}`} variant="secondary" size="md">
             キャンセル
-          </Link>
+          </ButtonLink>
         </div>
       </form>
     </Shell>

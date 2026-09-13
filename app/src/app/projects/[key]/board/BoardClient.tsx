@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import {
   DndContext,
   PointerSensor,
@@ -112,12 +113,9 @@ function ColumnView({
           ))}
         </SortableContext>
         {canCreate && (
-          <Link
-            href={`/projects/${projectKey}/issues/new`}
-            className="rounded border border-dashed border-slate-300 py-1.5 text-center text-xs text-slate-500 hover:bg-white"
-          >
+          <ButtonLink href={`/projects/${projectKey}/issues/new`} variant="secondary" className="border-dashed text-center text-slate-500 hover:bg-white">
             課題の追加
-          </Link>
+          </ButtonLink>
         )}
       </ul>
     </div>

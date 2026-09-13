@@ -11,7 +11,7 @@ import {
 import { PRIORITIES, PRIORITY_LABEL } from "@/lib/constants";
 import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
-import { PageTitle, Button } from "@/components/ui";
+import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { saveFilter } from "./actions";
 
 
@@ -156,12 +156,9 @@ export default async function IssueList({
           </Link>
         )}
         {can(user, "issue.create", ctx) && (
-          <Link
-            href={`/projects/${key}/issues/new`}
-            className="rounded bg-brand-700 px-4 py-1.5 text-sm text-white hover:bg-brand-800"
-          >
+          <ButtonLink href={`/projects/${key}/issues/new`} variant="primary">
             課題を追加
-          </Link>
+          </ButtonLink>
         )}
         </div>
       </div>
@@ -230,12 +227,9 @@ export default async function IssueList({
         <Button variant="secondary">
           絞り込む
         </Button>
-        <Link
-          href={`/projects/${key}/issues`}
-          className="h-8 rounded border border-slate-300 px-4 leading-8 hover:bg-slate-50"
-        >
+        <ButtonLink href={`/projects/${key}/issues`} variant="secondary">
           クリア
-        </Link>
+        </ButtonLink>
       </form>
 
       {/* 条件はURLクエリなので、保存＝そのクエリを名前付きで覚えるだけ */}
@@ -335,23 +329,17 @@ export default async function IssueList({
       {pages > 1 && (
         <div className="mt-4 flex items-center gap-2 text-sm">
           {page > 1 && (
-            <Link
-              href={qs({ offset: filter.offset - filter.count })}
-              className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50"
-            >
+            <ButtonLink href={qs({ offset: filter.offset - filter.count })} variant="secondary">
               前へ
-            </Link>
+            </ButtonLink>
           )}
           <span className="text-slate-500">
             {page} / {pages}
           </span>
           {page < pages && (
-            <Link
-              href={qs({ offset: filter.offset + filter.count })}
-              className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50"
-            >
+            <ButtonLink href={qs({ offset: filter.offset + filter.count })} variant="secondary">
               次へ
-            </Link>
+            </ButtonLink>
           )}
         </div>
       )}

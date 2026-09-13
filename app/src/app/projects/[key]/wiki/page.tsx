@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
-import { PageTitle } from "@/components/ui";
+import { PageTitle, ButtonLink, PillLink } from "@/components/ui";
 
 export default async function WikiList({
   params,
@@ -72,38 +72,22 @@ export default async function WikiList({
       <div className="flex items-center justify-between">
         <PageTitle>Wiki</PageTitle>
         {can(user, "wiki.edit", ctx) && (
-          <Link
-            href={`/projects/${key}/wiki/new`}
-            className="rounded bg-brand-700 px-4 py-1.5 text-sm text-white hover:bg-brand-800"
-          >
+          <ButtonLink href={`/projects/${key}/wiki/new`} variant="primary">
             ページを追加
-          </Link>
+          </ButtonLink>
         )}
       </div>
 
       {allTags.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
           <span className="text-slate-500">タグ</span>
-          <Link
-            href={`/projects/${key}/wiki`}
-            className={`rounded border px-2 py-0.5 ${
-              !tag ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-300"
-            }`}
-          >
+          <PillLink href={`/projects/${key}/wiki`} active={!tag}>
             すべて
-          </Link>
+          </PillLink>
           {allTags.map((t) => (
-            <Link
-              key={t.tag}
-              href={`/projects/${key}/wiki?tag=${encodeURIComponent(t.tag)}`}
-              className={`rounded border px-2 py-0.5 ${
-                tag === t.tag
-                  ? "border-brand-600 bg-brand-50 text-brand-700"
-                  : "border-slate-300 hover:bg-slate-50"
-              }`}
-            >
+            <PillLink key={t.tag} href={`/projects/${key}/wiki?tag=${encodeURIComponent(t.tag)}`} active={tag === t.tag}>
               {t.tag}
-            </Link>
+            </PillLink>
           ))}
         </div>
       )}
