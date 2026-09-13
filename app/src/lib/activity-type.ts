@@ -52,6 +52,34 @@ export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {
 };
 
 /**
+ * 画面に出す英語。
+ *
+ * 状態や優先度と同じ扱い（i18n.ts の `masterName()` を参照）。
+ * 辞書ではなくマスタ側に英語名を持たせるのは、
+ * 種別を足したときに**両方書かないと型が通らない**ようにするため。
+ */
+export const ACTIVITY_TYPE_LABEL_EN: Record<ActivityType, string> = {
+  issue_created: "Issue created",
+  issue_updated: "Issue updated",
+  comment: "Comment added",
+  issue_deleted: "Issue deleted",
+  wiki_created: "Wiki page created",
+  wiki_updated: "Wiki page updated",
+  wiki_deleted: "Wiki page deleted",
+  file_added: "File added",
+  file_updated: "File updated",
+  git_push: "Git push",
+  pull_request_created: "Pull request created",
+  pull_request_updated: "Pull request updated",
+  project_user_added: "Member added",
+  project_user_removed: "Member removed",
+};
+
+export function activityTypeLabel(locale: "ja" | "en", type: ActivityType): string {
+  return locale === "en" ? ACTIVITY_TYPE_LABEL_EN[type] : ACTIVITY_TYPE_LABEL[type];
+}
+
+/**
  * 内部の通知理由 → 本家の reason（整数）。
  *
  * **意味が一致しない。** 本アプリの reason は「なぜ自分に通知が来たか」、

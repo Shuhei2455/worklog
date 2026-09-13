@@ -8,6 +8,8 @@ import { can } from "@/lib/permissions";
 import { currentUser, visibleProjectIds } from "@/lib/session";
 import { Shell } from "@/components/Shell";
 import { PageTitle, Button } from "@/components/ui";
+import { loadProjectProgress } from "@/lib/project-progress";
+import { ProgressBar, ProgressBreakdown, ProgressPercent } from "@/components/ProgressBar";
 
 export default async function Home({
   searchParams,
@@ -25,6 +27,9 @@ export default async function Home({
     orderBy: { key: "asc" },
     include: { _count: { select: { members: true } } },
   });
+
+  // 進捗はまとめて1回で取る（プロジェクトごとに引くとN+1になる）
+  const progress = await loadProjectProgress(projects.map((p) => p.id));
 
   const canCreate = can(user, "project.create");
 
@@ -69,30 +74,43 @@ export default async function Home({
           参加しているプロジェクトはありません。
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-slate-200 rounded border border-slate-200 bg-white">
-          {projects.map((p) => (
-            <li key={p.id} className="flex items-center gap-4 px-4 py-3">
-              <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">
-                {p.key}
-              </span>
-              <span className="flex-1">{p.name}</span>
-              <span className="text-xs text-slate-500">
-                参加 {p._count.members} 人
-              </span>
-              <Link
-                href={`/projects/${p.key}/issues`}
-                className="text-sm text-brand-700 hover:underline"
-              >
-                課題
-              </Link>
-              <Link
-                href={`/projects/${p.key}/settings`}
-                className="text-sm text-slate-500 hover:underline"
-              >
-                設定
-              </Link>
-            </li>
-          ))}
+        <ul className="mt-4 divide-y divide-slate-200 rounded border border-slate-200 bg-white">
+          {projects.map((p) => {
+            const prog = progress.get(p.id)!;
+            return (
+              <li key={p.id} className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-600">
+                    {p.key}
+                  </span>
+                  <Link
+                    href={`/projects/${p.key}/issues`}
+                    className="min-w-0 flex-1 truncate font-medium text-brand-700 hover:underline"
+                  >
+                    {p.name}
+                  </Link>
+                  <span className="text-sm text-slate-500">{p._count.members} 人</span>
+                  <Link
+                    href={`/projects/${p.key}/settings`}
+                    className="text-sm text-slate-500 hover:underline"
+                  >
+                    設定
+                  </Link>
+                </div>
+
+                {/* 進捗（本家には無い機能。決定 D29） */}
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <ProgressBar progress={prog} locale={user.locale} />
+                  </div>
+                  <ProgressPercent progress={prog} />
+                </div>
+                <div className="mt-1">
+                  <ProgressBreakdown progress={prog} locale={user.locale} />
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
