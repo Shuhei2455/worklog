@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
+import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext, commitTitle } from "@/lib/git-view";
 import { listContents, readFile, listCommits } from "@/lib/gitea";
 import { RepoTabs } from "../RepoTabs";
@@ -48,7 +49,7 @@ export default async function RepoTree({
       ]}
     >
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold">{name}</h1>
+        <PageTitle>{name}</PageTitle>
         <span className="font-mono text-xs text-slate-500">{ref}</span>
       </div>
 
@@ -58,7 +59,7 @@ export default async function RepoTree({
         <p className="mt-3 rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           <Link
             href={`/projects/${key}/git/${encodeURIComponent(name)}/commits/${latest.sha}`}
-            className="font-mono text-sky-700 hover:underline"
+            className="font-mono text-brand-700 hover:underline"
           >
             {latest.sha.slice(0, 7)}
           </Link>
@@ -71,7 +72,7 @@ export default async function RepoTree({
 
       {/* パンくず（リポジトリ内） */}
       <nav className="mt-4 flex flex-wrap items-center gap-1 text-sm">
-        <Link href={href("")} className="text-sky-700 hover:underline">
+        <Link href={href("")} className="text-brand-700 hover:underline">
           {name}
         </Link>
         {crumbs.map((c, i) => (
@@ -82,7 +83,7 @@ export default async function RepoTree({
             ) : (
               <Link
                 href={href(crumbs.slice(0, i + 1).join("/"))}
-                className="text-sky-700 hover:underline"
+                className="text-brand-700 hover:underline"
               >
                 {c}
               </Link>
@@ -99,16 +100,16 @@ export default async function RepoTree({
           size={file.size}
         />
       ) : entries.length === 0 ? (
-        <p className="mt-4 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
+        <EmptyState className="mt-4">
           ファイルがありません（まだ push されていないか、空のブランチです）
-        </p>
+        </EmptyState>
       ) : (
         <ul className="mt-3 divide-y divide-slate-100 rounded border border-slate-200 bg-white">
           {path && (
             <li className="px-3 py-2 text-sm">
               <Link
                 href={href(path.split("/").slice(0, -1).join("/"))}
-                className="text-sky-700 hover:underline"
+                className="text-brand-700 hover:underline"
               >
                 ..
               </Link>
@@ -121,7 +122,7 @@ export default async function RepoTree({
             .map((e) => (
               <li key={e.path} className="flex items-center gap-2 px-3 py-2 text-sm">
                 <span className="w-4 text-slate-400">{e.type === "dir" ? "▸" : "·"}</span>
-                <Link href={href(e.path)} className="flex-1 text-sky-700 hover:underline">
+                <Link href={href(e.path)} className="flex-1 text-brand-700 hover:underline">
                   {e.name}
                 </Link>
                 {e.type === "file" && (
@@ -149,9 +150,9 @@ function FileView({
 }) {
   if (encoding !== "base64") {
     return (
-      <p className="mt-4 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
-        このファイルは表示できません（{encoding}）
-      </p>
+      <EmptyState className="mt-4">
+          このファイルは表示できません（{encoding}）
+        </EmptyState>
     );
   }
 
@@ -160,9 +161,9 @@ function FileView({
   const isBinary = buf.subarray(0, 8000).includes(0);
   if (isBinary) {
     return (
-      <p className="mt-4 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
-        バイナリファイル（{size} B）
-      </p>
+      <EmptyState className="mt-4">
+          バイナリファイル（{size} B）
+        </EmptyState>
     );
   }
 

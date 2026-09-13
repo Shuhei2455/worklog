@@ -10,6 +10,7 @@ import {
 } from "@/lib/issue-view";
 import { PRIORITIES, PRIORITY_LABEL, RESOLUTIONS } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button, ToggleChip } from "@/components/ui";
 import { CustomFieldInputs, CustomFieldValues } from "@/components/CustomFieldInputs";
 import { loadFieldDefs, applicableTo } from "@/lib/custom-field-form";
 import {
@@ -156,36 +157,23 @@ export default async function IssueDetail({
         </span>
         <div className="flex-1">
           <p className="font-mono text-xs text-slate-500">{fullKey}</p>
-          <h1 className="text-xl font-semibold">{issue.summary}</h1>
+          <PageTitle>{issue.summary}</PageTitle>
         </div>
         <form action={toggleStar.bind(null, fullKey)}>
-          <button
-            className={`rounded border px-3 py-1 text-sm ${
-              myStar
-                ? "border-amber-300 bg-amber-50 text-amber-700"
-                : "border-slate-300 hover:bg-slate-50"
-            }`}
-            title="スター"
-          >
+          <ToggleChip on={Boolean(myStar)} tone="amber" title="スター">
             ★ {starCount}
-          </button>
+          </ToggleChip>
         </form>
         <form action={toggleWatching.bind(null, fullKey)}>
-          <button
-            className={`rounded border px-3 py-1 text-sm ${
-              watching
-                ? "border-brand-300 bg-brand-50 text-brand-700"
-                : "border-slate-300 hover:bg-slate-50"
-            }`}
-          >
+          <ToggleChip on={Boolean(watching)} tone="brand">
             {watching ? "ウォッチ中" : "ウォッチ"}
-          </button>
+          </ToggleChip>
         </form>
         {canDelete && (
           <form action={removeIssue.bind(null, fullKey)}>
-            <button className="rounded border border-slate-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50">
+            <Button variant="dangerOutline">
               削除
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -220,9 +208,9 @@ export default async function IssueDetail({
                     {can(user, "issueAttachment.delete", ctx) && (
                       <form action={detachFile.bind(null, fullKey)}>
                         <input type="hidden" name="attachmentId" value={a.attachmentId} />
-                        <button className="text-xs text-red-700 hover:underline">
+                        <Button variant="danger" size="xs">
                           削除
-                        </button>
+                        </Button>
                       </form>
                     )}
                   </li>
@@ -241,9 +229,9 @@ export default async function IssueDetail({
                   required
                   className="text-xs file:mr-2 file:rounded file:border file:border-slate-300 file:bg-white file:px-2 file:py-1 file:text-xs"
                 />
-                <button className="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">
+                <Button variant="secondary">
                   添付
-                </button>
+                </Button>
               </form>
             )}
           </div>
@@ -315,9 +303,9 @@ export default async function IssueDetail({
                       </a>
                       <form action={unlinkSharedFileFromIssue.bind(null, fullKey)}>
                         <input type="hidden" name="sharedFileId" value={l.sharedFileId} />
-                        <button className="text-xs text-red-700 hover:underline">
+                        <Button variant="danger" size="xs">
                           外す
-                        </button>
+                        </Button>
                       </form>
                     </li>
                   ))}
@@ -339,9 +327,9 @@ export default async function IssueDetail({
                       </option>
                     ))}
                   </select>
-                  <button className="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">
+                  <Button variant="secondary">
                     リンク
-                  </button>
+                  </Button>
                 </form>
               )}
             </div>
@@ -443,9 +431,9 @@ export default async function IssueDetail({
                     </select>
                   </label>
                 )}
-                <button className="ml-auto rounded bg-brand-700 px-4 py-1.5 text-white hover:bg-brand-800">
+                <Button variant="primary" className="ml-auto">
                   {canEdit ? "更新" : "コメントする"}
-                </button>
+                </Button>
               </div>
               {canEdit && (
                 <p className="mt-2 text-xs text-slate-500">
@@ -489,9 +477,9 @@ export default async function IssueDetail({
             {canEdit ? (
               <form action={editIssue.bind(null, fullKey)} className="space-y-2">
                 <CustomFieldInputs fields={activeFields} values={fieldValues} />
-                <button className="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">
+                <Button variant="secondary">
                   保存
-                </button>
+                </Button>
               </form>
             ) : (
               <dl>
@@ -524,9 +512,9 @@ export default async function IssueDetail({
                     }
                     className="w-24 rounded border border-slate-300 px-1.5 py-1 font-mono text-xs"
                   />
-                  <button className="rounded border border-slate-300 px-2 text-xs hover:bg-slate-50">
+                  <Button variant="secondary" size="xs">
                     設定
-                  </button>
+                  </Button>
                 </form>
               )}
               {canEdit && (
@@ -560,7 +548,7 @@ export default async function IssueDetail({
                           name="relatedIssueId"
                           value={r.relatedIssueId}
                         />
-                        <button className="text-red-700 hover:underline">外す</button>
+                        <Button variant="danger">外す</Button>
                       </form>
                     )}
                   </li>
@@ -574,9 +562,9 @@ export default async function IssueDetail({
                   placeholder={`${project.key}-2`}
                   className="w-24 rounded border border-slate-300 px-1.5 py-1 font-mono text-xs"
                 />
-                <button className="rounded border border-slate-300 px-2 text-xs hover:bg-slate-50">
+                <Button variant="secondary" size="xs">
                   追加
-                </button>
+                </Button>
               </form>
             )}
           </div>
@@ -613,9 +601,9 @@ export default async function IssueDetail({
                 placeholder="なぜ見ているか"
                 className="mt-1 w-full rounded border border-slate-300 px-1.5 py-1 text-xs"
               />
-              <button className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">
+              <Button variant="secondary" size="xs" className="mt-1 w-full">
                 メモを保存
-              </button>
+              </Button>
             </form>
           )}
 

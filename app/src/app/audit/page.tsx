@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { EmptyState, PageTitle, Button } from "@/components/ui";
 import { AUDIT_ACTIONS, auditLabel } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 
@@ -63,11 +64,8 @@ export default async function Audit({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "監査ログ" }]}>
-      <h1 className="text-xl font-semibold">監査ログ</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        権限の変更・削除・APIキーの発行など、<strong>管理操作</strong>の記録です。
-        課題やWikiの中身の変化は各画面の「コメントと変更履歴」にあります。
-      </p>
+      <PageTitle note={<>権限の変更・削除・APIキーの発行など、<strong>管理操作</strong>の記録です。
+        課題やWikiの中身の変化は各画面の「コメントと変更履歴」にあります。</>}>監査ログ</PageTitle>
 
       <form className="mt-4 flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-white p-3 text-sm">
         <label>
@@ -100,9 +98,9 @@ export default async function Audit({
             ))}
           </select>
         </label>
-        <button className="h-8 rounded border border-slate-300 px-3 hover:bg-slate-50">
+        <Button variant="secondary">
           絞り込む
-        </button>
+        </Button>
         {(sp.action || sp.userId) && (
           <Link href="/audit" className="text-xs text-slate-500 hover:underline">
             クリア
@@ -116,9 +114,9 @@ export default async function Audit({
       </p>
 
       {logs.length === 0 ? (
-        <p className="mt-3 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
+        <EmptyState className="mt-4">
           記録がありません
-        </p>
+        </EmptyState>
       ) : (
         <div className="mt-3 overflow-x-auto rounded border border-slate-200 bg-white">
           <table className="w-full text-sm">

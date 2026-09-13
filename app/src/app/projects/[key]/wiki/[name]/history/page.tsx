@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle } from "@/components/ui";
 
 const jst = (d: Date) =>
   d.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });
@@ -54,7 +55,7 @@ export default async function WikiHistory({
         { label: "履歴" },
       ]}
     >
-      <h1 className="text-xl font-semibold">{page.name} の履歴</h1>
+      <PageTitle>{page.name} の履歴</PageTitle>
 
       <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
         <ul className="divide-y divide-slate-100 rounded border border-slate-200 bg-white text-sm">

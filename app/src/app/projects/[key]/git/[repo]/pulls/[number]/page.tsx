@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 import { loadGitContext, PR_STATE_LABEL } from "@/lib/git-view";
 import { linkPullRequestIssue } from "../../../actions";
@@ -58,9 +59,9 @@ export default async function PullDetail({
       ]}
     >
       <div className="flex items-baseline gap-3">
-        <h1 className="text-xl font-semibold">
+        <PageTitle>
           #{pr.giteaPrNumber} {pr.title}
-        </h1>
+        </PageTitle>
         <span
           className={`rounded px-2 py-0.5 text-xs ${
             pr.state === "merged"
@@ -107,7 +108,7 @@ export default async function PullDetail({
               <p className="mt-1">
                 <Link
                   href={`/issues/${project.key}-${pr.issue.keyId}`}
-                  className="font-mono text-sky-700 hover:underline"
+                  className="font-mono text-brand-700 hover:underline"
                 >
                   {project.key}-{pr.issue.keyId}
                 </Link>
@@ -125,9 +126,9 @@ export default async function PullDetail({
                   placeholder={`${project.key}-1`}
                   className="w-28 rounded border border-slate-300 px-2 py-1 font-mono text-xs"
                 />
-                <button className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">
+                <Button variant="secondary" size="xs">
                   付け替え
-                </button>
+                </Button>
               </form>
             )}
           </div>
@@ -136,7 +137,7 @@ export default async function PullDetail({
             href={giteaUrl}
             target="_blank"
             rel="noreferrer"
-            className="block rounded border border-slate-300 px-3 py-2 text-center text-sm text-sky-700 hover:bg-slate-50"
+            className="block rounded border border-slate-300 px-3 py-2 text-center text-sm text-brand-700 hover:bg-slate-50"
           >
             Gitea で開く（レビュー・マージ）
           </a>

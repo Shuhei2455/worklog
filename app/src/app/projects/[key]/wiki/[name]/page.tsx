@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 import { deleteWiki } from "../actions";
 
@@ -48,7 +49,7 @@ export default async function WikiPage({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">{page.name}</h1>
+          <PageTitle>{page.name}</PageTitle>
           <p className="mt-1 text-xs text-slate-500">
             v{page.revision} / 最終更新 {page.updater.name} {jst(page.updatedAt)}
           </p>
@@ -82,9 +83,9 @@ export default async function WikiPage({
                 編集
               </Link>
               <form action={deleteWiki.bind(null, key, page.name)}>
-                <button className="rounded border border-slate-300 px-3 py-1 text-red-700 hover:bg-red-50">
+                <Button variant="dangerOutline">
                   削除
-                </button>
+                </Button>
               </form>
             </>
           )}

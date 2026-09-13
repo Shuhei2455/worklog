@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle } from "@/components/ui";
 
 export default async function WikiList({
   params,
@@ -24,7 +25,7 @@ export default async function WikiList({
   if (!project.wikiEnabled) {
     return (
       <Shell user={user} breadcrumbs={[{ label: project.name }, { label: "Wiki" }]}>
-        <h1 className="text-xl font-semibold">Wiki</h1>
+        <PageTitle>Wiki</PageTitle>
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           このプロジェクトは「Wikiを使用する」が無効です。
           <Link href={`/projects/${key}/settings`} className="ml-2 underline">
@@ -69,7 +70,7 @@ export default async function WikiList({
       ]}
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Wiki</h1>
+        <PageTitle>Wiki</PageTitle>
         {can(user, "wiki.edit", ctx) && (
           <Link
             href={`/projects/${key}/wiki/new`}

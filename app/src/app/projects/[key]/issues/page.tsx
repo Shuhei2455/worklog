@@ -11,6 +11,7 @@ import {
 import { PRIORITIES, PRIORITY_LABEL } from "@/lib/constants";
 import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { saveFilter } from "./actions";
 
 
@@ -88,7 +89,7 @@ export default async function IssueList({
       ]}
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">課題</h1>
+        <PageTitle>課題</PageTitle>
         <div className="flex items-center gap-3">
         {/* 制限のあるユーザーは共有ファイルを閲覧すらできないので、
             リンク自体を出さない(押しても404になるだけ) */}
@@ -226,9 +227,9 @@ export default async function IssueList({
             ))}
           </select>
         </label>
-        <button className="h-8 rounded border border-slate-300 px-4 hover:bg-slate-50">
+        <Button variant="secondary">
           絞り込む
-        </button>
+        </Button>
         <Link
           href={`/projects/${key}/issues`}
           className="h-8 rounded border border-slate-300 px-4 leading-8 hover:bg-slate-50"
@@ -257,9 +258,9 @@ export default async function IssueList({
           placeholder="この条件に名前を付けて保存"
           className="w-56 rounded border border-slate-300 px-2 py-1"
         />
-        <button className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">
+        <Button variant="secondary">
           保存
-        </button>
+        </Button>
       </form>
 
       <p className="mt-4 text-xs text-slate-500">

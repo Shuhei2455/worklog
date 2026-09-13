@@ -5,6 +5,7 @@ import { describeChanges } from "@/lib/describe-changes";
 import { changeLookupsFor } from "@/lib/issue-view";
 import { renderMentions } from "@/lib/mention";
 import { Shell } from "@/components/Shell";
+import { Button } from "@/components/ui";
 import { markAsRead, markAllAsRead } from "./actions";
 
 const REASON_LABEL: Record<string, string> = {
@@ -89,9 +90,9 @@ export default async function Notifications({
           </Link>
           {unread > 0 && (
             <form action={markAllAsRead}>
-              <button className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">
+              <Button variant="secondary">
                 すべて既読にする
-              </button>
+              </Button>
             </form>
           )}
         </div>
@@ -128,9 +129,9 @@ export default async function Notifications({
                   {!n.readAt && (
                     <form action={markAsRead} className="ml-auto">
                       <input type="hidden" name="id" value={n.id} />
-                      <button className="text-xs text-brand-700 hover:underline">
+                      <Button variant="link" size="xs">
                         既読にする
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </div>

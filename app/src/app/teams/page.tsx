@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { ActionResult, EmptyState, PageTitle, Button } from "@/components/ui";
 import {
   createTeam,
   renameTeam,
@@ -45,23 +46,11 @@ export default async function Teams({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "チーム" }]}>
-      <h1 className="text-xl font-semibold">チーム</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        ユーザーをまとめる単位です。プロジェクトにチーム単位で追加でき、課題の
+      <PageTitle note={<>ユーザーをまとめる単位です。プロジェクトにチーム単位で追加でき、課題の
         「お知らせ」先にも指定できます。本文では <code>{"<@T{id}>"}</code>{" "}
-        でメンションします。
-      </p>
+        でメンションします。</>}>チーム</PageTitle>
 
-      {sp.ok && (
-        <p className="mt-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {sp.ok}
-        </p>
-      )}
-      {sp.error && (
-        <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {sp.error}
-        </p>
-      )}
+      <ActionResult ok={sp.ok} error={sp.error} />
 
       <form action={createTeam} className="mt-4 flex items-end gap-2">
         <label className="text-sm">
@@ -73,15 +62,15 @@ export default async function Teams({
             className="mt-1 rounded border border-slate-300 px-2 py-1"
           />
         </label>
-        <button className="h-8 rounded bg-brand-700 px-4 text-sm text-white hover:bg-brand-800">
+        <Button variant="primary">
           作成
-        </button>
+        </Button>
       </form>
 
       {teams.length === 0 ? (
-        <p className="mt-6 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
+        <EmptyState className="mt-4">
           チームがありません
-        </p>
+        </EmptyState>
       ) : (
         <ul className="mt-6 space-y-4">
           {teams.map((t) => (
@@ -94,9 +83,9 @@ export default async function Teams({
                     defaultValue={t.name}
                     className="rounded border border-slate-300 px-2 py-1 text-sm font-medium"
                   />
-                  <button className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">
+                  <Button variant="secondary" size="xs">
                     名前を変更
-                  </button>
+                  </Button>
                 </form>
                 <span className="font-mono text-xs text-slate-400">
                   {"<@T" + t.id + ">"}
@@ -107,7 +96,7 @@ export default async function Teams({
                 <span className="flex-1" />
                 <form action={deleteTeam}>
                   <input type="hidden" name="id" value={t.id} />
-                  <button className="text-xs text-red-700 hover:underline">削除</button>
+                  <Button variant="danger" size="xs">削除</Button>
                 </form>
               </div>
 
@@ -122,7 +111,7 @@ export default async function Teams({
                       <form action={removeTeamMember}>
                         <input type="hidden" name="teamId" value={t.id} />
                         <input type="hidden" name="userId" value={m.userId} />
-                        <button className="text-red-700 hover:underline">×</button>
+                        <Button variant="danger" size="xs" title="チームから外す">×</Button>
                       </form>
                     </li>
                   ))}
@@ -148,9 +137,9 @@ export default async function Teams({
                     ))}
                   </datalist>
                 </label>
-                <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+                <Button variant="secondary">
                   追加
-                </button>
+                </Button>
               </form>
             </li>
           ))}

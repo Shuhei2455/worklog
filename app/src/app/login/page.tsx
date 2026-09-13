@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import { signIn, auth } from "@/auth";
 import { AuthError } from "next-auth";
+import { Button, Notice, Field, inputClass } from "@/components/ui";
+import { LOGIN_LIMIT } from "@/lib/login-attempts";
 
 /**
  * ログイン画面。
  *
- * 意匠は本家を模倣しない(CLAUDE.md)。UIライブラリ(Tailwind + shadcn/ui)は
- * M0-d で入れるので、ここでは素のスタイルにしてある。
+ * 意匠は本家を模倣しない(CLAUDE.md)。
+ *
+ * M0 の時点では Tailwind を入れる前だったのでインラインスタイルで書いていたが、
+ * **アプリで最初に見る画面が他と別物**になっていたので、他と同じ部品に揃えた。
  */
 export default async function LoginPage({
   searchParams,
@@ -36,82 +40,47 @@ export default async function LoginPage({
   }
 
   return (
-    <main
-      style={{
-        fontFamily: "system-ui, sans-serif",
-        display: "flex",
-        justifyContent: "center",
-        paddingTop: 80,
-      }}
-    >
-      <form action={login} style={{ width: 320 }}>
-        <h1 style={{ fontSize: 24, marginBottom: 24 }}>Kadai</h1>
+    <main className="flex min-h-screen justify-center bg-slate-50 px-4 pt-20">
+      <form action={login} className="w-full max-w-xs">
+        <h1 className="text-2xl font-semibold text-slate-800">Kadai</h1>
+        <p className="mt-1 text-sm text-slate-500">プロジェクト管理</p>
 
         {error && (
-          <p
-            style={{
-              background: "#fdecea",
-              color: "#b3261e",
-              padding: "8px 12px",
-              borderRadius: 6,
-              fontSize: 14,
-            }}
-          >
+          <Notice tone="error" className="mt-6">
             ログインIDまたはパスワードが違います
-          </p>
+          </Notice>
         )}
 
-        <label style={{ display: "block", marginTop: 16, fontSize: 14 }}>
-          ログインID
-          <input
-            name="userId"
-            required
-            autoComplete="username"
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: 4,
-              padding: 8,
-              border: "1px solid #ccc",
-              borderRadius: 6,
-            }}
-          />
-        </label>
+        <div className="mt-6 space-y-4 rounded border border-slate-200 bg-white p-5">
+          <Field label="ログインID">
+            <input
+              name="userId"
+              required
+              autoComplete="username"
+              autoFocus
+              className={inputClass}
+            />
+          </Field>
 
-        <label style={{ display: "block", marginTop: 16, fontSize: 14 }}>
-          パスワード
-          <input
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: 4,
-              padding: 8,
-              border: "1px solid #ccc",
-              borderRadius: 6,
-            }}
-          />
-        </label>
+          <Field label="パスワード">
+            <input
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className={inputClass}
+            />
+          </Field>
 
-        <button
-          type="submit"
-          style={{
-            marginTop: 24,
-            width: "100%",
-            padding: 10,
-            border: 0,
-            borderRadius: 6,
-            background: "#1d4ed8",
-            color: "#fff",
-            fontSize: 15,
-            cursor: "pointer",
-          }}
-        >
-          ログイン
-        </button>
+          <Button type="submit" variant="primary" size="md" className="w-full">
+            ログイン
+          </Button>
+        </div>
+
+        <p className="mt-3 text-xs text-slate-400">
+          {LOGIN_LIMIT.maxAttempts} 回続けて失敗すると、
+          {LOGIN_LIMIT.lockSeconds / 60} 分のあいだそのIDでのログインを受け付けません。
+        </p>
       </form>
     </main>
   );

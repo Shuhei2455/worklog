@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext, visibleProjectIds } from "@/lib/session";
 import { parseIssueFilter, buildIssueWhere } from "@/lib/issue-filter";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { saveFilter } from "../issues/actions";
 import { BoardClient, type Card } from "./BoardClient";
 
@@ -98,7 +99,7 @@ export default async function BoardPage({
       ]}
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">ボード</h1>
+        <PageTitle>ボード</PageTitle>
         <div className="flex gap-3 text-sm">
           <Link href={`/projects/${key}/issues`} className="text-brand-700 hover:underline">
             課題一覧
@@ -138,9 +139,9 @@ export default async function BoardPage({
             </select>
           </label>
         ))}
-        <button className="h-8 rounded border border-slate-300 px-4 hover:bg-slate-50">
+        <Button variant="secondary">
           絞り込む
-        </button>
+        </Button>
         <Link
           href={`/projects/${key}/board`}
           className="h-8 rounded border border-slate-300 px-4 leading-8 hover:bg-slate-50"
@@ -172,9 +173,9 @@ export default async function BoardPage({
           placeholder="この条件に名前を付けて保存"
           className="w-56 rounded border border-slate-300 px-2 py-1"
         />
-        <button className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-50">
+        <Button variant="secondary">
           保存
-        </button>
+        </Button>
       </form>
 
       <BoardClient

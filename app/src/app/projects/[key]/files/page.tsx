@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { ActionResult, PageTitle, Button } from "@/components/ui";
 import { uploadSharedFile, deleteSharedFile } from "./actions";
 import { normalizeDir, parentDir } from "@/lib/shared-file-path";
 
@@ -30,7 +31,7 @@ export default async function Files({
   if (!project.fileSharingEnabled) {
     return (
       <Shell user={user} breadcrumbs={[{ label: project.name }, { label: "ファイル" }]}>
-        <h1 className="text-xl font-semibold">ファイル</h1>
+        <PageTitle>ファイル</PageTitle>
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           このプロジェクトは「ファイル共有を使用する」が無効です。
           <Link href={`/projects/${key}/settings`} className="ml-2 underline">
@@ -77,21 +78,12 @@ export default async function Files({
         { label: "ファイル" },
       ]}
     >
-      <h1 className="text-xl font-semibold">ファイル</h1>
+      <PageTitle>ファイル</PageTitle>
       <p className="mt-1 text-xs text-slate-500">
         課題やWikiから参照できる、プロジェクト共通の置き場です。課題の添付とは別物です。
       </p>
 
-      {sp.ok && (
-        <p className="mt-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {sp.ok}
-        </p>
-      )}
-      {sp.error && (
-        <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {sp.error}
-        </p>
-      )}
+      <ActionResult ok={sp.ok} error={sp.error} />
 
       <nav className="mt-4 flex items-center gap-1 text-sm">
         <Link href={`/projects/${key}/files`} className="text-brand-700 hover:underline">
@@ -144,7 +136,7 @@ export default async function Files({
             )}
             <form action={deleteSharedFile.bind(null, key)}>
               <input type="hidden" name="id" value={f.id} />
-              <button className="text-xs text-red-700 hover:underline">削除</button>
+              <Button variant="danger" size="xs">削除</Button>
             </form>
           </li>
         ))}
@@ -176,9 +168,9 @@ export default async function Files({
             required
             className="text-xs file:mr-2 file:rounded file:border file:border-slate-300 file:bg-white file:px-2 file:py-1 file:text-xs"
           />
-          <button className="rounded border border-slate-300 px-3 py-1 text-xs hover:bg-slate-50">
+          <Button variant="secondary">
             追加
-          </button>
+          </Button>
         </div>
         <p className="mt-2 text-xs text-slate-500">
           置き場所に `/design/画像/` のように書くと、その階層に入ります。

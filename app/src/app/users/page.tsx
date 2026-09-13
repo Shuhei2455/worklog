@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { can, toRoleType } from "@/lib/permissions";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { ActionResult, PageTitle, Button } from "@/components/ui";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import {
   createUser,
@@ -48,24 +49,12 @@ export default async function Users({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "ユーザー" }]}>
-      <h1 className="text-xl font-semibold">ユーザー</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        権限は「種別 × 制限 × プロジェクト管理者」の3軸です。ここで触るのは
+      <PageTitle note={<>権限は「種別 × 制限 × プロジェクト管理者」の3軸です。ここで触るのは
         前の2つで、プロジェクト管理者は各プロジェクトの設定で付けます。
         <strong>削除はできません</strong>（活動履歴から参照されるため、
-        無効化で止めます）。
-      </p>
+        無効化で止めます）。</>}>ユーザー</PageTitle>
 
-      {sp.ok && (
-        <p className="mt-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {sp.ok}
-        </p>
-      )}
-      {sp.error && (
-        <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {sp.error}
-        </p>
-      )}
+      <ActionResult ok={sp.ok} error={sp.error} />
 
       {/* ---- 追加 ---- */}
       <form
@@ -138,9 +127,9 @@ export default async function Users({
             ))}
           </select>
         </label>
-        <button className="h-8 rounded bg-brand-700 px-4 text-sm text-white hover:bg-brand-800">
+        <Button variant="primary">
           追加
-        </button>
+        </Button>
       </form>
 
       {/* ---- 一覧 ---- */}
@@ -199,9 +188,9 @@ export default async function Users({
                         </option>
                       ))}
                     </select>
-                    <button className="rounded border border-slate-300 px-1.5 py-0.5 text-xs hover:bg-slate-50">
+                    <Button variant="secondary" size="xs">
                       保存
-                    </button>
+                    </Button>
                   </form>
                 </td>
                 {/* API が返す値。ゲストは区別されない（7章） */}
@@ -214,13 +203,14 @@ export default async function Users({
                   <div className="flex flex-wrap items-center gap-2">
                     <form action={toggleUserDisabled}>
                       <input type="hidden" name="id" value={u.id} />
-                      <button
-                        className={`text-xs hover:underline ${
-                          u.disabledAt ? "text-emerald-700" : "text-red-700"
-                        }`}
+                      {/* 有効化は「戻す」操作なので危険色にしない */}
+                      <Button
+                        variant={u.disabledAt ? "link" : "danger"}
+                        size="xs"
+                        className={u.disabledAt ? "text-emerald-700" : ""}
                       >
                         {u.disabledAt ? "有効化" : "無効化"}
-                      </button>
+                      </Button>
                     </form>
                     <form action={resetUserPassword} className="flex items-center gap-1">
                       <input type="hidden" name="id" value={u.id} />
@@ -231,9 +221,9 @@ export default async function Users({
                         minLength={PASSWORD_MIN_LENGTH}
                         className="w-32 rounded border border-slate-300 px-1 py-0.5 text-xs"
                       />
-                      <button className="text-xs text-brand-700 hover:underline">
+                      <Button variant="link" size="xs">
                         再設定
-                      </button>
+                      </Button>
                     </form>
                   </div>
                 </td>

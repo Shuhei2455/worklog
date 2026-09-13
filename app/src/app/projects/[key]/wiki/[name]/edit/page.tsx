@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { updateWiki } from "../../actions";
 
 export default async function EditWiki({
@@ -39,7 +40,7 @@ export default async function EditWiki({
         { label: "編集" },
       ]}
     >
-      <h1 className="text-xl font-semibold">{page.name} を編集</h1>
+      <PageTitle>{page.name} を編集</PageTitle>
 
       {/*
         楽観ロック(決定D16)。開いている間に他の人が保存していたら
@@ -97,9 +98,9 @@ export default async function EditWiki({
         </label>
 
         <div className="flex gap-2">
-          <button className="rounded bg-brand-700 px-5 py-2 text-white hover:bg-brand-800">
+          <Button variant="primary" size="md">
             保存
-          </button>
+          </Button>
           <Link
             href={`/projects/${key}/wiki/${encodeURIComponent(page.name)}`}
             className="rounded border border-slate-300 px-5 py-2 hover:bg-slate-50"

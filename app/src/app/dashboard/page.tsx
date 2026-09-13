@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { currentUser, visibleProjectIds } from "@/lib/session";
 import { STATUS_ID_CLOSED } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
+import { PageTitle } from "@/components/ui";
 
 /**
  * ダッシュボード。自分が担当・自分が登録・最近見た課題。
@@ -120,7 +121,7 @@ export default async function Dashboard() {
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "ダッシュボード" }]}>
-      <h1 className="text-xl font-semibold">ダッシュボード</h1>
+      <PageTitle>ダッシュボード</PageTitle>
 
       <div className="mt-6 space-y-6">
         <IssueList

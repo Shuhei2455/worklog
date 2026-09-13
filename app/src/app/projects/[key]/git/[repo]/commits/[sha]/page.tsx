@@ -62,7 +62,7 @@ export default async function CommitDetail({
               <li key={l.id} className="text-sm">
                 <Link
                   href={`/issues/${project.key}-${l.issue.keyId}`}
-                  className="font-mono text-sky-700 hover:underline"
+                  className="font-mono text-brand-700 hover:underline"
                 >
                   {project.key}-{l.issue.keyId}
                 </Link>

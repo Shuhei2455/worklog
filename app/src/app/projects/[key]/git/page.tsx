@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
+import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext } from "@/lib/git-view";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 
@@ -20,16 +21,16 @@ export default async function GitRepositories({
         { label: "Git" },
       ]}
     >
-      <h1 className="text-xl font-semibold">Gitリポジトリ</h1>
+      <PageTitle>Gitリポジトリ</PageTitle>
 
       {repositories.length === 0 ? (
-        <p className="mt-4 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
+        <EmptyState className="mt-4">
           リポジトリがありません。
-          <Link href={`/projects/${key}/settings`} className="ml-1 text-sky-700 underline">
+          <Link href={`/projects/${key}/settings`} className="ml-1 text-brand-700 underline">
             プロジェクト設定
           </Link>
           で作成してください。
-        </p>
+        </EmptyState>
       ) : (
         <ul className="mt-4 space-y-3">
           {repositories.map((r) => (
@@ -37,7 +38,7 @@ export default async function GitRepositories({
               <div className="flex items-baseline gap-3">
                 <Link
                   href={`/projects/${key}/git/${encodeURIComponent(r.name)}`}
-                  className="text-base font-semibold text-sky-700 hover:underline"
+                  className="text-base font-semibold text-brand-700 hover:underline"
                 >
                   {r.name}
                 </Link>
@@ -49,13 +50,13 @@ export default async function GitRepositories({
                 <span className="flex-1 text-sm text-slate-500">{r.description ?? ""}</span>
                 <Link
                   href={`/projects/${key}/git/${encodeURIComponent(r.name)}/commits`}
-                  className="text-xs text-sky-700 hover:underline"
+                  className="text-xs text-brand-700 hover:underline"
                 >
                   コミット
                 </Link>
                 <Link
                   href={`/projects/${key}/git/${encodeURIComponent(r.name)}/pulls`}
-                  className="text-xs text-sky-700 hover:underline"
+                  className="text-xs text-brand-700 hover:underline"
                 >
                   プルリクエスト
                 </Link>

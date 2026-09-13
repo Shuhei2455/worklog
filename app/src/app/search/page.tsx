@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { currentUser, visibleProjectIds } from "@/lib/session";
 import { searchIssueIds, searchWikis, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 
 /**
  * 横断検索。
@@ -63,7 +64,7 @@ export default async function Search({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "検索" }]}>
-      <h1 className="text-xl font-semibold">検索</h1>
+      <PageTitle>検索</PageTitle>
 
       <form className="mt-4 flex gap-2">
         <input
@@ -72,9 +73,9 @@ export default async function Search({
           placeholder="課題とWikiをまとめて探す"
           className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
         />
-        <button className="rounded bg-brand-700 px-5 py-2 text-sm text-white hover:bg-brand-800">
+        <Button variant="primary" size="md">
           検索
-        </button>
+        </Button>
       </form>
 
       {!available && (

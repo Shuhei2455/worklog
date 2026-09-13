@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { BASE_COLUMNS } from "@/lib/issue-csv";
 import { loadFieldDefs } from "@/lib/custom-field-form";
 import { previewImport, runImport } from "./actions";
@@ -54,7 +55,7 @@ export default async function ImportIssues({
         { label: "CSV取り込み" },
       ]}
     >
-      <h1 className="text-xl font-semibold">CSVから課題を取り込む</h1>
+      <PageTitle>CSVから課題を取り込む</PageTitle>
 
       <div className="mt-3 rounded border border-slate-200 bg-white p-4 text-sm">
         <h2 className="font-medium">使い方</h2>
@@ -111,9 +112,9 @@ export default async function ImportIssues({
             className="mt-1 text-sm file:mr-2 file:rounded file:border file:border-slate-300 file:bg-white file:px-2 file:py-1 file:text-sm"
           />
         </label>
-        <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+        <Button variant="secondary">
           確認する
-        </button>
+        </Button>
       </form>
 
       {summary && (
@@ -182,9 +183,9 @@ export default async function ImportIssues({
                   className="mt-1 text-sm file:mr-2 file:rounded file:border file:border-slate-300 file:bg-white file:px-2 file:py-1 file:text-sm"
                 />
               </label>
-              <button className="h-8 rounded bg-brand-700 px-4 text-sm text-white hover:bg-brand-800">
+              <Button variant="primary">
                 取り込む
-              </button>
+              </Button>
             </form>
           ) : (
             <p className="mt-4 text-xs text-slate-500">

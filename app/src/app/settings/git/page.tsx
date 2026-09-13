@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { giteaEnabled, giteaPublicBase } from "@/lib/gitea";
 import { setMyGiteaPassword } from "./actions";
 
@@ -25,11 +26,7 @@ export default async function GitSettings({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "Git" }]}>
-      <h1 className="text-xl font-semibold">Git</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        リポジトリの実体は Gitea にあります。クローンと push、プルリクエストの
-        レビュー・マージは Gitea の画面で行います。
-      </p>
+      <PageTitle note={'リポジトリの実体は Gitea にあります。クローンと push、プルリクエストの\n        レビュー・マージは Gitea の画面で行います。'}>Git</PageTitle>
 
       {!giteaEnabled() ? (
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -113,9 +110,9 @@ export default async function GitSettings({
                   className="mt-1 rounded border border-slate-300 px-2 py-1"
                 />
               </label>
-              <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+              <Button variant="secondary">
                 設定
-              </button>
+              </Button>
             </form>
           </div>
         </>

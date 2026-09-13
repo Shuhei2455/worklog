@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
+import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext, commitTitle } from "@/lib/git-view";
 import { listCommits } from "@/lib/gitea";
 import { RepoTabs } from "../../RepoTabs";
@@ -51,16 +52,16 @@ export default async function Commits({
       ]}
     >
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold">{name} のコミット</h1>
+        <PageTitle>{name} のコミット</PageTitle>
         <span className="font-mono text-xs text-slate-500">{ref}</span>
       </div>
 
       <RepoTabs projectKey={key} repo={name} current="commits" />
 
       {commits.length === 0 ? (
-        <p className="mt-4 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
+        <EmptyState className="mt-4">
           コミットがありません
-        </p>
+        </EmptyState>
       ) : (
         <ul className="mt-3 divide-y divide-slate-100 rounded border border-slate-200 bg-white">
           {commits.map((c) => (
@@ -68,7 +69,7 @@ export default async function Commits({
               <div className="flex items-baseline gap-3">
                 <Link
                   href={`/projects/${key}/git/${encodeURIComponent(name)}/commits/${c.sha}`}
-                  className="font-mono text-xs text-sky-700 hover:underline"
+                  className="font-mono text-xs text-brand-700 hover:underline"
                 >
                   {c.sha.slice(0, 7)}
                 </Link>
@@ -84,7 +85,7 @@ export default async function Commits({
                     <Link
                       key={l.id}
                       href={`/issues/${project.key}-${l.issue.keyId}`}
-                      className="rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-800 hover:underline"
+                      className="rounded bg-brand-50 px-1.5 py-0.5 text-xs text-brand-800 hover:underline"
                       title={l.issue.summary}
                     >
                       {project.key}-{l.issue.keyId}
@@ -101,7 +102,7 @@ export default async function Commits({
         {page > 1 ? (
           <Link
             href={`/projects/${key}/git/${encodeURIComponent(name)}/commits?page=${page - 1}&ref=${encodeURIComponent(ref)}`}
-            className="text-sky-700 hover:underline"
+            className="text-brand-700 hover:underline"
           >
             ← 新しい
           </Link>
@@ -111,7 +112,7 @@ export default async function Commits({
         {commits.length === 30 && (
           <Link
             href={`/projects/${key}/git/${encodeURIComponent(name)}/commits?page=${page + 1}&ref=${encodeURIComponent(ref)}`}
-            className="text-sky-700 hover:underline"
+            className="text-brand-700 hover:underline"
           >
             古い →
           </Link>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
+import { EmptyState, PageTitle, Button } from "@/components/ui";
 import { loadGitContext, PR_STATE_LABEL } from "@/lib/git-view";
 import { syncPullRequests } from "../../actions";
 import { RepoTabs } from "../../RepoTabs";
@@ -58,12 +59,12 @@ export default async function Pulls({
       ]}
     >
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold">{name} のプルリクエスト</h1>
+        <PageTitle>{name} のプルリクエスト</PageTitle>
         <a
           href={`${process.env.APP_URL ?? ""}/git/${org}/${encodeURIComponent(name)}/pulls`}
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-sky-700 hover:underline"
+          className="text-xs text-brand-700 hover:underline"
         >
           Gitea で開く（作成・レビューはこちら）
         </a>
@@ -95,16 +96,16 @@ export default async function Pulls({
         {/* webhook は登録後のぶんしか来ない。取り込み直後は過去のPRが無いので、
             ここから手で埋められるようにする */}
         <form action={syncPullRequests.bind(null, key, name)}>
-          <button className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50">
+          <Button variant="secondary" size="xs">
             Gitea から取り込む
-          </button>
+          </Button>
         </form>
       </div>
 
       {pulls.length === 0 ? (
-        <p className="mt-4 rounded border border-slate-200 bg-white px-3 py-6 text-center text-sm text-slate-500">
+        <EmptyState className="mt-4">
           プルリクエストがありません
-        </p>
+        </EmptyState>
       ) : (
         <ul className="mt-3 divide-y divide-slate-100 rounded border border-slate-200 bg-white">
           {pulls.map((p) => (
@@ -112,7 +113,7 @@ export default async function Pulls({
               <div className="flex items-baseline gap-3">
                 <Link
                   href={`/projects/${key}/git/${encodeURIComponent(name)}/pulls/${p.giteaPrNumber}`}
-                  className="text-sm font-medium text-sky-700 hover:underline"
+                  className="text-sm font-medium text-brand-700 hover:underline"
                 >
                   #{p.giteaPrNumber} {p.title}
                 </Link>
@@ -131,7 +132,7 @@ export default async function Pulls({
                 {p.issue && (
                   <Link
                     href={`/issues/${project.key}-${p.issue.keyId}`}
-                    className="rounded bg-sky-50 px-1.5 py-0.5 font-mono text-xs text-sky-800 hover:underline"
+                    className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-xs text-brand-800 hover:underline"
                     title={p.issue.summary}
                   >
                     {project.key}-{p.issue.keyId}

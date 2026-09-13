@@ -15,6 +15,7 @@ import {
   type GanttBar,
 } from "@/lib/gantt";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 
 /** 帯の色。種類ごとに変えて、なぜそこに出ているか分かるようにする */
 const KIND_STYLE: Record<GanttBar["kind"], { bg: string; label: string }> = {
@@ -67,7 +68,7 @@ export default async function GanttPage({
         ]}
       >
         <div className="flex items-baseline justify-between">
-          <h1 className="text-xl font-semibold">ガントチャート</h1>
+          <PageTitle>ガントチャート</PageTitle>
           <a
             href={`/projects/${key}/gantt/export`}
             className="text-sm text-brand-700 hover:underline"
@@ -219,7 +220,7 @@ export default async function GanttPage({
       ]}
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">ガントチャート</h1>
+        <PageTitle>ガントチャート</PageTitle>
         <div className="flex items-center gap-3">
           {/* 絞り込みを引き継ぐ。画面と同じ resolveGanttBar を使うので内容が一致する */}
           <a
@@ -273,9 +274,9 @@ export default async function GanttPage({
             className="mt-1 rounded border border-slate-300 px-2 py-1"
           />
         </label>
-        <button className="h-8 rounded border border-slate-300 px-4 hover:bg-slate-50">
+        <Button variant="secondary">
           適用
-        </button>
+        </Button>
         <Link
           href={`/projects/${key}/gantt`}
           className="h-8 rounded border border-slate-300 px-4 leading-8 hover:bg-slate-50"

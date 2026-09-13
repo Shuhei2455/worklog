@@ -4,6 +4,15 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
 import {
+  Section,
+  PageTitle,
+  ActionResult,
+  Button,
+  NoValue,
+  inputClass,
+  ToggleChip,
+} from "@/components/ui";
+import {
   updateFeatures,
   addStatus,
   reorderStatus,
@@ -39,25 +48,6 @@ import {
 import { giteaEnabled } from "@/lib/gitea";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 
-function Section({
-  title,
-  note,
-  children,
-}: {
-  title: string;
-  note?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-8 rounded border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
-      </div>
-      <div className="p-4">{children}</div>
-    </section>
-  );
-}
 
 export default async function ProjectSettings({
   params,
@@ -145,23 +135,14 @@ export default async function ProjectSettings({
         { label: "設定" },
       ]}
     >
-      <h1 className="text-xl font-semibold">
+      <PageTitle>
         <span className="mr-2 rounded bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-600">
           {project.key}
         </span>
         {project.name}
-      </h1>
+      </PageTitle>
 
-      {ok && (
-        <p className="mt-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {ok}
-        </p>
-      )}
-      {error && (
-        <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      <ActionResult ok={ok} error={error} />
 
       {/* ---------------- 基本設定 ---------------- */}
       <Section
@@ -205,9 +186,9 @@ export default async function ProjectSettings({
                 </label>
               ))}
             </div>
-            <button className="rounded bg-brand-700 px-4 py-1.5 text-sm text-white hover:bg-brand-800">
+            <Button variant="primary">
               保存
-            </button>
+            </Button>
           </form>
         ) : (
           <p className="text-sm text-slate-500">
@@ -244,30 +225,25 @@ export default async function ProjectSettings({
                     <form key={d} action={bind(reorderStatus)}>
                       <input type="hidden" name="id" value={s.id} />
                       <input type="hidden" name="delta" value={d} />
-                      <button
-                        title={
+                      <Button variant="secondary" size="xs" title={
                           s.isDefault
                             ? "標準の4状態は並べ替えできません"
                             : d < 0
                               ? "上へ"
                               : "下へ"
                         }
-                        className="rounded border border-slate-300 px-2 py-0.5 text-xs enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
-                        disabled={s.isDefault}
-                      >
+                        
+                        disabled={s.isDefault}>
                         {d < 0 ? "↑" : "↓"}
-                      </button>
+                      </Button>
                     </form>
                   ))}
                   <form action={bind(deleteStatus)}>
                     <input type="hidden" name="id" value={s.id} />
-                    <button
-                      className="rounded border border-slate-300 px-2 py-0.5 text-xs text-red-700 enabled:hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-30"
-                      disabled={s.isDefault}
-                      title={s.isDefault ? "標準の4状態は削除できません" : "削除"}
-                    >
+                    <Button variant="dangerOutline" size="xs" disabled={s.isDefault}
+                      title={s.isDefault ? "標準の4状態は削除できません" : "削除"}>
                       削除
-                    </button>
+                    </Button>
                   </form>
                 </span>
               )}
@@ -292,9 +268,9 @@ export default async function ProjectSettings({
               defaultValue="#7c3aed"
               className="h-8 w-10 rounded border border-slate-300"
             />
-            <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+            <Button variant="secondary">
               追加
-            </button>
+            </Button>
           </form>
         )}
       </Section>
@@ -380,9 +356,9 @@ export default async function ProjectSettings({
                       className="mt-1 h-7 w-10 rounded border border-slate-300"
                     />
                   )}
-                  <button className="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50">
+                  <Button variant="secondary" size="xs" className="mt-2 w-full">
                     追加
-                  </button>
+                  </Button>
                 </form>
               )}
             </div>
@@ -411,7 +387,7 @@ export default async function ProjectSettings({
                   </span>
                   <form action={bind(removeProjectTeam)}>
                     <input type="hidden" name="teamId" value={pt.teamId} />
-                    <button className="text-xs text-red-700 hover:underline">外す</button>
+                    <Button variant="danger" size="xs">外す</Button>
                   </form>
                 </li>
               ))}
@@ -427,9 +403,9 @@ export default async function ProjectSettings({
                 className="mt-1 rounded border border-slate-300 px-2 py-1"
               />
             </label>
-            <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+            <Button variant="secondary">
               割り当て
-            </button>
+            </Button>
           </form>
         </Section>
       )}
@@ -453,15 +429,9 @@ export default async function ProjectSettings({
                     </span>
                     <form action={bind(toggleCustomFieldRequired)}>
                       <input type="hidden" name="id" value={f.id} />
-                      <button
-                        className={`rounded border px-2 py-0.5 text-xs ${
-                          f.required
-                            ? "border-amber-300 bg-amber-50 text-amber-800"
-                            : "border-slate-300 text-slate-500"
-                        }`}
-                      >
+                      <ToggleChip on={f.required} tone="amber" size="xs">
                         {f.required ? "必須" : "任意"}
-                      </button>
+                      </ToggleChip>
                     </form>
                     <span className="flex-1 truncate text-xs text-slate-500">
                       {f.description ?? ""}
@@ -473,7 +443,7 @@ export default async function ProjectSettings({
                     )}
                     <form action={bind(deleteCustomField)}>
                       <input type="hidden" name="id" value={f.id} />
-                      <button className="text-xs text-red-700 hover:underline">削除</button>
+                      <Button variant="danger" size="xs">削除</Button>
                     </form>
                   </div>
                   {f.items.length > 0 && (
@@ -499,9 +469,9 @@ export default async function ProjectSettings({
                         {t.name}
                       </label>
                     ))}
-                    <button className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-50">
+                    <Button variant="secondary" size="xs">
                       保存
-                    </button>
+                    </Button>
                     <span className="text-slate-400">
                       {f.applicableIssueTypes.length === 0 ? "（いまは全種別）" : ""}
                     </span>
@@ -550,9 +520,9 @@ export default async function ProjectSettings({
                 <input type="checkbox" name="required" />
                 <span className="text-xs text-slate-600">必須</span>
               </label>
-              <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+              <Button variant="secondary">
                 追加
-              </button>
+              </Button>
             </div>
 
             {/* 型ごとの追加パラメータ。使う型のものだけ埋めれば足りる */}
@@ -649,7 +619,7 @@ export default async function ProjectSettings({
                   <div className="flex items-center gap-3">
                     <a
                       href={`/projects/${key}/git/${encodeURIComponent(r.name)}`}
-                      className="font-medium text-sky-700 hover:underline"
+                      className="font-medium text-brand-700 hover:underline"
                     >
                       {r.name}
                     </a>
@@ -658,22 +628,15 @@ export default async function ProjectSettings({
                     </span>
                     <form action={bind(toggleLinkCommits)}>
                       <input type="hidden" name="id" value={r.id} />
-                      <button
-                        className={`rounded border px-2 py-0.5 text-xs ${
-                          r.linkCommitsToIssues
-                            ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                            : "border-slate-300 text-slate-500"
-                        }`}
-                        title="コミットメッセージの課題キーから、課題へコメントを自動登録します"
-                      >
+                      <ToggleChip on={r.linkCommitsToIssues} tone="emerald" size="xs" title="コミットメッセージの課題キーから、課題へコメントを自動登録します">
                         課題連携 {r.linkCommitsToIssues ? "ON" : "OFF"}
-                      </button>
+                      </ToggleChip>
                     </form>
                     <form action={bind(detachRepository)}>
                       <input type="hidden" name="id" value={r.id} />
-                      <button className="text-xs text-red-700 hover:underline">
+                      <Button variant="danger" size="xs">
                         登録解除
-                      </button>
+                      </Button>
                     </form>
                   </div>
                   <div className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-500">
@@ -706,9 +669,9 @@ export default async function ProjectSettings({
                   className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
                 />
               </label>
-              <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+              <Button variant="secondary">
                 作成
-              </button>
+              </Button>
             </form>
 
             {/* Gitea に直接作ったリポジトリを、この一覧に載せる。
@@ -728,9 +691,9 @@ export default async function ProjectSettings({
                   className="mt-1 rounded border border-slate-300 px-2 py-1"
                 />
               </label>
-              <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+              <Button variant="secondary">
                 取り込む
-              </button>
+              </Button>
             </form>
             </>
           )}
@@ -758,7 +721,7 @@ export default async function ProjectSettings({
                   </span>
                   <form action={bind(deleteWebhook)}>
                     <input type="hidden" name="id" value={w.id} />
-                    <button className="text-xs text-red-700 hover:underline">削除</button>
+                    <Button variant="danger" size="xs">削除</Button>
                   </form>
                 </li>
               ))}
@@ -783,9 +746,9 @@ export default async function ProjectSettings({
                 className="mt-1 w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs"
               />
             </label>
-            <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+            <Button variant="secondary">
               追加
-            </button>
+            </Button>
           </form>
         </Section>
       )}
@@ -817,17 +780,17 @@ export default async function ProjectSettings({
               {canAssignAdmin && (
                 <form action={bind(toggleProjectAdmin)}>
                   <input type="hidden" name="userId" value={m.userId} />
-                  <button className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50">
+                  <Button variant="secondary" size="xs">
                     {m.isProjectAdmin ? "解除" : "PJ管理者にする"}
-                  </button>
+                  </Button>
                 </form>
               )}
               {canEditProject && (
                 <form action={bind(removeMember)}>
                   <input type="hidden" name="userId" value={m.userId} />
-                  <button className="rounded border border-slate-300 px-2 py-0.5 text-xs text-red-700 hover:bg-red-50">
+                  <Button variant="dangerOutline" size="xs">
                     外す
-                  </button>
+                  </Button>
                 </form>
               )}
             </li>
@@ -845,9 +808,9 @@ export default async function ProjectSettings({
                 className="mt-1 rounded border border-slate-300 px-2 py-1 font-mono"
               />
             </label>
-            <button className="h-8 rounded border border-slate-300 px-3 text-sm hover:bg-slate-50">
+            <Button variant="secondary">
               追加
-            </button>
+            </Button>
           </form>
         )}
       </Section>

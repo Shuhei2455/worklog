@@ -4,6 +4,7 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { PRIORITIES, DEFAULT_PRIORITY_ID } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { addIssue } from "../actions";
 import { CustomFieldInputs } from "@/components/CustomFieldInputs";
 import { loadFieldDefs } from "@/lib/custom-field-form";
@@ -45,7 +46,7 @@ export default async function NewIssue({
         { label: "課題を追加" },
       ]}
     >
-      <h1 className="text-xl font-semibold">課題を追加</h1>
+      <PageTitle>課題を追加</PageTitle>
 
       {error && (
         <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -155,9 +156,9 @@ export default async function NewIssue({
           />
         </label>
 
-        <button className="rounded bg-brand-700 px-5 py-2 text-white hover:bg-brand-800">
+        <Button variant="primary" size="md">
           追加
-        </button>
+        </Button>
       </form>
     </Shell>
   );

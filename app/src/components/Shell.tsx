@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui";
 import { signOut } from "@/auth";
 import { prisma } from "@/lib/db";
 import { visibleProjectIds } from "@/lib/session";
@@ -115,9 +116,9 @@ export async function Shell({
             Git
           </Link>
           <form action={logout}>
-            <button className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50">
+            <Button variant="secondary">
               ログアウト
-            </button>
+            </Button>
           </form>
         </div>
       </header>

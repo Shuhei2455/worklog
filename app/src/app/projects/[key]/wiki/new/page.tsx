@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { createWiki } from "../actions";
 
 export default async function NewWiki({
@@ -31,7 +32,7 @@ export default async function NewWiki({
         { label: "ページを追加" },
       ]}
     >
-      <h1 className="text-xl font-semibold">ページを追加</h1>
+      <PageTitle>ページを追加</PageTitle>
       {error && (
         <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -66,9 +67,9 @@ export default async function NewWiki({
           />
         </label>
         <div className="flex gap-2">
-          <button className="rounded bg-brand-700 px-5 py-2 text-white hover:bg-brand-800">
+          <Button variant="primary" size="md">
             追加
-          </button>
+          </Button>
           <Link
             href={`/projects/${key}/wiki`}
             className="rounded border border-slate-300 px-5 py-2 hover:bg-slate-50"

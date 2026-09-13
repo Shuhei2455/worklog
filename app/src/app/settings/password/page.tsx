@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { LOGIN_LIMIT } from "@/lib/login-attempts";
 import { changeMyPassword } from "./actions";
@@ -21,7 +22,7 @@ export default async function PasswordSettings({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "パスワード" }]}>
-      <h1 className="text-xl font-semibold">パスワード</h1>
+      <PageTitle>パスワード</PageTitle>
 
       {row.authProvider !== "local" ? (
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -74,9 +75,9 @@ export default async function PasswordSettings({
                 className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
               />
             </label>
-            <button className="rounded bg-brand-700 px-4 py-1.5 text-sm text-white hover:bg-brand-800">
+            <Button variant="primary">
               変更
-            </button>
+            </Button>
           </form>
 
           <div className="mt-4 max-w-sm text-xs text-slate-500">

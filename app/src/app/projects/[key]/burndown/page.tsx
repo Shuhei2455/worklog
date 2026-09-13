@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import {
   buildBurndown,
   completedAtFrom,
@@ -112,7 +113,7 @@ export default async function Burndown({
       ]}
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">バーンダウンチャート</h1>
+        <PageTitle>バーンダウンチャート</PageTitle>
         <Link
           href={`/projects/${key}/issues`}
           className="text-sm text-brand-700 hover:underline"
@@ -146,9 +147,9 @@ export default async function Burndown({
               ))}
             </select>
           </label>
-          <button className="h-8 rounded border border-slate-300 px-3 hover:bg-slate-50">
+          <Button variant="secondary">
             表示
-          </button>
+          </Button>
         </form>
       )}
 
@@ -177,6 +178,20 @@ export default async function Burndown({
     </Shell>
   );
 }
+
+/**
+ * 線の色。
+ *
+ * **SVGの stroke と凡例で同じ値を使う。** 別々に書くと片方だけ直したときに
+ * 食い違う（実際、凡例が sky・線が別の青になっていた）。
+ * tailwind のクラスは SVG の stroke に使えないので、値をここに置く。
+ */
+const LINE_COLOR = {
+  // brand-700。tailwind.config.ts の値と合わせてある
+  count: "#1d4ed8",
+  hours: "#16a34a",
+  ideal: "#cbd5e1",
+} as const;
 
 /** SVGの折れ線。ライブラリは使わない */
 function Chart({ points }: { points: BurndownPoint[] }) {
@@ -236,17 +251,17 @@ function Chart({ points }: { points: BurndownPoint[] }) {
         <path
           d={line(points.map((p) => p.idealCount), yCount)}
           fill="none"
-          stroke="#cbd5e1"
+          stroke={LINE_COLOR.ideal}
           strokeWidth="1.5"
           strokeDasharray="4 3"
         />
         {/* 残り件数 */}
-        <path d={line(actualCount, yCount)} fill="none" stroke="#0369a1" strokeWidth="2" />
+        <path d={line(actualCount, yCount)} fill="none" stroke={LINE_COLOR.count} strokeWidth="2" />
         {/* 残り予定時間（縦軸は別スケール） */}
         <path
           d={line(actualHours, yHours)}
           fill="none"
-          stroke="#16a34a"
+          stroke={LINE_COLOR.hours}
           strokeWidth="1.5"
           strokeDasharray="2 2"
         />
@@ -261,13 +276,13 @@ function Chart({ points }: { points: BurndownPoint[] }) {
 
       <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-600">
         <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-5 bg-sky-700" />残り課題数
+          <span className="inline-block h-0.5 w-5" style={{ background: LINE_COLOR.count }} />残り課題数
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-5 bg-green-600" />残り予定時間
+          <span className="inline-block h-0.5 w-5" style={{ background: LINE_COLOR.hours }} />残り予定時間
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-5 bg-slate-300" />理想線
+          <span className="inline-block h-0.5 w-5" style={{ background: LINE_COLOR.ideal }} />理想線
         </span>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { can } from "@/lib/permissions";
 import { currentUser, visibleProjectIds } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 
 export default async function Home({
   searchParams,
@@ -54,7 +55,7 @@ export default async function Home({
   return (
     <Shell user={user}>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">プロジェクト</h1>
+        <PageTitle>プロジェクト</PageTitle>
       </div>
 
       {error && (
@@ -119,9 +120,9 @@ export default async function Home({
                 className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
               />
             </label>
-            <button className="mt-6 h-8 rounded bg-brand-700 px-4 text-sm text-white hover:bg-brand-800">
+            <Button variant="primary" className="mt-6">
               追加
-            </button>
+            </Button>
           </div>
           <p className="mt-2 text-xs text-slate-500">
             キーは英大文字で始まる1〜10文字（英大文字・数字・アンダースコア）。

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { PageTitle, Button } from "@/components/ui";
 import { RATE_LIMITS } from "@/lib/api/rate-limit";
 import { issueToken, revokeToken } from "./actions";
 
@@ -22,10 +23,7 @@ export default async function ApiSettings({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "APIキー" }]}>
-      <h1 className="text-xl font-semibold">APIキー</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        本家 Backlog 向けに書かれたスクリプトが、ホスト名を差し替えるだけで動くようにしてあります。
-      </p>
+      <PageTitle note={'本家 Backlog 向けに書かれたスクリプトが、ホスト名を差し替えるだけで動くようにしてあります。'}>APIキー</PageTitle>
 
       {created && (
         <div className="mt-4 rounded border border-emerald-300 bg-emerald-50 p-3">
@@ -50,9 +48,9 @@ export default async function ApiSettings({
             className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
           />
         </label>
-        <button className="rounded bg-brand-700 px-4 py-1.5 text-white hover:bg-brand-800">
+        <Button variant="primary">
           発行
-        </button>
+        </Button>
       </form>
 
       {tokens.length > 0 && (
@@ -71,7 +69,7 @@ export default async function ApiSettings({
               ) : (
                 <form action={revokeToken}>
                   <input type="hidden" name="id" value={t.id} />
-                  <button className="text-xs text-red-700 hover:underline">失効させる</button>
+                  <Button variant="danger" size="xs">失効させる</Button>
                 </form>
               )}
             </li>
