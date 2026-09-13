@@ -55,7 +55,12 @@ RUN pnpm prisma generate && pnpm build
 # pnpm の node_modules はシンボリックリンクの塊で、COPY すると壊れる。
 # npm で入れ直す。版は**ビルドに使った実物から読む**ので lockfile と
 # 一致し、イメージを作り直しても同じ版になる
-RUN node -e "const n=['@prisma/client','bullmq','ioredis','meilisearch','nodemailer'];\
+#
+# **この一覧は手で並べている。漏れるとビルドは通るのに起動時に落ちる。**
+# 実際に2回踏んだ（M3-e で bullmq、M5 で zod）。
+# そのため下の COPY のあとに check-worker-deps.mjs で機械的に検算する。
+# ここに足すときは、あわせて検査を通すこと
+RUN node -e "const n=['@prisma/client','bullmq','ioredis','meilisearch','nodemailer','zod'];\
 console.log(n.map(m=>m+'@'+require('/work/node_modules/'+m+'/package.json').version).join(' '))" \
       > /tmp/worker-deps.txt \
  && cat /tmp/worker-deps.txt \
@@ -78,6 +83,14 @@ COPY app/tsconfig.json /worker/
 RUN echo '{ "type": "module" }' > /worker/package.json
 # /app 側(standalone)のPrismaクライアントとは別物なので、ここでも生成する
 RUN cd /worker && /opt/tools/node_modules/.bin/prisma generate --schema prisma/schema.prisma
+
+# ---- ワーカーの依存に漏れが無いことを検算する ------------------------
+# 入口から import を実際に辿り、外部パッケージが /worker から解決できるかを見る。
+# **1つでも欠けていればここでビルドを落とす。**
+# 上の一覧を手で保守している以上、漏れは必ず起きる。
+# 起動時の ERR_MODULE_NOT_FOUND をビルド時の失敗に変えるのが目的
+COPY docker/check-worker-deps.mjs /tmp/check-worker-deps.mjs
+RUN node /tmp/check-worker-deps.mjs /worker
 
 # ---- 実行段 ----------------------------------------------------------
 FROM node:22-alpine AS runtime
