@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
-import { ProjectNav } from "@/components/ProjectNav";
 import { can } from "@/lib/permissions";
 import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext } from "@/lib/git-view";
@@ -18,22 +17,20 @@ export default async function GitRepositories({
   return (
     <Shell
       user={user}
-      breadcrumbs={[
-        { label: project.name, href: `/projects/${key}/issues` },
-        { label: "Git" },
-      ]}
-    >
-      <ProjectNav
-        projectKey={key}
-        current="git"
-        show={{
+      project={{
+        key: key,
+        name: project.name,
+        current: "git",
+        show: {
+          addIssue: can(user, "issue.create", ctx),
           wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
           files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
           chart: project.chartEnabled,
           git: true,
           settings: can(user, "project.edit", ctx),
-        }}
-      />
+        },
+      }}
+    >
       <PageTitle>Gitリポジトリ</PageTitle>
 
       {repositories.length === 0 ? (

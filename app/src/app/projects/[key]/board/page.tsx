@@ -5,7 +5,6 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext, visibleProjectIds } from "@/lib/session";
 import { parseIssueFilter, buildIssueWhere } from "@/lib/issue-filter";
 import { Shell } from "@/components/Shell";
-import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { saveFilter } from "../issues/actions";
 import { BoardClient, type Card } from "./BoardClient";
@@ -94,23 +93,21 @@ export default async function BoardPage({
   return (
     <Shell
       user={user}
-      breadcrumbs={[
-        { label: project.name, href: `/projects/${key}/issues` },
-        { label: "ボード" },
-      ]}
-    >
-      <div className="flex items-center justify-between">
-        <ProjectNav
-        projectKey={key}
-        current="board"
-        show={{
+      project={{
+        key: key,
+        name: project.name,
+        current: "board",
+        show: {
+          addIssue: can(user, "issue.create", ctx),
           wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
           files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
           chart: project.chartEnabled,
           git: project.gitEnabled && can(user, "git.access", ctx),
           settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
-        }}
-      />
+        },
+      }}
+    >
+      <div className="flex items-center justify-between">
       <PageTitle>ボード</PageTitle>
         <div className="flex gap-3 text-sm">
           <Link href={`/projects/${key}/issues`} className="text-brand-700 hover:underline">

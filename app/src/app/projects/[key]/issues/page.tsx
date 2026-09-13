@@ -11,7 +11,6 @@ import {
 import { PRIORITIES, PRIORITY_LABEL } from "@/lib/constants";
 import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
-import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button, ButtonLink, StatusLabel } from "@/components/ui";
 import { saveFilter } from "./actions";
 
@@ -84,23 +83,21 @@ export default async function IssueList({
   return (
     <Shell
       user={user}
-      breadcrumbs={[
-        { label: project.name, href: `/projects/${key}/issues` },
-        { label: "課題" },
-      ]}
-    >
-      <ProjectNav
-        projectKey={key}
-        current="issues"
-        show={{
+      project={{
+        key: key,
+        name: project.name,
+        current: "issues",
+        show: {
+          addIssue: can(user, "issue.create", ctx),
           wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
           files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
           chart: project.chartEnabled,
           git: project.gitEnabled && can(user, "git.access", ctx),
           settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
-        }}
-      />
-      {/* 画面をまたぐ移動は ProjectNav に集約した。
+        },
+      }}
+    >
+      {/* 画面をまたぐ移動は左サイドバー(ProjectSidebar)に集約した。
           ここには**この画面固有の操作**だけを残す */}
       <PageTitle
         actions={

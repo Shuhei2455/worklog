@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
-import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button } from "@/components/ui";
 import {
   buildBurndown,
@@ -108,23 +107,21 @@ export default async function Burndown({
   return (
     <Shell
       user={user}
-      breadcrumbs={[
-        { label: project.name, href: `/projects/${key}/issues` },
-        { label: "バーンダウン" },
-      ]}
-    >
-      <div className="flex items-center justify-between">
-        <ProjectNav
-        projectKey={key}
-        current="burndown"
-        show={{
+      project={{
+        key: key,
+        name: project.name,
+        current: "burndown",
+        show: {
+          addIssue: can(user, "issue.create", ctx),
           wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
           files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
           chart: project.chartEnabled,
           git: project.gitEnabled && can(user, "git.access", ctx),
           settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
-        }}
-      />
+        },
+      }}
+    >
+      <div className="flex items-center justify-between">
       <PageTitle>バーンダウンチャート</PageTitle>
       </div>
 

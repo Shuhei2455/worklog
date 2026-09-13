@@ -15,7 +15,6 @@ import {
   type GanttBar,
 } from "@/lib/gantt";
 import { Shell } from "@/components/Shell";
-import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, Button, ButtonLink, PillLink } from "@/components/ui";
 
 /** 帯の色。種類ごとに変えて、なぜそこに出ているか分かるようにする */
@@ -63,10 +62,19 @@ export default async function GanttPage({
     return (
       <Shell
         user={user}
-        breadcrumbs={[
-          { label: project.name, href: `/projects/${key}/issues` },
-          { label: "ガントチャート" },
-        ]}
+        project={{
+          key: key,
+          name: project.name,
+          current: "gantt",
+          show: {
+            addIssue: can(user, "issue.create", ctx),
+            wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+            files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+            chart: project.chartEnabled,
+            git: project.gitEnabled && can(user, "git.access", ctx),
+            settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+          },
+        }}
       >
         <div className="flex items-baseline justify-between">
       <PageTitle>ガントチャート</PageTitle>
@@ -215,23 +223,21 @@ export default async function GanttPage({
   return (
     <Shell
       user={user}
-      breadcrumbs={[
-        { label: project.name, href: `/projects/${key}/issues` },
-        { label: "ガントチャート" },
-      ]}
-    >
-      <div className="flex items-center justify-between">
-        <ProjectNav
-        projectKey={key}
-        current="gantt"
-        show={{
+      project={{
+        key: key,
+        name: project.name,
+        current: "gantt",
+        show: {
+          addIssue: can(user, "issue.create", ctx),
           wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
           files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
           chart: project.chartEnabled,
           git: project.gitEnabled && can(user, "git.access", ctx),
           settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
-        }}
-      />
+        },
+      }}
+    >
+      <div className="flex items-center justify-between">
         <PageTitle>ガントチャート</PageTitle>
         <div className="flex items-center gap-3">
           {/* 絞り込みを引き継ぐ。画面と同じ resolveGanttBar を使うので内容が一致する */}

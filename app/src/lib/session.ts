@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { toLocale, type Locale } from "@/lib/i18n";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { can, type Action, type ActorUser } from "@/lib/permissions";
@@ -10,7 +11,9 @@ import { can, type Action, type ActorUser } from "@/lib/permissions";
  * トークンに埋めると、管理者がユーザーの権限を変更しても
  * 相手がログアウトするまで反映されない。
  */
-export async function currentUser(): Promise<ActorUser & { name: string; userId: string }> {
+export async function currentUser(): Promise<
+  ActorUser & { name: string; userId: string; locale: Locale }
+> {
   const session = await auth();
   const id = session?.uid;
   if (!id) redirect("/login");
@@ -25,6 +28,8 @@ export async function currentUser(): Promise<ActorUser & { name: string; userId:
     userType: user.userType,
     restriction: user.restriction,
     disabledAt: user.disabledAt,
+    // 表示言語。画面はこれを見て辞書を切り替える
+    locale: toLocale(user.lang),
   };
 }
 

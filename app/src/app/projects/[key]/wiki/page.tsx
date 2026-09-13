@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
-import { ProjectNav } from "@/components/ProjectNav";
 import { PageTitle, ButtonLink, PillLink } from "@/components/ui";
 
 export default async function WikiList({
@@ -25,7 +24,22 @@ export default async function WikiList({
 
   if (!project.wikiEnabled) {
     return (
-      <Shell user={user} breadcrumbs={[{ label: project.name }, { label: "Wiki" }]}>
+      <Shell
+        user={user}
+        project={{
+          key: key,
+          name: project.name,
+          current: "wiki",
+          show: {
+            addIssue: can(user, "issue.create", ctx),
+            wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
+            files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
+            chart: project.chartEnabled,
+            git: project.gitEnabled && can(user, "git.access", ctx),
+            settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
+          },
+        }}
+      >
       <PageTitle>Wiki</PageTitle>
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           このプロジェクトは「Wikiを使用する」が無効です。
@@ -65,23 +79,21 @@ export default async function WikiList({
   return (
     <Shell
       user={user}
-      breadcrumbs={[
-        { label: project.name, href: `/projects/${key}/issues` },
-        { label: "Wiki" },
-      ]}
-    >
-      <div className="flex items-center justify-between">
-        <ProjectNav
-        projectKey={key}
-        current="wiki"
-        show={{
+      project={{
+        key: key,
+        name: project.name,
+        current: "wiki",
+        show: {
+          addIssue: can(user, "issue.create", ctx),
           wiki: project.wikiEnabled && can(user, "wiki.view", ctx),
           files: project.fileSharingEnabled && can(user, "sharedFile.access", ctx),
           chart: project.chartEnabled,
           git: project.gitEnabled && can(user, "git.access", ctx),
           settings: can(user, "project.edit", ctx) || can(user, "issueType.manage", ctx),
-        }}
-      />
+        },
+      }}
+    >
+      <div className="flex items-center justify-between">
         <PageTitle>Wiki</PageTitle>
         {can(user, "wiki.edit", ctx) && (
           <ButtonLink href={`/projects/${key}/wiki/new`} variant="primary">
