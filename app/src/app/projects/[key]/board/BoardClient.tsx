@@ -138,7 +138,9 @@ export function BoardClient({
   const [cards, setCards] = useState(initialCards);
   const [dragging, setDragging] = useState<Card | null>(null);
   const [, startTransition] = useTransition();
-  const [live, setLive] = useState(false);
+  // 接続前に「接続していません」と出すと、正常でも異常に見える。
+  // 3状態にして、まだ試している間は「接続中」にする
+  const [live, setLive] = useState<"connecting" | "on" | "off">("connecting");
   const router = useRouter();
   // 自分の操作で返ってくるイベントでは再取得しない。
   // ドラッグ直後に再取得すると、まだ反映前の状態で画面が巻き戻る
@@ -148,7 +150,7 @@ export function BoardClient({
   // WebSocket ではなく SSE なのは、職場のプロキシで詰まる可能性があるため
   useEffect(() => {
     const es = new EventSource(`/api/projects/${projectKey}/events`);
-    es.addEventListener("ready", () => setLive(true));
+    es.addEventListener("ready", () => setLive("on"));
     es.addEventListener("issue.moved", (ev) => {
       try {
         const data = JSON.parse((ev as MessageEvent).data) as { issueId: number };
@@ -158,7 +160,7 @@ export function BoardClient({
       }
       router.refresh();
     });
-    es.onerror = () => setLive(false);
+    es.onerror = () => setLive("off");
     return () => es.close();
   }, [projectKey, router]);
 
@@ -231,10 +233,14 @@ export function BoardClient({
       <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
         <span
           className={`inline-block h-2 w-2 rounded-full ${
-            live ? "bg-emerald-500" : "bg-slate-300"
+            live === "on" ? "bg-emerald-500" : live === "off" ? "bg-red-400" : "bg-slate-300"
           }`}
         />
-        {live ? "他の人の変更がリアルタイムに反映されます" : "接続していません"}
+        {live === "on"
+          ? "他の人の変更がリアルタイムに反映されます"
+          : live === "off"
+            ? "接続していません（再読み込みで最新になります）"
+            : "接続中…"}
       </p>
       <div className="mt-2 flex gap-3 overflow-x-auto pb-4">
         {columns.map((col) => (

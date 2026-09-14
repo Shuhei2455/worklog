@@ -18,6 +18,8 @@ import { translator, type Locale } from "@/lib/i18n";
  */
 export type ProjectNavKey =
   | "home"
+  // 「課題の追加」画面でこの項目を選択状態にするために含める
+  | "addIssue"
   | "issues"
   | "board"
   | "gantt"
@@ -52,7 +54,7 @@ export function ProjectSidebar({
   const t = translator(locale);
   const base = `/projects/${projectKey}`;
 
-  const items: Array<{ key: ProjectNavKey | "addIssue"; label: string; href: string }> = [
+  const items: Array<{ key: ProjectNavKey; label: string; href: string }> = [
     { key: "home", label: t("project.home"), href: `${base}/issues` },
   ];
   if (show.addIssue) {

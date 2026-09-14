@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { projectNav } from "@/lib/project-nav";
 import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 import { deleteWiki } from "../actions";
@@ -41,6 +42,7 @@ export default async function WikiPage({
   return (
     <Shell
       user={user}
+      project={projectNav(project, user, ctx, "wiki")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
         { label: "Wiki", href: `/projects/${key}/wiki` },

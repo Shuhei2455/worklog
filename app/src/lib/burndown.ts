@@ -128,3 +128,25 @@ export function completedAtFrom(
     .find((c) => c.to === STATUS_ID_CLOSED);
   return lastClosed?.at ?? issue.completedAt;
 }
+
+/**
+ * 縦軸の目盛りの値を返す（大きい順）。
+ *
+ * 以前は 0/0.25/0.5/0.75/1 の位置に `max*(1-r)` を四捨五入して置いていた。
+ * **max が小さいと同じ数字が並ぶ**（max=1 なら 1,1,1,0,0）。
+ * 対象0件のマイルストーンを開くと必ずこうなっていた。
+ *
+ * max が目盛りの数より小さいときは、整数を1つずつ置く。
+ */
+export function axisTicks(max: number, count = 5): number[] {
+  const m = Math.max(0, Math.floor(max));
+  if (m <= 0) return [0];
+  if (m < count) {
+    // 0..m を1つずつ。大きい順にする
+    return Array.from({ length: m + 1 }, (_, i) => m - i);
+  }
+  const step = m / (count - 1);
+  const values = Array.from({ length: count }, (_, i) => Math.round(m - step * i));
+  // 丸めで重複したら潰す
+  return [...new Set(values)];
+}

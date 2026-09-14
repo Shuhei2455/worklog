@@ -25,6 +25,8 @@ import {
   toggleStar,
 } from "@/app/projects/[key]/issues/actions";
 import { renderMentions } from "@/lib/mention";
+import { Markdown } from "@/components/Markdown";
+import { projectNav } from "@/lib/project-nav";
 import { readFlash } from "@/lib/flash";
 import {
   linkSharedFileToIssue,
@@ -138,10 +140,9 @@ export default async function IssueDetail({
   return (
     <Shell
       user={user}
-      breadcrumbs={[
-        { label: project.name, href: `/projects/${project.key}/issues` },
-        { label: fullKey },
-      ]}
+      // 課題はプロジェクトの中身なので、左のナビを出したままにする。
+      // 一覧から開いた瞬間にナビが消えると、別の画面へ移るのに戻る操作が要る
+      project={projectNav(project, user, ctx, "issues")}
     >
       {ok && (
         <p className="mb-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -188,8 +189,11 @@ export default async function IssueDetail({
         {/* ---- 本文と時系列 ---- */}
         <div>
           {issue.description && (
-            <div className="whitespace-pre-wrap rounded border border-slate-200 bg-white p-4 text-sm">
-              {issue.description}
+            <div className="rounded border border-slate-200 bg-white p-4 text-sm">
+              {/* Markdown(GFM) で描く。Wiki・プルリクと同じ扱い。
+                  以前は素のテキストで出しており、`- [ ] やること` が
+                  そのまま見えていた（CLAUDE.md のテキスト整形ルールに反していた） */}
+              <Markdown>{issue.description}</Markdown>
             </div>
           )}
 
@@ -395,14 +399,18 @@ export default async function IssueDetail({
                 )}
 
                 {t.content && (
-                  <p className="mt-2 whitespace-pre-wrap">
+                  <div className="mt-2 text-sm">
                     {/* 本文には <@U5> のまま保存し、表示時に名前へ直す。
-                        名前を埋め込むと改名に追随できない */}
-                    {renderMentions(t.content, {
-                      users: new Map(members.map((m) => [m.userId, m.user.name])),
-                      teams: new Map(teams.map((tm) => [tm.id, tm.name])),
-                    })}
-                  </p>
+                        名前を埋め込むと改名に追随できない。
+                        メンションを解決してから Markdown に渡す
+                        （renderMentions は文字列を返すのでそのまま繋げられる） */}
+                    <Markdown>
+                      {renderMentions(t.content, {
+                        users: new Map(members.map((m) => [m.userId, m.user.name])),
+                        teams: new Map(teams.map((tm) => [tm.id, tm.name])),
+                      })}
+                    </Markdown>
+                  </div>
                 )}
               </li>
             ))}

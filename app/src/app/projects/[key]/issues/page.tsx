@@ -13,6 +13,7 @@ import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
 import { ActionResult, PageTitle, Button, ButtonLink, StatusLabel } from "@/components/ui";
 import { readFlash } from "@/lib/flash";
+import { STATUS_ID_CLOSED } from "@/lib/constants";
 import { saveFilter } from "./actions";
 
 
@@ -27,6 +28,9 @@ export default async function IssueList({
   const sp = await searchParams;
   // 検索条件の保存・CSV取り込みの結果はフラッシュ（cookie）で来る
   const flash = await readFlash(`/projects/${key}/issues`);
+  // 期限切れの判定に使う。時刻が混ざると「今日が期限」が実行時刻で変わる
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   // CSV出力へ渡すクエリ。いま見ている絞り込みをそのまま引き継ぐ
   const queryString = new URLSearchParams(
     Object.entries(sp).flatMap(([k, v]) =>
@@ -282,7 +286,15 @@ export default async function IssueList({
               <td className="px-3 py-2 text-slate-600">
                 {PRIORITY_LABEL.get(i.priorityId) ?? i.priorityId}
               </td>
-              <td className="px-3 py-2 text-slate-600">
+              {/* 期限切れは赤くする。ダッシュボードと揃える
+                  （完了した課題は過ぎていても急ぎではないので普通の色） */}
+              <td
+                className={`px-3 py-2 ${
+                  i.dueDate && i.dueDate < today && i.statusId !== STATUS_ID_CLOSED
+                    ? "font-medium text-red-700"
+                    : "text-slate-600"
+                }`}
+              >
                 {i.dueDate ? i.dueDate.toISOString().slice(0, 10) : ""}
               </td>
             </tr>

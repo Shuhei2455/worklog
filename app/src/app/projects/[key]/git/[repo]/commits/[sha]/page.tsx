@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
+import { projectNav } from "@/lib/project-nav";
 import { loadGitContext, splitDiff } from "@/lib/git-view";
 import { listCommits, commitDiff } from "@/lib/gitea";
 
@@ -11,7 +12,7 @@ export default async function CommitDetail({
   params: Promise<{ key: string; repo: string; sha: string }>;
 }) {
   const { key, repo, sha } = await params;
-  const { user, project, repository, org } = await loadGitContext(
+  const { user, project, ctx, repository, org } = await loadGitContext(
     key,
     decodeURIComponent(repo),
   );
@@ -29,6 +30,7 @@ export default async function CommitDetail({
   return (
     <Shell
       user={user}
+      project={projectNav(project, user, ctx, "git")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
         { label: "Git", href: `/projects/${key}/git` },

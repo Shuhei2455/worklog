@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildBurndown, datesBetween, completedAtFrom } from "./burndown";
+import { buildBurndown, datesBetween, completedAtFrom, axisTicks } from "./burndown";
 import { STATUS_ID_CLOSED, STATUS_ID_OPEN } from "@/lib/constants";
 
 const d = (s: string) => new Date(`${s}T00:00:00Z`);
@@ -142,5 +142,36 @@ describe("completedAtFrom", () => {
     expect(
       completedAtFrom({ statusId: STATUS_ID_CLOSED, completedAt: null }, []),
     ).toBeNull();
+  });
+});
+
+describe("axisTicks", () => {
+  it("目盛りの数より max が小さければ整数を1つずつ（重複しない）", () => {
+    expect(axisTicks(1)).toEqual([1, 0]);
+    expect(axisTicks(3)).toEqual([3, 2, 1, 0]);
+  });
+
+  it("0件なら 0 だけ", () => {
+    expect(axisTicks(0)).toEqual([0]);
+  });
+
+  it("十分大きければ5段階", () => {
+    expect(axisTicks(20)).toEqual([20, 15, 10, 5, 0]);
+  });
+
+  it("割り切れなくても重複を出さない", () => {
+    for (const m of [5, 6, 7, 11, 13, 17, 23, 100]) {
+      const t = axisTicks(m);
+      expect(new Set(t).size).toBe(t.length);
+      expect(t[0]).toBe(m);
+      expect(t[t.length - 1]).toBe(0);
+    }
+  });
+
+  it("常に大きい順", () => {
+    for (const m of [1, 4, 9, 50]) {
+      const t = axisTicks(m);
+      expect([...t].sort((a, b) => b - a)).toEqual(t);
+    }
   });
 });

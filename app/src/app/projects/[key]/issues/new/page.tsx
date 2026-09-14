@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { PRIORITIES, DEFAULT_PRIORITY_ID } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
+import { projectNav } from "@/lib/project-nav";
 import { PageTitle, Button } from "@/components/ui";
 import { addIssue } from "../actions";
 import { CustomFieldInputs } from "@/components/CustomFieldInputs";
@@ -44,6 +45,7 @@ export default async function NewIssue({
   return (
     <Shell
       user={user}
+      project={projectNav(project, user, ctx, "addIssue")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
         { label: "課題を追加" },

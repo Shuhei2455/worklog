@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { projectNav } from "@/lib/project-nav";
 import { PageTitle, Button } from "@/components/ui";
 import { BASE_COLUMNS } from "@/lib/issue-csv";
 import { loadFieldDefs } from "@/lib/custom-field-form";
@@ -51,6 +52,7 @@ export default async function ImportIssues({
   return (
     <Shell
       user={user}
+      project={projectNav(project, user, ctx, "issues")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
         { label: "課題", href: `/projects/${key}/issues` },

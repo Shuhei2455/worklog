@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
+import { projectNav } from "@/lib/project-nav";
 import { EmptyState, PageTitle, Button, PillLink } from "@/components/ui";
 import { loadGitContext, PR_STATE_LABEL } from "@/lib/git-view";
 import { syncPullRequests } from "../../actions";
@@ -21,7 +22,7 @@ export default async function Pulls({
 }) {
   const { key, repo } = await params;
   const sp = await searchParams;
-  const { user, project, repository, org } = await loadGitContext(
+  const { user, project, ctx, repository, org } = await loadGitContext(
     key,
     decodeURIComponent(repo),
   );
@@ -51,6 +52,7 @@ export default async function Pulls({
   return (
     <Shell
       user={user}
+      project={projectNav(project, user, ctx, "git")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
         { label: "Git", href: `/projects/${key}/git` },

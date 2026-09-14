@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
+import { projectNav } from "@/lib/project-nav";
 import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext, commitTitle } from "@/lib/git-view";
 import { listContents, readFile, listCommits } from "@/lib/gitea";
@@ -20,7 +21,7 @@ export default async function RepoTree({
 }) {
   const { key, repo } = await params;
   const sp = await searchParams;
-  const { user, project, repository, org } = await loadGitContext(
+  const { user, project, ctx, repository, org } = await loadGitContext(
     key,
     decodeURIComponent(repo),
   );
@@ -42,6 +43,7 @@ export default async function RepoTree({
   return (
     <Shell
       user={user}
+      project={projectNav(project, user, ctx, "git")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
         { label: "Git", href: `/projects/${key}/git` },

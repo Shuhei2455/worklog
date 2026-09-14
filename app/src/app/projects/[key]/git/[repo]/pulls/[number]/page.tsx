@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
+import { projectNav } from "@/lib/project-nav";
 import { PageTitle, Button } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 import { loadGitContext, PR_STATE_LABEL } from "@/lib/git-view";
@@ -47,6 +48,7 @@ export default async function PullDetail({
   return (
     <Shell
       user={user}
+      project={projectNav(project, user, ctx, "git")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
         { label: "Git", href: `/projects/${key}/git` },

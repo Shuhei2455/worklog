@@ -6,6 +6,7 @@ import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
 import { PageTitle, Button } from "@/components/ui";
 import {
+  axisTicks,
   buildBurndown,
   completedAtFrom,
   type BurndownIssue,
@@ -40,9 +41,24 @@ export default async function Burndown({
     orderBy: [{ releaseDueDate: "asc" }, { id: "asc" }],
   });
 
+  // 既定で選ぶマイルストーン。
+  //
+  // 以前は「期間が入っている最初のもの」だったが、並びが期限日の昇順なので
+  // **一番古い＝終わったマイルストーン**が選ばれ、開くと空のグラフが出ていた。
+  // 見たいのは普通いま動いているものなので、次の順で選ぶ:
+  //   1. 今日が期間に入っているもの
+  //   2. これから始まるもののうち一番早いもの
+  //   3. それも無ければ一番新しい終わったもの
+  // アーカイブ済みは 1・2 の対象から外す（終わった印なので）
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const withRange = milestones.filter((m) => m.startDate && m.releaseDueDate);
+  const active = withRange.filter((m) => !m.archived);
   const selected =
     milestones.find((m) => String(m.id) === sp.milestoneId) ??
-    milestones.find((m) => m.startDate && m.releaseDueDate) ??
+    active.find((m) => m.startDate! <= today && today <= m.releaseDueDate!) ??
+    active.find((m) => m.startDate! > today) ??
+    withRange[withRange.length - 1] ??
     null;
 
   let points: BurndownPoint[] = [];
@@ -228,24 +244,25 @@ function Chart({ points }: { points: BurndownPoint[] }) {
   return (
     <div className="mt-4 overflow-x-auto rounded border border-slate-200 bg-white p-3">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="バーンダウン">
-        {/* 目盛り */}
-        {[0, 0.25, 0.5, 0.75, 1].map((r) => (
-          <g key={r}>
+        {/* 目盛り。値を先に決めてから位置を出す。
+            比率から値を出すと、max が小さいとき同じ数字が並ぶ（lib/burndown.ts） */}
+        {axisTicks(maxCount).map((v) => (
+          <g key={v}>
             <line
               x1={pad.left}
               x2={W - pad.right}
-              y1={pad.top + innerH * r}
-              y2={pad.top + innerH * r}
+              y1={pad.top + innerH * (1 - v / Math.max(maxCount, 1))}
+              y2={pad.top + innerH * (1 - v / Math.max(maxCount, 1))}
               stroke="#e2e8f0"
             />
             <text
               x={pad.left - 6}
-              y={pad.top + innerH * r + 4}
+              y={pad.top + innerH * (1 - v / Math.max(maxCount, 1)) + 4}
               textAnchor="end"
               fontSize="10"
               fill="#94a3b8"
             >
-              {Math.round(maxCount * (1 - r))}
+              {v}
             </text>
           </g>
         ))}
