@@ -13,6 +13,8 @@ import {
   type TimeScale,
   type GanttGroupBy,
   type GanttBar,
+  ganttTicks,
+  ganttMonthBands,
 } from "@/lib/gantt";
 import { Shell } from "@/components/Shell";
 import { PageTitle, Button, ButtonLink, PillLink } from "@/components/ui";
@@ -27,8 +29,6 @@ const KIND_STYLE: Record<GanttBar["kind"], { bg: string; label: string }> = {
 };
 
 const DAY_PX = 22;
-const fmt = (d: Date) =>
-  `${d.getMonth() + 1}/${d.getDate()}`;
 
 export default async function GanttPage({
   params,
@@ -191,20 +191,11 @@ export default async function GanttPage({
     groups.get(g)!.push(r);
   }
 
-  // 目盛り
-  const ticks: Array<{ i: number; label: string; weekend: boolean; today: boolean }> = [];
-  const todayStr = new Date().toDateString();
-  for (let i = 0; i < days; i++) {
-    const d = new Date(rangeStart);
-    d.setDate(d.getDate() + i);
-    const step = scale === "day" ? 1 : scale === "week" ? 7 : scale === "month" ? 30 : 91;
-    ticks.push({
-      i,
-      label: i % step === 0 ? fmt(d) : "",
-      weekend: d.getDay() === 0 || d.getDay() === 6,
-      today: d.toDateString() === todayStr,
-    });
-  }
+  // 目盛りと、その上に出す月の帯。
+  // 日スケールで `9/14` を出すと 22px のマスからはみ出して隣と重なるので、
+  // 日付だけにして月は帯で示す（lib/gantt.ts）
+  const ticks = ganttTicks(rangeStart, days, scale);
+  const monthBands = ganttMonthBands(rangeStart, days);
 
   const link = (over: Record<string, string>) => {
     const q = new URLSearchParams();
@@ -362,14 +353,39 @@ export default async function GanttPage({
       <div className="mt-4 overflow-x-auto rounded border border-slate-200 bg-white">
         <div style={{ minWidth: 320 + width }}>
           {/* 目盛り */}
+          {/* ---- ヘッダ上段: 月の帯 ---- */}
+          <div className="flex border-b border-slate-200 bg-slate-50 text-[10px] text-slate-600">
+            <div className="w-80 shrink-0 border-r border-slate-200 px-3 py-1" />
+            <div className="flex" style={{ width }}>
+              {monthBands.map((b, idx) => (
+                <div
+                  key={`${b.label}-${idx}`}
+                  className="shrink-0 overflow-hidden whitespace-nowrap border-r border-slate-200 px-1 py-1 font-medium"
+                  style={{ width: b.days * DAY_PX }}
+                  title={b.label}
+                >
+                  {/* 端の月は幅が足りないことがある。はみ出さずに切る */}
+                  {b.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ---- ヘッダ下段: 日付 ---- */}
           <div className="flex border-b border-slate-200 bg-slate-50 text-[10px] text-slate-500">
             <div className="w-80 shrink-0 border-r border-slate-200 px-3 py-1">課題</div>
             <div className="relative flex" style={{ width }}>
               {ticks.map((t) => (
                 <div
                   key={t.i}
-                  className={`shrink-0 border-r border-slate-100 py-1 text-center ${
-                    t.today ? "bg-amber-100" : t.weekend ? "bg-slate-100" : ""
+                  // 週・月スケールは間引くので、ラベルが隣の空マスへはみ出して構わない。
+                  // overflow-hidden にすると `10/12` が切れる（実測で発覚）
+                  className={`shrink-0 border-r border-slate-100 py-1 text-center tabular-nums ${
+                    t.today
+                      ? "bg-amber-100 font-semibold text-amber-800"
+                      : t.weekend
+                        ? "bg-slate-100"
+                        : ""
                   }`}
                   style={{ width: DAY_PX }}
                 >

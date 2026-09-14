@@ -160,3 +160,83 @@ export const GANTT_GROUP_LABELS: Record<GanttGroupBy, string> = {
   category: "カテゴリー",
   parentIssue: "親課題",
 };
+
+/* ------------------------------------------------------------------ *
+ * 日付の目盛り
+ * ------------------------------------------------------------------ */
+
+/**
+ * 目盛りの1マス。
+ *
+ * `label` が空文字のマスは日付を出さない（週・月スケールで間引くため）。
+ */
+export type GanttTick = {
+  /** 表示開始日からの日数 */
+  i: number;
+  label: string;
+  weekend: boolean;
+  today: boolean;
+};
+
+/** 月の帯。ヘッダの上段に出す */
+export type GanttMonthBand = {
+  /** `2026年9月` の形 */
+  label: string;
+  /** この月が占めるマスの数 */
+  days: number;
+};
+
+/**
+ * 目盛りを作る。
+ *
+ * **日スケールでは日付だけを出す**（`9/14` ではなく `14`）。
+ * 1マス22pxに対して `12/31` は25px必要で**はみ出して隣と重なる**ため。
+ * 月は上段の帯（`monthBands`）で分かるので、情報は落ちない。
+ *
+ * 週以上のスケールは間引くので余白があり、`M/D` のまま出す。
+ */
+export function ganttTicks(
+  rangeStart: Date,
+  days: number,
+  scale: TimeScale,
+  today = new Date(),
+): GanttTick[] {
+  const step = scale === "day" ? 1 : scale === "week" ? 7 : scale === "month" ? 30 : 91;
+  const todayStr = today.toDateString();
+  const ticks: GanttTick[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(rangeStart);
+    d.setDate(d.getDate() + i);
+    const show = i % step === 0;
+    ticks.push({
+      i,
+      label: !show
+        ? ""
+        : scale === "day"
+          ? String(d.getDate())
+          : `${d.getMonth() + 1}/${d.getDate()}`,
+      weekend: d.getDay() === 0 || d.getDay() === 6,
+      today: d.toDateString() === todayStr,
+    });
+  }
+  return ticks;
+}
+
+/**
+ * 連続する日を月ごとにまとめる。ヘッダ上段の帯に使う。
+ *
+ * 端の月は途中から始まる・途中で終わるので、`days` は実際に含まれる
+ * マスの数になる（月の日数とは限らない）。
+ */
+export function ganttMonthBands(rangeStart: Date, days: number): GanttMonthBand[] {
+  const bands: GanttMonthBand[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(rangeStart);
+    d.setDate(d.getDate() + i);
+    const label = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+    const last = bands[bands.length - 1];
+    if (last && last.label === label) last.days += 1;
+    else bands.push({ label, days: 1 });
+  }
+  return bands;
+}

@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  ganttTicks,
+  ganttMonthBands,
   resolveGanttBar,
   defaultGanttStart,
   barOffset,
@@ -180,5 +182,73 @@ describe("描画用の位置計算", () => {
   it("表示開始日より前の帯は負のオフセットになる", () => {
     const bar = resolveGanttBar(issue({ dueDate: d("2026-09-01") }))!;
     expect(barOffset(bar, d("2026-09-05")).offsetDays).toBe(-4);
+  });
+});
+
+describe("ganttTicks", () => {
+  const start = new Date(2026, 8, 7); // 2026-09-07 (月)
+
+  it("日スケールは日付だけを出す（M/D だと 22px のマスからはみ出すため）", () => {
+    const t = ganttTicks(start, 5, "day", start);
+    expect(t.map((x) => x.label)).toEqual(["7", "8", "9", "10", "11"]);
+  });
+
+  it("月をまたいでも日付だけ（月は上段の帯で分かる）", () => {
+    const t = ganttTicks(new Date(2026, 8, 29), 4, "day", start);
+    expect(t.map((x) => x.label)).toEqual(["29", "30", "1", "2"]);
+  });
+
+  it("週スケールは7日ごとに M/D を出し、間は空にする", () => {
+    const t = ganttTicks(start, 15, "week", start);
+    expect(t[0].label).toBe("9/7");
+    expect(t[1].label).toBe("");
+    expect(t[7].label).toBe("9/14");
+    expect(t[14].label).toBe("9/21");
+  });
+
+  it("月スケールは30日ごと", () => {
+    const t = ganttTicks(start, 31, "month", start);
+    expect(t[0].label).toBe("9/7");
+    expect(t[30].label).toBe("10/7");
+    expect(t.filter((x) => x.label).length).toBe(2);
+  });
+
+  it("土日を印づける", () => {
+    const t = ganttTicks(start, 7, "day", start);
+    // 9/7 は月曜。土曜=index5, 日曜=index6
+    expect(t.filter((x) => x.weekend).map((x) => x.i)).toEqual([5, 6]);
+  });
+
+  it("今日を印づける", () => {
+    const t = ganttTicks(start, 5, "day", new Date(2026, 8, 9));
+    expect(t.filter((x) => x.today).map((x) => x.i)).toEqual([2]);
+  });
+});
+
+describe("ganttMonthBands", () => {
+  it("月ごとにまとめ、端は途中の日数になる", () => {
+    const b = ganttMonthBands(new Date(2026, 8, 29), 5); // 9/29〜10/3
+    expect(b).toEqual([
+      { label: "2026年9月", days: 2 },
+      { label: "2026年10月", days: 3 },
+    ]);
+  });
+
+  it("帯の合計は必ず日数と一致する（ヘッダ幅がずれると目盛りと合わなくなる）", () => {
+    for (const days of [1, 7, 30, 90, 200]) {
+      const b = ganttMonthBands(new Date(2026, 8, 15), days);
+      expect(b.reduce((s, x) => s + x.days, 0)).toBe(days);
+    }
+  });
+
+  it("年をまたぐ", () => {
+    const b = ganttMonthBands(new Date(2026, 11, 30), 4); // 12/30〜1/2
+    expect(b.map((x) => x.label)).toEqual(["2026年12月", "2027年1月"]);
+  });
+
+  it("同じ月に収まれば1本", () => {
+    expect(ganttMonthBands(new Date(2026, 8, 1), 30)).toEqual([
+      { label: "2026年9月", days: 30 },
+    ]);
   });
 });
