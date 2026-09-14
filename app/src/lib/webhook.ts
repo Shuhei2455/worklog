@@ -2,15 +2,22 @@ import { prisma } from "@/lib/db";
 import { ACTIVITY_TYPE_ID } from "@/lib/activity-type";
 import { toBacklogChanges } from "@/lib/api/changes";
 import type { ActivityType } from "@prisma/client";
+import { chatKindOf, toDiscord } from "@/lib/webhook-chat";
 
 /**
  * プロジェクト単位の webhook 送信。
  *
- * Slack や Teams への連携を想定している(docs/01-design.md 7章)。
  * 送信は worker 経由の非同期。外部が遅くても画面を待たせない。
  *
  * ペイロードは本家に寄せた形にする。既存の受け側がある場合に
  * 差し替えやすくするため。
+ *
+ * **ただし Discord だけは形を変えて送る**（決定 D31）。
+ * Discord は最上位の `content` を文字列として読むので、本家寄りの形
+ * （`content` がオブジェクト）だと HTTP 400 になる。lib/webhook-chat.ts を参照。
+ *
+ * **Slack / Teams には未対応。** 同じ理由でそのままでは届かない
+ * （Slack は `{text}` を期待する）。必要になったら webhook-chat.ts に足す。
  */
 
 export type WebhookPayload = {
@@ -37,11 +44,26 @@ export async function webhooksFor(
     .map((h) => ({ id: h.id, hookUrl: h.hookUrl, name: h.name }));
 }
 
-/** 1件送る。worker から呼ぶ */
+/**
+ * 1件送る。worker から呼ぶ。
+ *
+ * **送信先によって本文の形を変える。**
+ * Discord は最上位の `content` を文字列として読むので、本家寄りの形
+ * （`content` がオブジェクト）をそのまま送ると HTTP 400 になる。
+ * lib/webhook-chat.ts を参照。
+ *
+ * `permanent` は「再試行しても無駄」を意味する。
+ * 本文の形が違う・URLが失効しているといった 4xx は、
+ * 何度送っても同じ結果にしかならない（429 は例外。待てば通る）。
+ */
 export async function deliver(
   hookUrl: string,
   payload: WebhookPayload,
-): Promise<{ ok: boolean; status: number; body: string }> {
+): Promise<{ ok: boolean; status: number; body: string; permanent: boolean }> {
+  const kind = chatKindOf(hookUrl);
+  const body =
+    kind === "discord" ? toDiscord(payload, process.env.APP_URL) : payload;
+
   const controller = new AbortController();
   // 相手が遅くても worker を占有させない
   const timer = setTimeout(() => controller.abort(), 10_000);
@@ -49,11 +71,16 @@ export async function deliver(
     const res = await fetch(hookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const body = await res.text().catch(() => "");
-    return { ok: res.ok, status: res.status, body: body.slice(0, 200) };
+    const text = await res.text().catch(() => "");
+    return {
+      ok: res.ok,
+      status: res.status,
+      body: text.slice(0, 200),
+      permanent: res.status >= 400 && res.status < 500 && res.status !== 429,
+    };
   } finally {
     clearTimeout(timer);
   }

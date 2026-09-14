@@ -134,6 +134,16 @@ async function main() {
       if (!payload) return "活動が既に無い";
       const res = await deliver(job.data.hookUrl, payload);
       if (!res.ok) {
+        if (res.permanent) {
+          // **再試行しない。** 本文の形が違う・URLが失効している類の 4xx は
+          // 何度送っても同じ結果にしかならない。
+          // 以前は全部 throw していたため、Discord の 400 を延々と繰り返していた
+          console.error(
+            `[worker] webhook ${job.data.webhookId} は恒久エラーで中止: ` +
+              `HTTP ${res.status} ${res.body}`,
+          );
+          return `webhook ${job.data.webhookId} 中止 (HTTP ${res.status})`;
+        }
         // 落として再試行させる。相手が一時的に落ちていることがある
         throw new Error(`HTTP ${res.status} ${res.body}`);
       }

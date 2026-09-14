@@ -721,7 +721,7 @@ export default async function ProjectSettings({
       {canEditProject && (
         <Section
           title="webhook"
-          note="課題の追加・更新などを外部へ通知します。Slack や Teams の受け口を想定しています。送信は非同期なので、相手が遅くても画面は待ちません。"
+          note="課題の追加・更新などを外部へ通知します。送信は非同期なので、相手が遅くても画面は待ちません。Discord の Webhook URL は自動で判別し、Discord が読める形に変換して送ります。それ以外の宛先には本家Backlogと同じ形のJSONを送るので、Slack や Teams にはそのままでは届きません（受け口側で変換が必要です）。"
         >
           {webhooks.length === 0 ? (
             <p className="text-xs text-slate-400">なし</p>
@@ -750,7 +750,7 @@ export default async function ProjectSettings({
               <input
                 name="name"
                 required
-                placeholder="Slack 通知"
+                placeholder="Discord 通知"
                 className="mt-1 rounded border border-slate-300 px-2 py-1"
               />
             </label>
