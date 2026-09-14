@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
 import { PageTitle, ActionResult, Button, Card } from "@/components/ui";
@@ -13,13 +14,14 @@ export default async function LanguageSettings({
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const sp = await searchParams;
+  const flash = await readFlash("/settings/language");
   const user = await currentUser();
   const t = translator(user.locale);
 
   return (
     <Shell user={user} breadcrumbs={[{ label: t("common.language") }]}>
       <PageTitle>{t("common.language")}</PageTitle>
-      <ActionResult ok={sp.ok ? t("common.save") : undefined} error={sp.error} />
+      <ActionResult ok={flash.ok ?? (sp.ok ? t("common.save") : undefined)} error={sp.error ?? flash.error} />
 
       <Card className="max-w-sm p-4">
         <form action={setLanguage} className="flex items-end gap-2">

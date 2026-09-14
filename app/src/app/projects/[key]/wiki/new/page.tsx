@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -15,7 +16,9 @@ export default async function NewWiki({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { key } = await params;
-  const { error } = await searchParams;
+  const flash = await readFlash(`/projects/${key}/wiki/new`);
+  const sp = await searchParams;
+  const error = sp.error ?? flash.error;
   const user = await currentUser();
 
   const project = await prisma.project.findUnique({ where: { key } });

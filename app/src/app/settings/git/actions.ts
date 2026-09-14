@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { audit } from "@/lib/audit";
@@ -23,22 +24,24 @@ export async function setMyGiteaPassword(formData: FormData) {
   const confirm = String(formData.get("confirm") ?? "");
   const path = "/settings/git";
 
-  const fail = (msg: string): never => {
+  // 以前は redirect で投げていたので `never` だった。
+  // いまはフラッシュを置いて戻るだけなので、**呼び出し側で必ず return する**
+  const fail = async (msg: string): Promise<void> => {
+    await setFlash(path, msg, true);
     revalidatePath(path);
-    redirect(`${path}?error=${encodeURIComponent(msg)}`);
   };
 
   // Gitea の既定の下限は8文字。ここで弾かないとAPIのエラーがそのまま出る
-  if (password.length < 8) fail("8文字以上にしてください");
-  if (password !== confirm) fail("確認用のパスワードが一致しません");
+  if (password.length < 8) return await fail("8文字以上にしてください");
+  if (password !== confirm) return await fail("確認用のパスワードが一致しません");
 
   const { giteaEnabled, setGiteaPassword } = await import("@/lib/gitea");
-  if (!giteaEnabled()) fail("Gitea が設定されていません");
+  if (!giteaEnabled()) return await fail("Gitea が設定されていません");
 
   try {
     await setGiteaPassword(user.id, password);
   } catch (e) {
-    fail(`設定できませんでした: ${(e as Error).message}`);
+    return await fail(`設定できませんでした: ${(e as Error).message}`);
   }
 
   await audit(user.id, {
@@ -48,6 +51,6 @@ export async function setMyGiteaPassword(formData: FormData) {
     detail: { target: "gitea" },
   });
 
+  await setFlash(path, "変更しました");
   revalidatePath(path);
-  redirect(`${path}?ok=1`);
 }

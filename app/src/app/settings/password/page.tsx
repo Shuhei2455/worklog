@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
@@ -13,6 +14,7 @@ export default async function PasswordSettings({
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const sp = await searchParams;
+  const flash = await readFlash("/settings/password");
   const user = await currentUser();
 
   const row = await prisma.user.findUniqueOrThrow({

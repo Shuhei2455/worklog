@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { can, toRoleType } from "@/lib/permissions";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { readFlash } from "@/lib/flash";
 import { ActionResult, PageTitle, Button } from "@/components/ui";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password";
 import {
@@ -39,6 +40,9 @@ export default async function Users({
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const sp = await searchParams;
+  // メッセージは通常フラッシュ（cookie）から来る。
+  // 同じURLへ redirect すると画面が飛ぶため（lib/flash.ts）
+  const flash = await readFlash("/users");
   const user = await currentUser();
   if (!can(user, "space.edit", {})) notFound();
 
@@ -54,7 +58,7 @@ export default async function Users({
         <strong>削除はできません</strong>（活動履歴から参照されるため、
         無効化で止めます）。</>}>ユーザー</PageTitle>
 
-      <ActionResult ok={sp.ok} error={sp.error} />
+      <ActionResult ok={sp.ok ?? flash.ok} error={sp.error ?? flash.error} />
 
       {/* ---- 追加 ---- */}
       <form

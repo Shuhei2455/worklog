@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
@@ -20,9 +21,11 @@ export async function changeMyPassword(formData: FormData) {
   const user = await currentUser();
   const path = "/settings/password";
 
-  const fail = (msg: string): never => {
+  // 以前は redirect で投げていたので `never` だった。
+  // いまはフラッシュを置いて戻るだけなので、**呼び出し側で必ず return する**
+  const fail = async (msg: string): Promise<void> => {
+    await setFlash(path, msg, true);
     revalidatePath(path);
-    redirect(`${path}?error=${encodeURIComponent(msg)}`);
   };
 
   const current = String(formData.get("current") ?? "");
@@ -35,16 +38,16 @@ export async function changeMyPassword(formData: FormData) {
   });
 
   if (row.authProvider !== "local") {
-    fail("このアカウントは外部認証のため、ここでは変更できません");
+    return await fail("このアカウントは外部認証のため、ここでは変更できません");
   }
   if (!verifyPassword(current, row.passwordHash)) {
-    fail("現在のパスワードが違います");
+    return await fail("現在のパスワードが違います");
   }
   if (next !== confirm) {
-    fail("確認用のパスワードが一致しません");
+    return await fail("確認用のパスワードが一致しません");
   }
   if (next === current) {
-    fail("いまと同じパスワードは使えません");
+    return await fail("いまと同じパスワードは使えません");
   }
 
   const strength = checkPasswordStrength(next, {
@@ -52,7 +55,7 @@ export async function changeMyPassword(formData: FormData) {
     name: row.name,
     email: row.email,
   });
-  if (!strength.ok) fail(strength.error);
+  if (!strength.ok) return await fail(strength.error);
 
   await prisma.user.update({
     where: { id: user.id },
@@ -66,6 +69,6 @@ export async function changeMyPassword(formData: FormData) {
     detail: { target: "app", self: true },
   });
 
+  await setFlash(path, "変更しました");
   revalidatePath(path);
-  redirect(`${path}?ok=1`);
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
@@ -17,12 +18,15 @@ export async function setLanguage(formData: FormData) {
   const lang = String(formData.get("lang") ?? "");
 
   if (!isLocale(lang)) {
-    redirect(`/settings/language?error=${encodeURIComponent("その言語は選べません")}`);
+    await setFlash("/settings/language", "その言語は選べません", true);
+    revalidatePath("/settings/language");
+    return;
   }
 
   await prisma.user.update({ where: { id: user.id }, data: { lang } });
 
   // ヘッダもサイドバーも言語で変わるので、全体を作り直させる
+  // 表示言語は全画面に効くのでレイアウトごと作り直す
+  await setFlash("/settings/language", "表示言語を変更しました");
   revalidatePath("/", "layout");
-  redirect("/settings/language?ok=1");
 }

@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -18,6 +19,7 @@ export default async function Files({
   searchParams: Promise<{ dir?: string; ok?: string; error?: string }>;
 }) {
   const { key } = await params;
+  const flash = await readFlash(`/projects/${key}/files`);
   const sp = await searchParams;
   const user = await currentUser();
 
@@ -107,7 +109,7 @@ export default async function Files({
         課題やWikiから参照できる、プロジェクト共通の置き場です。課題の添付とは別物です。
       </p>
 
-      <ActionResult ok={sp.ok} error={sp.error} />
+      <ActionResult ok={sp.ok ?? flash.ok} error={sp.error ?? flash.error} />
 
       <nav className="mt-4 flex items-center gap-1 text-sm">
         <Link href={`/projects/${key}/files`} className="text-brand-700 hover:underline">

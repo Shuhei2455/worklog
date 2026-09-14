@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { readFlash } from "@/lib/flash";
 import { ActionResult, EmptyState, PageTitle, Button } from "@/components/ui";
 import {
   createTeam,
@@ -24,6 +25,9 @@ export default async function Teams({
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const sp = await searchParams;
+  // メッセージは通常フラッシュ（cookie）から来る。
+  // 同じURLへ redirect すると画面が飛ぶため（lib/flash.ts）
+  const flash = await readFlash("/teams");
   const user = await currentUser();
 
   // スペース管理者だけ。参加プロジェクトに関係しないのでコンテキストは空
@@ -50,7 +54,7 @@ export default async function Teams({
         「お知らせ」先にも指定できます。本文では <code>{"<@T{id}>"}</code>{" "}
         でメンションします。</>}>チーム</PageTitle>
 
-      <ActionResult ok={sp.ok} error={sp.error} />
+      <ActionResult ok={sp.ok ?? flash.ok} error={sp.error ?? flash.error} />
 
       <form action={createTeam} className="mt-4 flex items-end gap-2">
         <label className="text-sm">

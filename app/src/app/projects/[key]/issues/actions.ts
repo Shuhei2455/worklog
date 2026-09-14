@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import { createIssue, updateIssue, deleteIssue } from "@/lib/issue";
@@ -37,7 +38,9 @@ export async function addIssue(key: string, formData: FormData) {
   const defs = applicableTo(await loadFieldDefs(project.id), issueTypeId);
   const cf = readFieldValues(defs, formData, "full");
   if (!cf.ok) {
-    redirect(`/projects/${key}/issues/new?error=${encodeURIComponent(cf.error)}`);
+    await setFlash(`/projects/${key}/issues/new`, cf.error, true);
+    revalidatePath(`/projects/${key}/issues/new`);
+    return;
   }
 
   let created;
@@ -56,7 +59,9 @@ export async function addIssue(key: string, formData: FormData) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "作成に失敗しました";
-    redirect(`/projects/${key}/issues/new?error=${encodeURIComponent(msg)}`);
+    await setFlash(`/projects/${key}/issues/new`, msg, true);
+    revalidatePath(`/projects/${key}/issues/new`);
+    return;
   }
   revalidatePath(`/projects/${key}/issues`);
   redirect(`/issues/${key}-${created.keyId}`);
@@ -94,7 +99,8 @@ export async function editIssue(issueKey: string, formData: FormData) {
   const defs = applicableTo(await loadFieldDefs(project.id), issue.issueTypeId);
   const cf = readFieldValues(defs, formData, "partial");
   if (!cf.ok) {
-    redirect(`/issues/${issueKey}?error=${encodeURIComponent(cf.error)}`);
+    await backToIssue(issueKey, cf.error, true);
+    return;
   }
   if (cf.ok && Object.keys(cf.values).length > 0) {
     patch.customFieldValues = cf.values;
@@ -106,10 +112,14 @@ export async function editIssue(issueKey: string, formData: FormData) {
     await updateIssue(patch as Parameters<typeof updateIssue>[0]);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "更新に失敗しました";
-    redirect(`/issues/${issueKey}?error=${encodeURIComponent(msg)}`);
+    await backToIssue(issueKey, msg, true);
+    return;
   }
+  // **同じURLへ redirect しない。** revalidatePath だけなら
+  // サーバーコンポーネントが再描画されて DOM が差分更新される（＝画面が飛ばない）。
+  // redirect を入れるとナビゲーションが起きて先頭までスクロールが戻り、
+  // 「リロードされた」ように見える
   revalidatePath(`/issues/${issueKey}`);
-  redirect(`/issues/${issueKey}`);
 }
 
 export async function removeIssue(issueKey: string) {
@@ -152,12 +162,22 @@ async function issueByKey(issueKey: string) {
   return { project, issue };
 }
 
-function backToIssue(issueKey: string, message?: string, isError = false) {
-  const q = message
-    ? `?${isError ? "error" : "ok"}=${encodeURIComponent(message)}`
-    : "";
-  revalidatePath(`/issues/${issueKey}`);
-  redirect(`/issues/${issueKey}${q}`);
+/**
+ * 課題画面での操作が終わったときに呼ぶ。
+ *
+ * **redirect しない。** `revalidatePath` だけならサーバーコンポーネントが
+ * 再描画されて DOM が差分更新される（スクロール位置も入力欄の状態も保たれる）。
+ * 以前は同じURLへ redirect していたため、毎回先頭までスクロールが戻っていた。
+ *
+ * メッセージはクエリではなくフラッシュ（cookie）で運ぶ。lib/flash.ts を参照。
+ *
+ * 戻り値が `never` でなくなったので、**呼んだあとに処理が続く**点に注意。
+ * 以前は redirect が投げていたので `return` を書かなくても止まっていた。
+ */
+async function backToIssue(issueKey: string, message?: string, isError = false) {
+  const path = `/issues/${issueKey}`;
+  if (message) await setFlash(path, message, isError);
+  revalidatePath(path);
 }
 
 /** 添付の追加。本家は2段階(先にファイルを送ってidを得る)だが、
@@ -169,11 +189,11 @@ export async function attachFile(issueKey: string, formData: FormData) {
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    backToIssue(issueKey, "ファイルを選んでください", true);
+    await backToIssue(issueKey, "ファイルを選んでください", true);
     return;
   }
   if (file.size > MAX_ATTACHMENT_BYTES) {
-    backToIssue(
+    await backToIssue(
       issueKey,
       `ファイルが大きすぎます（上限 ${Math.floor(MAX_ATTACHMENT_BYTES / 1024 / 1024)}MB）`,
       true,
@@ -208,7 +228,7 @@ export async function attachFile(issueKey: string, formData: FormData) {
       },
     });
   });
-  backToIssue(issueKey, `「${file.name}」を添付しました`);
+  await backToIssue(issueKey, `「${file.name}」を添付しました`);
 }
 
 export async function detachFile(issueKey: string, formData: FormData) {
@@ -219,7 +239,7 @@ export async function detachFile(issueKey: string, formData: FormData) {
   const attachmentId = Number(formData.get("attachmentId"));
   const a = await prisma.attachment.findUnique({ where: { id: attachmentId } });
   if (!a || a.projectId !== project.id) {
-    backToIssue(issueKey, "添付が見つかりません", true);
+    await backToIssue(issueKey, "添付が見つかりません", true);
     return;
   }
 
@@ -236,7 +256,7 @@ export async function detachFile(issueKey: string, formData: FormData) {
     }
   });
   await deleteFile(a.storageKey);
-  backToIssue(issueKey, `「${a.name}」を削除しました`);
+  await backToIssue(issueKey, `「${a.name}」を削除しました`);
 }
 
 /** 親課題の設定・解除 */
@@ -248,7 +268,7 @@ export async function setParent(issueKey: string, formData: FormData) {
   const raw = String(formData.get("parentKey") ?? "").trim().toUpperCase();
   if (!raw) {
     await updateIssue({ issueId: issue.id, updatedBy: actor.id, parentIssueId: null });
-    backToIssue(issueKey, "親課題を解除しました");
+    await backToIssue(issueKey, "親課題を解除しました");
     return;
   }
 
@@ -259,7 +279,7 @@ export async function setParent(issueKey: string, formData: FormData) {
       })
     : null;
   if (!parent) {
-    backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
+    await backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
     return;
   }
 
@@ -270,10 +290,10 @@ export async function setParent(issueKey: string, formData: FormData) {
       parentIssueId: parent.id,
     });
   } catch (e) {
-    backToIssue(issueKey, e instanceof Error ? e.message : "設定できません", true);
+    await backToIssue(issueKey, e instanceof Error ? e.message : "設定できません", true);
     return;
   }
-  backToIssue(issueKey, "親課題を設定しました");
+  await backToIssue(issueKey, "親課題を設定しました");
 }
 
 /** 関連課題。親子とは別の、対等なリンク */
@@ -290,11 +310,11 @@ export async function addRelation(issueKey: string, formData: FormData) {
       })
     : null;
   if (!other) {
-    backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
+    await backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
     return;
   }
   if (other.id === issue.id) {
-    backToIssue(issueKey, "自分自身とは関連づけられません", true);
+    await backToIssue(issueKey, "自分自身とは関連づけられません", true);
     return;
   }
 
@@ -306,7 +326,7 @@ export async function addRelation(issueKey: string, formData: FormData) {
     ],
     skipDuplicates: true,
   });
-  backToIssue(issueKey, "関連課題を追加しました");
+  await backToIssue(issueKey, "関連課題を追加しました");
 }
 
 export async function removeRelation(issueKey: string, formData: FormData) {
@@ -323,7 +343,7 @@ export async function removeRelation(issueKey: string, formData: FormData) {
       ],
     },
   });
-  backToIssue(issueKey, "関連課題を外しました");
+  await backToIssue(issueKey, "関連課題を外しました");
 }
 
 /** 検索条件の保存。condition はURLクエリと同じ形なので、貼るだけで復元できる */
@@ -338,7 +358,9 @@ export async function saveFilter(key: string, formData: FormData) {
   const from = String(formData.get("from") ?? "issues");
   const back = `/projects/${key}/${from === "board" ? "board" : "issues"}`;
   if (!name) {
-    redirect(`${back}?${query}&error=${encodeURIComponent("名前を入れてください")}`);
+    await setFlash(back, "名前を入れてください", true);
+    revalidatePath(back);
+    return;
   }
 
   const condition: Record<string, string> = {};
@@ -352,7 +374,9 @@ export async function saveFilter(key: string, formData: FormData) {
     data: { userId: actor.id, projectId: project.id, name, condition },
   });
   revalidatePath("/dashboard");
-  redirect(`${back}?${query}`);
+  // 保存元の画面に留まる。以前は同じURLへ redirect していたため画面が飛んでいた
+  await setFlash(back, `検索条件「${name}」を保存しました`);
+  revalidatePath(back);
 }
 
 /* ------------------------------------------------------------------ *
@@ -377,18 +401,18 @@ export async function toggleWatching(issueKey: string, formData: FormData) {
         where: { id: existing.id },
         data: { note: note || null },
       });
-      backToIssue(issueKey, "ウォッチのメモを更新しました");
+      await backToIssue(issueKey, "ウォッチのメモを更新しました");
       return;
     }
     await prisma.watching.delete({ where: { id: existing.id } });
-    backToIssue(issueKey, "ウォッチを解除しました");
+    await backToIssue(issueKey, "ウォッチを解除しました");
     return;
   }
 
   await prisma.watching.create({
     data: { userId: actor.id, issueId: issue.id, note: note || null },
   });
-  backToIssue(issueKey, "ウォッチしました");
+  await backToIssue(issueKey, "ウォッチしました");
 }
 
 /** スター。課題・コメント・Wikiに付けられる */
@@ -412,5 +436,5 @@ export async function toggleStar(issueKey: string, formData: FormData) {
     if (found) await prisma.star.delete({ where: { id: found.id } });
     else await prisma.star.create({ data: { userId: actor.id, issueId: issue.id } });
   }
-  backToIssue(issueKey);
+  await backToIssue(issueKey);
 }

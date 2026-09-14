@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
@@ -24,7 +25,9 @@ export async function issueToken(formData: FormData) {
   });
   revalidatePath("/settings/api");
   // 生のキーはURLで一度だけ返す。DBには置かない
-  redirect(`/settings/api?created=${encodeURIComponent(raw)}`);
+  // **発行した鍵をURLに載せない。** 履歴やアクセスログに残ってしまう。
+  // フラッシュ（httpOnly cookie・5秒）で1回だけ画面に出す
+  await setFlash("/settings/api", `created:${raw}`);
 }
 
 export async function revokeToken(formData: FormData) {
@@ -39,6 +42,6 @@ export async function revokeToken(formData: FormData) {
     targetType: "apiToken",
     targetId: id,
   });
+  await setFlash("/settings/api", "APIキーを失効させました");
   revalidatePath("/settings/api");
-  redirect("/settings/api");
 }

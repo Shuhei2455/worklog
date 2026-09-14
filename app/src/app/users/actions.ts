@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
@@ -19,12 +20,21 @@ import { audit } from "@/lib/audit";
  * （users.disabled_at。01-design.md の方針）。
  */
 
-function back(message?: string, isError = false): never {
-  const q = message
-    ? `?${isError ? "error" : "ok"}=${encodeURIComponent(message)}`
-    : "";
+/**
+ * 操作が終わったときに呼ぶ。
+ *
+ * **redirect しない。** `revalidatePath` だけならサーバーコンポーネントが
+ * 再描画されて DOM が差分更新され、画面が飛ばない。
+ * メッセージはクエリではなくフラッシュ（cookie）で運ぶ。lib/flash.ts を参照。
+ *
+ * 以前は `never` を返す（= redirect が投げる）前提で
+ * `if (cond) back(...)` と書かれていた。いまは通常復帰するので、
+ * **呼び出し側は必ず `return await back(...)` にする**こと。
+ * 付け忘れると検証をすり抜けて処理が続く。
+ */
+async function back(message?: string, isError = false): Promise<void> {
+  if (message) await setFlash("/users", message, isError);
   revalidatePath("/users");
-  redirect(`/users${q}`);
 }
 
 const USER_ID_RE = /^[a-zA-Z0-9_.-]{2,64}$/;
@@ -41,23 +51,23 @@ export async function createUser(formData: FormData) {
   const restriction = String(formData.get("restriction") ?? "none");
 
   if (!USER_ID_RE.test(userId)) {
-    back("ログインIDは英数字・ハイフン・アンダースコア・ドットで2〜64文字です", true);
+    return await back("ログインIDは英数字・ハイフン・アンダースコア・ドットで2〜64文字です", true);
   }
-  if (!name) back("名前を入れてください", true);
-  if (!email.includes("@")) back("メールアドレスの形が正しくありません", true);
-  if (!["admin", "member", "guest"].includes(userType)) back("種別が不正です", true);
+  if (!name) return await back("名前を入れてください", true);
+  if (!email.includes("@")) return await back("メールアドレスの形が正しくありません", true);
+  if (!["admin", "member", "guest"].includes(userType)) return await back("種別が不正です", true);
   if (!["none", "issue_create_only", "issue_view_only"].includes(restriction)) {
-    back("制限が不正です", true);
+    return await back("制限が不正です", true);
   }
 
   // パスワードの条件は画面からの変更と同じものを通す
   const strength = checkPasswordStrength(password, { userId, name, email });
-  if (!strength.ok) back(strength.error, true);
+  if (!strength.ok) return await back(strength.error, true);
 
   const dupId = await prisma.user.findUnique({ where: { userId } });
-  if (dupId) back(`ログインID「${userId}」は既に使われています`, true);
+  if (dupId) return await back(`ログインID「${userId}」は既に使われています`, true);
   const dupMail = await prisma.user.findUnique({ where: { email } });
-  if (dupMail) back(`メールアドレス「${email}」は既に使われています`, true);
+  if (dupMail) return await back(`メールアドレス「${email}」は既に使われています`, true);
 
   const created = await prisma.user.create({
     data: {
@@ -77,7 +87,7 @@ export async function createUser(formData: FormData) {
     detail: { name, email, userType, restriction },
   });
 
-  back(`${created.name} を追加しました`);
+  return await back(`${created.name} を追加しました`);
 }
 
 /** 種別と制限を変える。**3軸のうち2軸**（プロジェクト管理者はプロジェクト側） */
@@ -86,17 +96,17 @@ export async function updateUser(formData: FormData) {
   await assertCan(actor, "space.edit");
 
   const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) back("不正なリクエストです", true);
+  if (!Number.isInteger(id)) return await back("不正なリクエストです", true);
 
   const userType = String(formData.get("userType") ?? "");
   const restriction = String(formData.get("restriction") ?? "");
-  if (!["admin", "member", "guest"].includes(userType)) back("種別が不正です", true);
+  if (!["admin", "member", "guest"].includes(userType)) return await back("種別が不正です", true);
   if (!["none", "issue_create_only", "issue_view_only"].includes(restriction)) {
-    back("制限が不正です", true);
+    return await back("制限が不正です", true);
   }
 
   const before = await prisma.user.findUnique({ where: { id } });
-  if (!before) back("ユーザーが見つかりません", true);
+  if (!before) return await back("ユーザーが見つかりません", true);
 
   await prisma.user.update({
     where: { id },
@@ -118,7 +128,7 @@ export async function updateUser(formData: FormData) {
 
   // 制限が変わると Git のアクセス権も変わる。Gitea 側も合わせる
   const note = await syncGiteaForUser(id);
-  back(`${before!.name} の種別と制限を変更しました${note}`);
+  return await back(`${before!.name} の種別と制限を変更しました${note}`);
 }
 
 /**
@@ -132,11 +142,11 @@ export async function toggleUserDisabled(formData: FormData) {
   await assertCan(actor, "space.edit");
 
   const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) back("不正なリクエストです", true);
-  if (id === actor.id) back("自分自身は無効化できません", true);
+  if (!Number.isInteger(id)) return await back("不正なリクエストです", true);
+  if (id === actor.id) return await back("自分自身は無効化できません", true);
 
   const user = await prisma.user.findUnique({ where: { id } });
-  if (!user) back("ユーザーが見つかりません", true);
+  if (!user) return await back("ユーザーが見つかりません", true);
 
   const disabling = user!.disabledAt === null;
 
@@ -145,7 +155,7 @@ export async function toggleUserDisabled(formData: FormData) {
     const others = await prisma.user.count({
       where: { userType: "admin", disabledAt: null, id: { not: id } },
     });
-    if (others === 0) back("最後の管理者は無効化できません", true);
+    if (others === 0) return await back("最後の管理者は無効化できません", true);
   }
 
   await prisma.user.update({
@@ -161,7 +171,7 @@ export async function toggleUserDisabled(formData: FormData) {
   });
 
   const note = await syncGiteaForUser(id);
-  back(`${user!.name} を${disabling ? "無効化" : "有効化"}しました${note}`);
+  return await back(`${user!.name} を${disabling ? "無効化" : "有効化"}しました${note}`);
 }
 
 /** 管理者によるパスワードの再設定。本人が忘れたとき用 */
@@ -171,12 +181,12 @@ export async function resetUserPassword(formData: FormData) {
 
   const id = Number(formData.get("id"));
   const password = String(formData.get("password") ?? "");
-  if (!Number.isInteger(id)) back("不正なリクエストです", true);
+  if (!Number.isInteger(id)) return await back("不正なリクエストです", true);
 
   const user = await prisma.user.findUnique({ where: { id } });
-  if (!user) back("ユーザーが見つかりません", true);
+  if (!user) return await back("ユーザーが見つかりません", true);
   if (user!.authProvider !== "local") {
-    back(`${user!.name} は ${user!.authProvider} 認証のため設定できません`, true);
+    return await back(`${user!.name} は ${user!.authProvider} 認証のため設定できません`, true);
   }
 
   const strength = checkPasswordStrength(password, {
@@ -184,7 +194,7 @@ export async function resetUserPassword(formData: FormData) {
     name: user!.name,
     email: user!.email,
   });
-  if (!strength.ok) back(strength.error, true);
+  if (!strength.ok) return await back(strength.error, true);
 
   await prisma.user.update({
     where: { id },
@@ -198,7 +208,7 @@ export async function resetUserPassword(formData: FormData) {
     detail: { target: "app", byAdmin: true },
   });
 
-  back(`${user!.name} のパスワードを再設定しました`);
+  return await back(`${user!.name} のパスワードを再設定しました`);
 }
 
 /**

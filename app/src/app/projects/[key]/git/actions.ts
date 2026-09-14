@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan, projectContext } from "@/lib/session";
@@ -57,8 +58,9 @@ export async function linkPullRequestIssue(
       where: { id: pr.id },
       data: { issueId: null },
     });
-    revalidatePath(path);
-    redirect(path);
+      await setFlash(path, "課題の紐づけを解除しました");
+      revalidatePath(path);
+      return;
   }
 
   // 同じプロジェクトの課題だけを許す（決定 D21 と揃える）
@@ -72,16 +74,17 @@ export async function linkPullRequestIssue(
     : null;
 
   if (!issue) {
+    await setFlash(path, `${raw} は見つかりません`, true);
     revalidatePath(path);
-    redirect(`${path}?error=${encodeURIComponent(`${raw} は見つかりません`)}`);
+    return;
   }
 
   await prisma.pullRequest.update({
     where: { id: pr.id },
     data: { issueId: issue.id },
   });
+  await setFlash(path, `${raw} に紐づけました`);
   revalidatePath(path);
-  redirect(path);
 }
 
 /**

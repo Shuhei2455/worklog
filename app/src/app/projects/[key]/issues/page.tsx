@@ -11,7 +11,8 @@ import {
 import { PRIORITIES, PRIORITY_LABEL } from "@/lib/constants";
 import { searchIssueIds, searchAvailable } from "@/lib/search";
 import { Shell } from "@/components/Shell";
-import { PageTitle, Button, ButtonLink, StatusLabel } from "@/components/ui";
+import { ActionResult, PageTitle, Button, ButtonLink, StatusLabel } from "@/components/ui";
+import { readFlash } from "@/lib/flash";
 import { saveFilter } from "./actions";
 
 
@@ -24,6 +25,8 @@ export default async function IssueList({
 }) {
   const { key } = await params;
   const sp = await searchParams;
+  // 検索条件の保存・CSV取り込みの結果はフラッシュ（cookie）で来る
+  const flash = await readFlash(`/projects/${key}/issues`);
   // CSV出力へ渡すクエリ。いま見ている絞り込みをそのまま引き継ぐ
   const queryString = new URLSearchParams(
     Object.entries(sp).flatMap(([k, v]) =>
@@ -127,6 +130,8 @@ export default async function IssueList({
       >
         課題
       </PageTitle>
+
+      <ActionResult ok={flash.ok} error={flash.error} />
 
       {/* 絞り込みはURLクエリ。この形のURLを貼れば同じ条件を再現できる */}
       <form className="mt-4 flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-white p-3 text-sm">

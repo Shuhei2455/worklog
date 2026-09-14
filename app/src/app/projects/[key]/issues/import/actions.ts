@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
@@ -58,7 +59,9 @@ export async function previewImport(key: string, formData: FormData) {
   const file = formData.get("file");
   const path = `/projects/${key}/issues/import`;
   if (!(file instanceof File) || file.size === 0) {
-    redirect(`${path}?error=${encodeURIComponent("ファイルを選んでください")}`);
+    await setFlash(path, "ファイルを選んでください", true);
+    revalidatePath(path);
+    return;
   }
 
   const bytes = new Uint8Array(await (file as File).arrayBuffer());
@@ -96,7 +99,9 @@ export async function runImport(key: string, formData: FormData) {
   const file = formData.get("file");
   const path = `/projects/${key}/issues/import`;
   if (!(file instanceof File) || file.size === 0) {
-    redirect(`${path}?error=${encodeURIComponent("ファイルを選んでください")}`);
+    await setFlash(path, "ファイルを選んでください", true);
+    revalidatePath(path);
+    return;
   }
 
   const bytes = new Uint8Array(await (file as File).arrayBuffer());
@@ -105,14 +110,18 @@ export async function runImport(key: string, formData: FormData) {
   const result = csvToIssues(text, masters);
 
   if (result.errors.length > 0) {
-    redirect(
-      `${path}?error=${encodeURIComponent(
-        `${result.errors.length} 件のエラーがあるため取り込みませんでした`,
-      )}`,
+    await setFlash(
+      path,
+      `${result.errors.length} 件のエラーがあるため取り込みませんでした`,
+      true,
     );
+    revalidatePath(path);
+    return;
   }
   if (result.issues.length === 0) {
-    redirect(`${path}?error=${encodeURIComponent("取り込む行がありません")}`);
+    await setFlash(path, "取り込む行がありません", true);
+    revalidatePath(path);
+    return;
   }
 
   // 1件ずつ createIssue を通す。keyId の採番・活動履歴・通知・検索インデックスを
@@ -146,8 +155,9 @@ export async function runImport(key: string, formData: FormData) {
     detail: { count: created, fileName: (file as File).name },
   });
 
+  // ここは**取り込み画面から課題一覧へ移る**ので redirect が正しい。
+  // メッセージだけURLから外してフラッシュで運ぶ
+  await setFlash(`/projects/${key}/issues`, `${created} 件を取り込みました`);
   revalidatePath(`/projects/${key}/issues`);
-  redirect(
-    `/projects/${key}/issues?ok=${encodeURIComponent(`${created} 件を取り込みました`)}`,
-  );
+  redirect(`/projects/${key}/issues`);
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
@@ -28,14 +29,18 @@ export async function createWiki(key: string, formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const content = String(formData.get("content") ?? "");
   if (!name) {
-    redirect(`/projects/${key}/wiki/new?error=${encodeURIComponent("ページ名を入力してください")}`);
+    await setFlash(`/projects/${key}/wiki/new`, "ページ名を入力してください", true);
+    revalidatePath(`/projects/${key}/wiki/new`);
+    return;
   }
 
   const dup = await prisma.wikiPage.findUnique({
     where: { projectId_name: { projectId: project.id, name } },
   });
   if (dup) {
-    redirect(`/projects/${key}/wiki/new?error=${encodeURIComponent(`同じ名前のページがあります: ${name}`)}`);
+    await setFlash(`/projects/${key}/wiki/new`, `同じ名前のページがあります: ${name}`, true);
+    revalidatePath(`/projects/${key}/wiki/new`);
+    return;
   }
 
   const created = await prisma.$transaction(async (tx) => {

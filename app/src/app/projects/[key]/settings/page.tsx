@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { readFlash } from "@/lib/flash";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
@@ -57,7 +58,11 @@ export default async function ProjectSettings({
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const { key } = await params;
-  const { ok, error } = await searchParams;
+  const sp = await searchParams;
+  // メッセージはフラッシュ（cookie）から。同じURLへ redirect すると画面が飛ぶ
+  const flash = await readFlash(`/projects/${key}/settings`);
+  const ok = sp.ok ?? flash.ok;
+  const error = sp.error ?? flash.error;
   const user = await currentUser();
 
   const project = await prisma.project.findUnique({ where: { key } });

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
@@ -28,11 +29,20 @@ async function projectByKey(key: string) {
   return p;
 }
 
-function back(key: string, dir: string, message?: string, isError = false) {
-  const q = new URLSearchParams({ dir });
-  if (message) q.set(isError ? "error" : "ok", message);
-  revalidatePath(`/projects/${key}/files`);
-  redirect(`/projects/${key}/files?${q.toString()}`);
+/**
+ * 共有ファイル画面での操作のあとに呼ぶ。
+ *
+ * **redirect しない**（画面が飛ぶため）。`dir` は既にURLに入っているので
+ * 付け直す必要もない。メッセージはフラッシュで運ぶ。lib/flash.ts を参照。
+ *
+ * 以前は redirect が投げて処理が止まっていた。
+ * いまは通常復帰するので**呼び出し側で必ず return する**。
+ */
+async function back(key: string, dir: string, message?: string, isError = false) {
+  void dir;
+  const path = `/projects/${key}/files`;
+  if (message) await setFlash(path, message, isError);
+  revalidatePath(path);
 }
 
 export async function uploadSharedFile(key: string, formData: FormData) {
@@ -43,11 +53,11 @@ export async function uploadSharedFile(key: string, formData: FormData) {
   const dir = normalizeDir(String(formData.get("dir") ?? "/"));
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    back(key, dir, "ファイルを選んでください", true);
+    return await back(key, dir, "ファイルを選んでください", true);
     return;
   }
   if (file.size > MAX_ATTACHMENT_BYTES) {
-    back(key, dir, `ファイルが大きすぎます（上限 ${Math.floor(MAX_ATTACHMENT_BYTES / 1024 / 1024)}MB）`, true);
+    return await back(key, dir, `ファイルが大きすぎます（上限 ${Math.floor(MAX_ATTACHMENT_BYTES / 1024 / 1024)}MB）`, true);
     return;
   }
 
@@ -70,7 +80,7 @@ export async function uploadSharedFile(key: string, formData: FormData) {
       },
     });
     await deleteFile(existing.storageKey);
-    back(key, dir, `「${file.name}」を差し替えました`);
+    return await back(key, dir, `「${file.name}」を差し替えました`);
     return;
   }
 
@@ -85,7 +95,7 @@ export async function uploadSharedFile(key: string, formData: FormData) {
       createdBy: actor.id,
     },
   });
-  back(key, dir, `「${file.name}」を追加しました`);
+  return await back(key, dir, `「${file.name}」を追加しました`);
 }
 
 export async function deleteSharedFile(key: string, formData: FormData) {
@@ -96,7 +106,7 @@ export async function deleteSharedFile(key: string, formData: FormData) {
   const id = Number(formData.get("id"));
   const f = await prisma.sharedFile.findUnique({ where: { id } });
   if (!f || f.projectId !== project.id) {
-    back(key, "/", "ファイルが見つかりません", true);
+    return await back(key, "/", "ファイルが見つかりません", true);
     return;
   }
   await audit(actor.id, {
@@ -108,7 +118,7 @@ export async function deleteSharedFile(key: string, formData: FormData) {
 
   await prisma.sharedFile.delete({ where: { id } });
   await deleteFile(f.storageKey);
-  back(key, f.dir, `「${f.name}」を削除しました`);
+  return await back(key, f.dir, `「${f.name}」を削除しました`);
 }
 
 /** 課題から共有ファイルを参照する */
@@ -132,8 +142,8 @@ export async function linkSharedFileToIssue(issueKey: string, formData: FormData
       create: { issueId: issue.id, sharedFileId },
     });
   }
+  // 課題画面に留まる。同じURLへ redirect すると画面が飛ぶ
   revalidatePath(`/issues/${issueKey}`);
-  redirect(`/issues/${issueKey}`);
 }
 
 export async function unlinkSharedFileFromIssue(issueKey: string, formData: FormData) {
@@ -150,6 +160,6 @@ export async function unlinkSharedFileFromIssue(issueKey: string, formData: Form
       where: { issueId: issue.id, sharedFileId: Number(formData.get("sharedFileId")) },
     });
   }
+  // 課題画面に留まる。同じURLへ redirect すると画面が飛ぶ
   revalidatePath(`/issues/${issueKey}`);
-  redirect(`/issues/${issueKey}`);
 }

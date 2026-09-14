@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
@@ -13,7 +14,12 @@ export default async function ApiSettings({
 }: {
   searchParams: Promise<{ created?: string }>;
 }) {
-  const { created } = await searchParams;
+  const sp = await searchParams;
+  // 発行直後の鍵はフラッシュから受け取る。URLに載せると履歴に残るため
+  const flash = await readFlash("/settings/api");
+  const created =
+    flash.ok?.startsWith("created:") ? flash.ok.slice("created:".length) : sp.created;
+  const notice = flash.ok?.startsWith("created:") ? undefined : flash.ok;
   const user = await currentUser();
 
   const tokens = await prisma.apiToken.findMany({

@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -27,6 +28,7 @@ export default async function ImportIssues({
   searchParams: Promise<{ result?: string; error?: string }>;
 }) {
   const { key } = await params;
+  const flash = await readFlash(`/projects/${key}/issues/import`);
   const sp = await searchParams;
   const user = await currentUser();
 
@@ -95,9 +97,9 @@ export default async function ImportIssues({
         </p>
       </div>
 
-      {sp.error && (
+      {(sp.error ?? flash.error) && (
         <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {sp.error}
+          {sp.error ?? flash.error}
         </p>
       )}
 

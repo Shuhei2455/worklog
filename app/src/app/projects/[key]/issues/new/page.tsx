@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
@@ -17,7 +18,9 @@ export default async function NewIssue({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { key } = await params;
-  const { error } = await searchParams;
+  const flash = await readFlash(`/projects/${key}/issues/new`);
+  const sp = await searchParams;
+  const error = sp.error ?? flash.error;
   const user = await currentUser();
 
   const project = await prisma.project.findUnique({ where: { key } });

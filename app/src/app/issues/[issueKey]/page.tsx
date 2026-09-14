@@ -25,6 +25,7 @@ import {
   toggleStar,
 } from "@/app/projects/[key]/issues/actions";
 import { renderMentions } from "@/lib/mention";
+import { readFlash } from "@/lib/flash";
 import {
   linkSharedFileToIssue,
   unlinkSharedFileFromIssue,
@@ -41,7 +42,12 @@ export default async function IssueDetail({
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   const { issueKey } = await params;
-  const { error, ok } = await searchParams;
+  // クエリでも受けるが、通常はフラッシュ（cookie）から来る。
+  // 同じURLへ redirect すると画面が飛ぶので、メッセージは cookie で運んでいる
+  const sp = await searchParams;
+  const flash = await readFlash(`/issues/${decodeURIComponent(issueKey)}`);
+  const error = sp.error ?? flash.error;
+  const ok = sp.ok ?? flash.ok;
   const user = await currentUser();
 
   const parsed = parseIssueKey(decodeURIComponent(issueKey));

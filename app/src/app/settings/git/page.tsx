@@ -1,3 +1,4 @@
+import { readFlash } from "@/lib/flash";
 import { prisma } from "@/lib/db";
 import { currentUser } from "@/lib/session";
 import { Shell } from "@/components/Shell";
@@ -17,6 +18,7 @@ export default async function GitSettings({
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const sp = await searchParams;
+  const flash = await readFlash("/settings/git");
   const user = await currentUser();
 
   const me = await prisma.user.findUnique({
