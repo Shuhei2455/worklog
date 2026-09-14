@@ -14,84 +14,145 @@
 | | 開発（自宅） | 本番（職場VM） |
 |---|---|---|
 | compose ファイル | `docker-compose.yml` | `docker-compose.prod.yml` |
+| Caddy の設定 | `caddy/Caddyfile`（:80のみ） | `caddy/Caddyfile.prod`（TLS終端） |
 | 環境変数のひな形 | `.env.example` | `.env.production.example` |
 | アプリの動かし方 | `pnpm dev`（ソースをバインドマウント） | ビルド済み standalone |
-| ソースコード | 必要 | **不要** |
+| イメージの入手 | 手元でビルド | **ghcr.io から pull** |
+| 配布 | — | **GitHub のクローン** |
 | Node / pnpm | 不要（コンテナ内） | 不要 |
-| 公開ポート | 7つ（デバッグ用に全部出している） | 2つ（HTTPとGitのSSHだけ） |
+| 公開ポート | 7つ（デバッグ用に全部出している） | 2つ（HTTP と HTTPS） |
+| 入口 | HTTP | **HTTPS（IP直打ち）** |
+| Git over SSH | 使える（2222） | **使えない**（HTTPSクローンのみ） |
+| メール通知 | Mailpit | **使わない** |
 
 職場VMに要るのは **Docker と Docker Compose だけ**。
+出られる先は **github.com と ghcr.io だけ**でよい。
 
 ---
 
-## 1. 持ち込むものを作る（自宅側）
+## 1. 配る物を作る（自宅側）
 
-### 1-1. 本番イメージをビルドする
+**展開は GitHub のクローン**でやる（2026-09-14 にユーザーが決定）。
+職場VMは **github.com と ghcr.io にしか出られない**ので:
+
+- **ソースと設定**は GitHub の public リポジトリから `git clone`
+- **イメージ**は自宅でビルドして **ghcr.io** に上げ、VMは `pull` するだけ
+
+VMでビルドしない。ビルドは Docker Hub・npm・Alpine・Prisma へ出るので、
+その4つに出られないVMでは成立しない。
+
+### 1-1. イメージ一式を ghcr.io に上げる
 
 ```bash
 cd ~/docker/backlog-clone
-docker build -f docker/app.prod.Dockerfile -t backlog-clone-app:0.3.0 .
+
+# 1回だけ: ghcr.io にログインする（PATに write:packages を付ける）
+echo <PAT> | docker login ghcr.io -u <GitHubのユーザー名> --password-stdin
+
+# ビルドして上げる
+GHCR_OWNER=<GitHubのユーザー名> APP_IMAGE_TAG=0.8.3 scripts/push-images.sh
 ```
 
-タグは `.env` の `APP_IMAGE_TAG` と必ず合わせる。`latest` は使わない
-（どの版が動いているか分からなくなる）。
+このスクリプトは**アプリだけでなく、postgres / redis / meilisearch /
+caddy / gitea も ghcr.io に複製する。**
+VMは Docker Hub に出られないので、アプリだけ上げても起動しない。
 
-### 1-2. イメージを1つのtarに固める
+複製するイメージと版は **`docker-compose.prod.yml` から読む**。
+手で並べると版がずれ、職場で「そのイメージは無い」と言われる形で気づくことになる。
+
+最後に、職場の `.env` に貼る行をそのまま出力する:
+
+```
+IMAGE_PREFIX=ghcr.io/<ユーザー名>/
+APP_IMAGE_TAG=0.8.3
+IMAGE_PULL_POLICY=missing
+CADDY_IMAGE=ghcr.io/<ユーザー名>/caddy:2-alpine
+POSTGRES_IMAGE=ghcr.io/<ユーザー名>/postgres:16-alpine
+REDIS_IMAGE=ghcr.io/<ユーザー名>/redis:7-alpine
+MEILI_IMAGE=ghcr.io/<ユーザー名>/meilisearch:v1.11
+GITEA_IMAGE=ghcr.io/<ユーザー名>/gitea:1.22
+```
+
+`DRY_RUN=1` を付けると、何をするかだけ出して実行しない。
+
+### 1-2. パッケージを public にする
+
+上げたあと、**GitHubで各パッケージを public にする。**
+
+```
+https://github.com/<ユーザー名>?tab=packages
+  → 各パッケージ → Package settings → Change visibility → Public
+```
+
+> [!warning] private のままだとVMで `docker login` が必要になる
+> 職場VMに PAT を置くことになり、失効の管理も増える。
+> リポジトリを public にしたので、パッケージも public に揃えるのが素直。
+
+### 1-3. GitHub へ push する
 
 ```bash
-APP_IMAGE_TAG=0.3.0 scripts/save-images.sh
-# → dist/backlog-clone-images-0.3.0.tar.gz （約420MB）と .sha256
+git remote add origin https://github.com/<ユーザー名>/backlog-clone.git
+git push -u origin main --tags
 ```
 
-アプリ・Caddy・PostgreSQL・Redis・Meilisearch・Gitea の6イメージが入る。
-別々のtarにしないのは、版がずれたものを混ぜて持ち込む事故を防ぐため。
+> [!warning] `.env` は追跡していない（履歴にも一度も入っていない）
+> 確認済み。職場では `.env.production.example` を写して値を入れ直す。
+>
+> **TLSの鍵と証明書もコミットしない。** `caddy/certs/*` は `.gitignore` 済み。
 
-### 1-3. 自宅のデータも持っていく場合
+### 1-4. 自宅のデータを持っていく場合
 
-検証用のデータを職場へ持ち込む必要がなければ、この手順は飛ばして
-「新規構築」で進める。
+**新規で始める方針なので、通常この手順は不要**（2026-09-14 に決定）。
+将来必要になったときのために残してある。
 
 ```bash
 scripts/backup.sh
 # → dist/backup/backlog-clone-<日時>/ に postgres.sql.gz と files.tar.gz
 ```
 
-### 1-4. 持ち込む荷物
-
-| 持ち込むもの | 中身 |
-|---|---|
-| `dist/backlog-clone-images-0.3.0.tar.gz` と `.sha256` | イメージ一式 |
-| `docker-compose.prod.yml` | 本番のスタック定義 |
-| `caddy/Caddyfile` | リバースプロキシの設定 |
-| `docker/postgres-init/` | DB初期化SQL（Gitea用DBを作る） |
-| `docker/fix-volume-perms.sh` | ボリュームの所有者直し |
-| `scripts/` | backup / restore / egress-check / gitea-setup |
-| `.env.production.example` | 環境変数のひな形 |
-| `docs/04-deploy.md` | この文書 |
-| （任意）`dist/backup/…` | 自宅のデータ |
-
-> [!warning]
-> **`.env` をそのまま持ち込まない。** 自宅のパスワードが入っている。
-> 職場では `.env.production.example` を写して、職場用の値を入れ直す。
+`dist/` は `.gitignore` 済みなので、GitHub 経由では運べない。
+ファイル共有などで別に運ぶ。
 
 ---
 
 ## 2. 職場VMで構築する
 
-### 2-1. 置き場所を作る
+### 2-1. クローンする
 
 ```bash
-mkdir -p ~/backlog-clone && cd ~/backlog-clone
-# 持ち込んだ docker-compose.prod.yml / caddy/ / docker/ / scripts/ をここに展開する
+cd ~
+git clone https://github.com/<ユーザー名>/backlog-clone.git
+cd backlog-clone
 ```
+
+public リポジトリなので認証は要らない。
+
+> [!info] ソースも一緒に来るが、VMでビルドはしない
+> `app/` の中身も落ちてくるが、使うのは
+> `docker-compose.prod.yml` / `caddy/` / `docker/` / `scripts/` /
+> `.env.production.example` / `docs/` だけ。
+> VMに Node も pnpm も要らない（**Docker だけ**）。
+>
+> 版を上げるときも `git pull` で済む。
 
 ### 2-2. イメージを取り込む
 
+`docker compose` が ghcr.io から自動で取ってくるので、
+**明示的な取り込みは要らない**（`IMAGE_PULL_POLICY=missing`）。
+
+先に落としておきたい場合:
+
 ```bash
-scripts/load-images.sh backlog-clone-images-0.3.0.tar.gz
+docker compose -f docker-compose.prod.yml pull
 ```
 
-sha256 が合わなければ転送中に壊れている。持ち込み直す。
+取れないときに見るところ:
+
+| 症状 | 原因 |
+|---|---|
+| `denied` / `unauthorized` | パッケージが private のまま。GitHubで public にする（1-2） |
+| `no such host` | VMから ghcr.io に出られていない。許可されたホストを確認する |
+| `manifest unknown` | `APP_IMAGE_TAG` が ghcr.io に上げたタグと違う |
 
 ### 2-3. `.env` を作る
 
@@ -251,17 +312,26 @@ cron に入れるなら1日1回で足りる。
 ### 版を上げるとき
 
 ```bash
-# 自宅側: 新しいタグでビルドして固める
-docker build -f docker/app.prod.Dockerfile -t backlog-clone-app:0.4.0 .
-APP_IMAGE_TAG=0.4.0 scripts/save-images.sh
+# --- 自宅側: ビルドして ghcr.io に上げ、GitHub に push する ---
+GHCR_OWNER=<ユーザー名> APP_IMAGE_TAG=0.9.0 scripts/push-images.sh
+git push origin main --tags
 
-# 職場側:
-scripts/backup.sh                                   # 先にバックアップ
-scripts/load-images.sh backlog-clone-images-0.4.0.tar.gz
-sed -i 's/^APP_IMAGE_TAG=.*/APP_IMAGE_TAG=0.4.0/' .env
+# --- 職場側 ---
+scripts/backup.sh                    # 先にバックアップ。**これを飛ばさない**
+git pull                             # compose や Caddyfile の変更も入る
+sed -i 's/^APP_IMAGE_TAG=.*/APP_IMAGE_TAG=0.9.0/' .env
+docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml run --rm migrate   # スキーマ変更があれば当たる
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+> [!warning] `git pull` は `.env` を上書きしない（追跡していないので）
+> ただし **`.env.production.example` に新しい変数が増えている**ことがある。
+> 版を上げたら差分を見る:
+>
+> ```bash
+> git diff HEAD@{1} HEAD -- .env.production.example
+> ```
 
 前の版のイメージは消さずに残しておく。戻すときは `APP_IMAGE_TAG` を
 戻して `up -d` するだけで済む（**ただしマイグレーションは戻らない**ので、
@@ -277,6 +347,17 @@ docker compose -f docker-compose.prod.yml run --rm reindex
 
 ## 6. 外部ネットワークに出ないことの検証
 
+> [!important] 前提が変わった（2026-09-14）
+> 展開を GitHub のクローンに変えたので、**VMは完全なオフラインではない**。
+> 許可されているのは **github.com と ghcr.io の2つだけ**。
+>
+> したがってこの章の目的は「一切出ない」の確認から、
+> **「その2つ以外へ出ていない」の確認**に変わった。
+>
+> `git pull` と `docker compose pull` のときは当然 github.com / ghcr.io へ出る。
+> `egress-check.sh` はそれらも外部接続として挙げるので、
+> **pull していない状態で実行する**こと。
+
 ### 出る可能性があったもの（全部止めてある）
 
 | 出どころ | 行き先 | 止め方 | 確認方法 |
@@ -285,15 +366,20 @@ docker compose -f docker-compose.prod.yml run --rm reindex
 | Prisma の版確認 | checkpoint.prisma.io | `CHECKPOINT_DISABLE=1`（同上） | 同様に `grep CHECKPOINT` |
 | Meilisearch の利用統計 | meilisearch.com | `MEILI_NO_ANALYTICS=true` | 起動ログに `Anonymous telemetry: "Disabled"` |
 | Gitea の新版確認 | dl.gitea.com | `GITEA__cron_0X2E_update_checker__ENABLED=false` | `exec gitea grep -A2 update_checker /data/gitea/conf/app.ini` |
-| イメージの取得 | Docker Hub | `pull_policy: never` | イメージが無ければ即座に失敗する（黙って固まらない） |
+| イメージの取得 | Docker Hub | **ghcr.io に複製して参照先を変えた**（`*_IMAGE` 変数）。Docker Hub は参照しない | `docker compose -f docker-compose.prod.yml config \| grep image:` が全部 ghcr.io になっている |
 | 依存のインストール | npm レジストリ | 本番イメージは実行時に `pnpm install` しない | — |
 | Webフォント | Google Fonts 等 | 使っていない（`next/font` も未使用） | `grep -rn "next/font\|fonts.googleapis" app/src` が空 |
 
-### 設計上、外に出る通信（これだけ）
+### 設計上、外に出る通信
 
-- **webhook**: プロジェクト設定で登録したURLへPOSTする。登録しなければ出ない。
-  社外のURLを登録すれば当然社外へ出るので、登録先は運用で決める。
-- **SMTP**: `MAIL_ENABLED=true` のときだけ。宛先は `SMTP_HOST` に書いたホスト。
+| 何 | 行き先 | いつ |
+|---|---|---|
+| `git pull` | github.com | 版を上げるときだけ（手で実行） |
+| `docker compose pull` | ghcr.io | 同上 |
+| webhook | 登録したURL | プロジェクト設定で登録したときだけ。社外URLを登録すれば社外へ出るので、登録先は運用で決める |
+| SMTP | `SMTP_HOST` | `MAIL_ENABLED=true` のときだけ。**いまは false なので出ない** |
+
+つまり**定常運転では1つも外に出ない。** 出るのは人が版を上げるときだけ。
 
 ### 実測で確かめる
 
@@ -307,6 +393,10 @@ COMPOSE_FILE=docker-compose.prod.yml scripts/egress-check.sh
 
 アプリを一通り操作した直後に実行する。一瞬の状態しか見えないため、
 気になるときは間隔を置いて何度か実行する。
+
+**期待する結果は「0件」。** github.com / ghcr.io が挙がったら、
+それは `pull` が走っている最中か、`IMAGE_PULL_POLICY=always` になっている。
+`missing` にすれば起動のたびには問い合わせない。
 
 ---
 

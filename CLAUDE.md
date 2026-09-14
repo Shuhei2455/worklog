@@ -83,7 +83,7 @@ git tag -a m<N> -m "<マイルストーン名> 完了"
 Vault の以下のパスにノートを作る。**パスはユーザーが指定した値を使う**（未設定なら聞く）。
 
 ```
-/home/shuhei/obsidian/Projects/backlog-clone/M<N>-<マイルストーン名>.md
+<Vaultのパス>/obsidian/Projects/backlog-clone/M<N>-<マイルストーン名>.md
 ```
 
 既存Vaultは `Projects/<プロジェクト名>.md` という構成で、`10_Projects/` という

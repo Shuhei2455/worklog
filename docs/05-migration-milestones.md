@@ -54,12 +54,16 @@ VMに触る前に、自宅側で完結する作業を全部終える。
 
 ### 着手前に確認すること
 
-- [ ] 持ち込む版のタグを決める（例 `0.8.1`）。`docker-compose.prod.yml` の `APP_IMAGE_TAG` と揃える
-- [ ] **自宅のデータを持ち込むのか、職場で新規に始めるのか**
-      → 持ち込むなら `backup.sh`、新規なら `seed`。両方はやらない
-- [ ] 持ち込む媒体（USB / 社内ファイル共有）と、その容量（tar.gz が約430MB）
-- [ ] `TODO(要確認)`: 職場のVMへファイルを持ち込む経路が許可されているか。
-      USBが禁止の職場もある。**ここが塞がっていると他が全部無駄になる**ので最初に確認する
+- [ ] 上げる版のタグを決める（例 `0.8.3`）。職場の `.env` の `APP_IMAGE_TAG` と揃える
+- [ ] GitHub のリポジトリ名と所有者を決める（**public**）
+- [ ] ghcr.io 用の PAT を作る（`write:packages`）
+- [x] 自宅のデータを持ち込むか → **新規で始める**（2026-09-14 に決定）。`seed` を使う
+- [x] 持ち込み経路 → **GitHub のクローン**（ファイル運搬なし）
+
+> [!info] M7 の前提確認が軽くなった
+> 以前は「VMにファイルを持ち込めるか」が最大の関門だったが、
+> クローン方式にしたので **VMが github.com と ghcr.io に出られること**
+> だけが前提になった。ユーザーが確認済み。
 
 ### 手順
 
@@ -67,25 +71,41 @@ VMに触る前に、自宅側で完結する作業を全部終える。
 
 ```bash
 cd ~/docker/backlog-clone
-docker build -f docker/app.prod.Dockerfile -t backlog-clone-app:0.8.1 .
-APP_IMAGE_TAG=0.8.1 ./scripts/save-images.sh
-./scripts/backup.sh          # 自宅のデータを持ち込む場合だけ
-./scripts/egress-check.sh    # 外部に出ないことの確認
+
+# 1回だけ: ghcr.io にログイン（PATに write:packages）
+echo <PAT> | docker login ghcr.io -u <GitHubのユーザー名> --password-stdin
+
+# ビルドして ghcr.io へ上げる（アプリ＋サードパーティ5つ）
+GHCR_OWNER=<ユーザー名> APP_IMAGE_TAG=0.8.3 scripts/push-images.sh
+
+# GitHub へ push
+git remote add origin https://github.com/<ユーザー名>/backlog-clone.git
+git push -u origin main --tags
+
+# 外部通信の確認
+scripts/egress-check.sh
 ```
+
+そのあと **GitHubで各パッケージを public にする**（VMの認証が不要になる）。
 
 ### 受け入れ条件
 
 | # | 条件 | 示し方 |
 |---|---|---|
 | 1 | 本番イメージがビルドできる | 型エラー0で完了する（**開発コンテナで `pnpm build` はしない**） |
-| 1-b | **ワーカーの依存の検算が通る** | ビルド中に `[worker-deps] すべて解決できた` が出る（後述） |
+| 1-b | **ワーカーの依存の検算が通る** | ビルド中に `[worker-deps] すべて解決できた` が出る |
 | 1-c | **ワーカーが実際に起動する** | `logs worker` に「検索インデックスと webhook の配信を待機します」 |
-| 2 | tar.gz と .sha256 ができる | `sha256sum -c` が OK |
-| 3 | 自宅で**別スタック**に取り込んで起動できる | 7サービスが healthy / Up |
-| 4 | 新規構築の経路が通る | `migrate` → `seed` → ログインできる |
-| 5 | 復元の経路が通る（持ち込む場合） | 復元後に**件数が16項目一致**（04-deploy.md の記録と同じ形で出す） |
-| 6 | 外部通信が無い | `egress-check.sh` が外部接続0件 |
-| 7 | 持ち込む荷物の一覧が揃っている | 04-deploy.md 1-4 のチェックリスト |
+| 2 | **6つのイメージが ghcr.io に上がっている** | `https://github.com/<ユーザー名>?tab=packages` に6件 |
+| 3 | **6つとも public になっている** | 認証なしで `docker manifest inspect ghcr.io/<ユーザー名>/postgres:16-alpine` が通る |
+| 4 | GitHub に push できている | `git log origin/main -1` が手元と一致 |
+| 5 | **秘密情報が入っていない** | `.env` が追跡外・履歴にも無い／`caddy/certs/*` が無視されている |
+| 6 | **クリーンなクローンからビルドできる** | 別ディレクトリに clone して `docker build` が通る |
+| 7 | 自宅で**別スタック**を ghcr.io の名前で起動できる | 7サービスが healthy / Up |
+| 8 | 外部通信が github.com / ghcr.io 以外に無い | `egress-check.sh` |
+
+> 条件6を入れているのは、**`.gitignore` が効きすぎてビルドに必要な物が
+> 欠ける**ことがあるため。手元では動くのにクローンでは落ちる、という形で出る。
+> 実際に確認したら通った（2026-09-14）。
 
 ### 完了時レビュー
 
@@ -194,8 +214,10 @@ ss -lntp | grep -E ':(80|443|2222)'          # 使う予定のポートが空い
 | # | 条件 | 示し方 |
 |---|---|---|
 | 1 | 前提の実測値が全部揃っている | 上の表が埋まっている |
-| 2 | イメージの取り込みで sha256 が一致する | `load-images.sh` の出力 |
-| 3 | `.env` の必須項目が埋まっている | `.env.production.example` と差分を取る |
+| 2 | **クローンできる** | `git clone` が認証なしで通る（public） |
+| 2-b | **6イメージを pull できる** | `docker compose -f docker-compose.prod.yml pull` が通る。`denied` なら パッケージが private |
+| 3 | `.env` の必須項目が埋まっている | `grep CHANGE_ME .env` が空。`push-images.sh` が出した8行を貼ってある |
+| 3-b | **参照先が全部 ghcr.io になっている** | `docker compose -f docker-compose.prod.yml config \| grep image:` |
 | 4 | マイグレーションが全部当たる | **45テーブル**ができている |
 | 5 | 7サービスが healthy / Up | `docker compose ps` |
 | 6 | 起動ログにエラーが無い | worker に「検索インデックスと webhook の配信を待機します」が出る |
@@ -357,7 +379,7 @@ git commit -m "M<N>: <名前>
 git tag -a m<N> -m "<名前> 完了"
 ```
 
-Obsidian: `/home/shuhei/obsidian/Projects/backlog-clone/M<N>-<名前>.md`
+Obsidian: `<Vaultのパス>/Projects/backlog-clone/M<N>-<名前>.md`
 （テンプレートは CLAUDE.md のものをそのまま使う。
 「本家仕様との差分レビュー」の表は「期待との差分レビュー」として使う）
 
@@ -369,7 +391,7 @@ Obsidian: `/home/shuhei/obsidian/Projects/backlog-clone/M<N>-<名前>.md`
 
 | # | 項目 | 回答 | 実装への反映 |
 |---|---|---|---|
-| 1 | 持ち込み経路 | **ファイル共有** | USB不要。`dist/` を共有に置いて展開する |
+| 1 | 持ち込み経路 | **GitHub のクローン**（2026-09-14 に変更。当初はファイル共有） | `git clone` ＋ ghcr.io から `pull`。ファイル運搬なし |
 | 2 | Docker / Compose v2 | **入っている** | M7 の前提確認は版の確認だけ |
 | 3 | 空き容量 | **ある** | — |
 | 4 | ホスト名 | **IP直打ち** | `APP_HOST` にIP。`default_sni` が必須（後述） |
@@ -377,6 +399,24 @@ Obsidian: `/home/shuhei/obsidian/Projects/backlog-clone/M<N>-<名前>.md`
 | 6 | メール | **使わない** | `MAIL_ENABLED=false` のまま。M9-b は「使わない」で確定 |
 | 7 | 2222番 | **塞がれている** | Gitea `DISABLE_SSH=true`、ポート非公開、SSHのURLを画面に出さない |
 | 8 | データ | **新規で始める** | M6 の `backup.sh` と M7 の `restore` は不要。`seed` を使う |
+| 9 | リポジトリの公開範囲 | **public** | クローンもパッケージ取得も**認証不要**。デプロイキーやPATをVMに置かない |
+| 10 | VMの外向き通信 | **github.com と ghcr.io だけ** | Docker Hub を参照できないので、サードパーティのイメージも ghcr.io に複製する |
+
+> [!warning] VMでビルドしない
+> 「クローンして VM でビルド」は成立しない。ビルドは以下へ出る:
+>
+> | 行き先 | 何のため |
+> |---|---|
+> | Docker Hub | `node:22-alpine` |
+> | registry.npmjs.org | `pnpm install` / `npm install` |
+> | dl-cdn.alpinelinux.org | `apk add openssl` |
+> | binaries.prisma.sh | Prisma のエンジン |
+>
+> VMが出られるのは github.com と ghcr.io だけなので、
+> **ビルドは自宅で行い、成果物を ghcr.io に置く**。
+> あわせて postgres / redis / meilisearch / caddy / gitea も
+> ghcr.io に複製する（`scripts/push-images.sh`）。
+> **アプリのイメージだけ上げても、VMでは起動しない。**
 
 この回答により **M9 は実質 9-a（SSE）だけ**になった。
 9-b（メール）と 9-c（SSHポート）は「使わない」で確定しているので、
@@ -417,11 +457,11 @@ Obsidian: `/home/shuhei/obsidian/Projects/backlog-clone/M<N>-<名前>.md`
 
 ### 実機で確認できたこと（自宅サーバ・HTTPS×IP構成）
 
-本番イメージ `0.8.3` を `https://192.168.3.50:8443` で起動して確認:
+本番イメージ `0.8.3` を `https://192.168.10.20:8443` で起動して確認:
 
 | 確認 | 結果 |
 |---|---|
-| 証明書の subjectAltName | `IP Address:192.168.3.50` が入る |
+| 証明書の subjectAltName | `IP Address:192.168.10.20` が入る |
 | SNI無しのHTTPS接続 | `default_sni` 追加後に **200** |
 | 80番からの転送 | **301** → `https://...:8443/`（ポート込みで正しい） |
 | ログイン（Auth.js） | **成功**。`__Host-authjs.csrf-token` / `__Secure-authjs.session-token` |

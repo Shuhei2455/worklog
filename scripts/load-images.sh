@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+#
+# **いまは使っていない**（2026-09-14 に展開方法を GitHub のクローンへ変更）。
+# 展開は `git clone` ＋ ghcr.io からの `pull`。scripts/push-images.sh を使う。
+#
+# このスクリプトは、VMが ghcr.io にも出られない環境に移ったときのために残してある。
+# その場合は docs/04-deploy.md の履歴（1章の旧版）を参照。
 # 持ち込んだtarからイメージを取り込む（職場VM側で実行する）。
 #
 # 使い方:

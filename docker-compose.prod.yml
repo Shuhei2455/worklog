@@ -1,8 +1,13 @@
 # backlog-clone 本番スタック（職場VM用）
 #
 # 開発用(docker-compose.yml)との違い:
-#   - build しない。`docker load` で入れたイメージをタグで指定して使う
-#     → 職場VMにソースコードもNode環境も要らない
+#   - build しない。**ghcr.io から pull したイメージ**をタグで指定して使う
+#     → 職場VMに Node 環境も npm も要らない（Docker だけ）
+#   - サードパーティのイメージ(postgres 等)も ghcr.io に複製して使う。
+#     職場VMは **github.com と ghcr.io にしか出られない**ため、
+#     Docker Hub を直接参照できない（2026-09-14 にユーザーが確認）。
+#     取得元は *_IMAGE 変数で差し替える。既定は Docker Hub の名前なので、
+#     自宅では .env に何も書かなくてもそのまま動く
 #   - ソースをバインドマウントしない
 #   - 公開するポートは Caddy の HTTP(80) と HTTPS(443) だけ。
 #     Gitea の SSH は職場で塞がれているため公開しない（HTTPSクローンのみ）。
@@ -15,17 +20,18 @@
 name: backlog-clone
 
 x-app-image: &app_image
-  image: backlog-clone-app:${APP_IMAGE_TAG}
-  # イメージが無いときにレジストリへ取りに行かせない。
-  # 職場VMは外に出られない前提なので、黙って固まるより即座に失敗させる
-  pull_policy: never
+  image: ${IMAGE_PREFIX-}backlog-clone-app:${APP_IMAGE_TAG}
+  # 手元に無ければ pull する（既定 missing）。
+  # IMAGE_PREFIX が空＝ローカルでビルドした物を使う場合は never にしてよい。
+  # `always` にすると起動のたびに問い合わせるので、オフライン寄りの環境では遅くなる
+  pull_policy: ${IMAGE_PULL_POLICY:-missing}
 
 services:
 
   # ---- 入口 -------------------------------------------------------
   caddy:
-    image: caddy:2-alpine
-    pull_policy: never
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
+    pull_policy: ${IMAGE_PULL_POLICY:-missing}
     restart: unless-stopped
     environment:
       # IP直打ちで待ち受ける（社内DNSに登録しない方針）。
@@ -191,8 +197,8 @@ services:
 
   # ---- PostgreSQL ------------------------------------------------
   postgres:
-    image: postgres:16-alpine
-    pull_policy: never
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    pull_policy: ${IMAGE_PULL_POLICY:-missing}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -210,8 +216,8 @@ services:
 
   # ---- Redis -----------------------------------------------------
   redis:
-    image: redis:7-alpine
-    pull_policy: never
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    pull_policy: ${IMAGE_PULL_POLICY:-missing}
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -224,8 +230,8 @@ services:
 
   # ---- Meilisearch -----------------------------------------------
   meilisearch:
-    image: getmeili/meilisearch:v1.11
-    pull_policy: never
+    image: ${MEILI_IMAGE:-getmeili/meilisearch:v1.11}
+    pull_policy: ${IMAGE_PULL_POLICY:-missing}
     restart: unless-stopped
     environment:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
@@ -243,8 +249,8 @@ services:
 
   # ---- Gitea -----------------------------------------------------
   gitea:
-    image: gitea/gitea:1.22
-    pull_policy: never
+    image: ${GITEA_IMAGE:-gitea/gitea:1.22}
+    pull_policy: ${IMAGE_PULL_POLICY:-missing}
     restart: unless-stopped
     environment:
       USER_UID: ${RUN_UID:-1000}
