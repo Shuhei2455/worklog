@@ -17,3 +17,4 @@ caddy/certs/*
 # 検証で作った使い捨ての env
 .env.prodtest
 .env.nogitea
+.check-prod.env

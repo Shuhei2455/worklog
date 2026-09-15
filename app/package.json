@@ -19,7 +19,8 @@
     "demo:seed": "tsx prisma/demo-seed.ts",
     "check": "node ../scripts/check-consistency.mjs",
     "check:screens": "node ../scripts/check-screens.mjs",
-    "check:layout": "node ../scripts/check-layout.mjs"
+    "check:layout": "node ../scripts/check-layout.mjs",
+    "check:prod": "bash ../scripts/check-prod.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
