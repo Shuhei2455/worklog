@@ -339,7 +339,9 @@ export default async function GanttPage({
                 >
                   {key}-{r.issue.keyId}
                 </Link>
-                <span className="flex-1 truncate">{r.issue.summary}</span>
+                <span className="flex-1 truncate" title={r.issue.summary}>
+                  {r.issue.summary}
+                </span>
                 <span className="text-xs text-slate-400">{r.issue.status.name}</span>
               </li>
             ))}
@@ -424,7 +426,10 @@ export default async function GanttPage({
                       >
                         {key}-{i.keyId}
                       </Link>
-                      <span className="truncate">{i.summary}</span>
+                      {/* 省略したままだと全文を確かめられない。hoverで出す */}
+                      <span className="truncate" title={i.summary}>
+                        {i.summary}
+                      </span>
                     </div>
                     <div className="relative" style={{ width }}>
                       {ticks.map((t) => (
