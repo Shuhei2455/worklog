@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
@@ -22,12 +23,18 @@ async function projectByKey(key: string) {
   return project;
 }
 
-function back(key: string, message?: string, isError = false): never {
-  const q = message
-    ? `?${isError ? "error" : "ok"}=${encodeURIComponent(message)}`
-    : "";
-  revalidatePath(`/projects/${key}/settings`);
-  redirect(`/projects/${key}/settings${q}`);
+/**
+ * **redirect しない。** 同じURLへ飛ばすと先頭までスクロールが戻り、
+ * 「リロードされた」ように見える（CLAUDE.md の規約）。
+ * メッセージはフラッシュ（cookie）で運ぶ。
+ *
+ * 以前は `never` を返していたので `if (cond) return await back(...)` で処理が止まっていた。
+ * いまは通常復帰するので、**呼び出し側は必ず `return await back(...)`**。
+ */
+async function back(key: string, message?: string, isError = false): Promise<void> {
+  const path = `/projects/${key}/settings`;
+  if (message) await setFlash(path, message, isError);
+  revalidatePath(path);
 }
 
 /**
@@ -43,10 +50,10 @@ export async function addCustomField(key: string, formData: FormData) {
   await assertCan(actor, "project.edit", project.id);
 
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) back(key, "名前を入れてください", true);
+  if (!name) return await back(key, "名前を入れてください", true);
 
   const typeId = CUSTOM_FIELD_TYPE_BY_ID.get(Number(formData.get("typeId")));
-  if (!typeId) back(key, "型が不正です", true);
+  if (!typeId) return await back(key, "型が不正です", true);
 
   const required = formData.get("required") === "on";
   const description = String(formData.get("description") ?? "").trim();
@@ -98,7 +105,7 @@ export async function addCustomField(key: string, formData: FormData) {
     : [];
 
   if (hasItems(typeId) && itemNames.length === 0) {
-    back(key, "選択肢を1つ以上入れてください", true);
+    return await back(key, "選択肢を1つ以上入れてください", true);
   }
 
   await prisma.$transaction(async (tx) => {
@@ -142,7 +149,7 @@ export async function addCustomField(key: string, formData: FormData) {
     }
   });
 
-  back(key, `カスタム属性「${name}」を追加しました`);
+  return await back(key, `カスタム属性「${name}」を追加しました`);
 }
 
 /**
@@ -157,13 +164,13 @@ export async function deleteCustomField(key: string, formData: FormData) {
   await assertCan(actor, "project.edit", project.id);
 
   const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) back(key, "不正なリクエストです", true);
+  if (!Number.isInteger(id)) return await back(key, "不正なリクエストです", true);
 
   const field = await prisma.customField.findUnique({
     where: { projectId_id: { projectId: project.id, id } },
     include: { _count: { select: { values: true } } },
   });
-  if (!field) back(key, "カスタム属性が見つかりません", true);
+  if (!field) return await back(key, "カスタム属性が見つかりません", true);
 
   // 入力済みの値も一緒に消えるので、何を消したかを残す
   await audit(actor.id, {
@@ -181,7 +188,42 @@ export async function deleteCustomField(key: string, formData: FormData) {
     field!._count.values > 0
       ? `（入力済みの値 ${field!._count.values} 件も削除しました）`
       : "";
-  back(key, `「${field!.name}」を削除しました${note}`);
+  return await back(key, `「${field!.name}」を削除しました${note}`);
+}
+
+/**
+ * カスタム属性の名前と説明を直す。
+ *
+ * 型と選択肢は変えられない（入力済みの値の解釈が変わってしまうため）。
+ * 名前だけでも直せないと、打ち間違えたまま使い続けることになる。
+ */
+export async function updateCustomField(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return await back(key, "不正なリクエストです", true);
+
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  if (!name) return await back(key, "名前を入れてください", true);
+
+  const field = await prisma.customField.findUnique({
+    where: { projectId_id: { projectId: project.id, id } },
+  });
+  if (!field) return await back(key, "カスタム属性が見つかりません", true);
+
+  const dup = await prisma.customField.findFirst({
+    where: { projectId: project.id, name, id: { not: id } },
+  });
+  if (dup) return await back(key, `「${name}」は既にあります`, true);
+
+  await prisma.customField.update({
+    where: { projectId_id: { projectId: project.id, id } },
+    data: { name, description: description || null },
+  });
+  return await back(key, `「${name}」を更新しました`);
 }
 
 /** 必須かどうかを切り替える */
@@ -191,18 +233,18 @@ export async function toggleCustomFieldRequired(key: string, formData: FormData)
   await assertCan(actor, "project.edit", project.id);
 
   const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) back(key, "不正なリクエストです", true);
+  if (!Number.isInteger(id)) return await back(key, "不正なリクエストです", true);
 
   const field = await prisma.customField.findUnique({
     where: { projectId_id: { projectId: project.id, id } },
   });
-  if (!field) back(key, "カスタム属性が見つかりません", true);
+  if (!field) return await back(key, "カスタム属性が見つかりません", true);
 
   await prisma.customField.update({
     where: { projectId_id: { projectId: project.id, id } },
     data: { required: !field!.required },
   });
-  back(key, `「${field!.name}」を${field!.required ? "任意" : "必須"}にしました`);
+  return await back(key, `「${field!.name}」を${field!.required ? "任意" : "必須"}にしました`);
 }
 
 
@@ -219,12 +261,12 @@ export async function setCustomFieldIssueTypes(key: string, formData: FormData) 
   await assertCan(actor, "project.edit", project.id);
 
   const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) back(key, "不正なリクエストです", true);
+  if (!Number.isInteger(id)) return await back(key, "不正なリクエストです", true);
 
   const field = await prisma.customField.findUnique({
     where: { projectId_id: { projectId: project.id, id } },
   });
-  if (!field) back(key, "カスタム属性が見つかりません", true);
+  if (!field) return await back(key, "カスタム属性が見つかりません", true);
 
   const projectTypes = await prisma.issueType.findMany({
     where: { projectId: project.id },
@@ -241,7 +283,7 @@ export async function setCustomFieldIssueTypes(key: string, formData: FormData) 
     data: { applicableIssueTypes },
   });
 
-  back(
+  return await back(
     key,
     applicableIssueTypes.length === 0
       ? `「${field!.name}」を全種別で有効にしました`

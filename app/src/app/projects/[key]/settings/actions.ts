@@ -318,6 +318,104 @@ export async function updateVersion(key: string, formData: FormData) {
   return await back(key, `「${name}」を更新しました`);
 }
 
+/**
+ * 状態・カテゴリー・課題種別の名前（と色）を直す。
+ *
+ * **作れるが直せない**状態を解消するもの。
+ * 打ち間違えたマスタを直す手段が無いと、使わない名前が残り続ける。
+ * 標準の4状態は本家と同じく名前を変えられる（削除と並べ替えだけが禁止）。
+ */
+export async function updateStatus(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const id = await numberField(formData, "statusId", key);
+  if (id === null) return;
+  const name = String(formData.get("name") ?? "").trim();
+  const color = String(formData.get("color") ?? "").trim();
+  if (!name) return await back(key, "状態の名前を入力してください", true);
+
+  const dup = await prisma.status.findFirst({
+    where: { projectId: project.id, name, id: { not: id } },
+  });
+  if (dup) return await back(key, `「${name}」は既にあります`, true);
+
+  await prisma.status.update({
+    where: { projectId_id: { projectId: project.id, id } },
+    data: { name, ...(color ? { color } : {}) },
+  });
+  return await back(key, `状態を「${name}」に変更しました`);
+}
+
+/** カテゴリーの名前を直す */
+export async function updateCategory(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "issueType.manage", project.id);
+
+  const id = await numberField(formData, "categoryId", key);
+  if (id === null) return;
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return await back(key, "カテゴリーの名前を入力してください", true);
+
+  await prisma.category.update({
+    where: { projectId_id: { projectId: project.id, id } },
+    data: { name },
+  });
+  return await back(key, `カテゴリーを「${name}」に変更しました`);
+}
+
+/** 課題種別の名前と色を直す */
+export async function updateIssueType(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "issueType.manage", project.id);
+
+  const id = await numberField(formData, "issueTypeId", key);
+  if (id === null) return;
+  const name = String(formData.get("name") ?? "").trim();
+  const color = String(formData.get("color") ?? "").trim();
+  if (!name) return await back(key, "種別の名前を入力してください", true);
+
+  await prisma.issueType.update({
+    where: { projectId_id: { projectId: project.id, id } },
+    data: { name, ...(color ? { color } : {}) },
+  });
+  return await back(key, `種別を「${name}」に変更しました`);
+}
+
+/**
+ * Webhook を直す。
+ *
+ * **URLを直せないと、送信先を間違えたときに作り直すしかなかった。**
+ * 有効・無効の切り替えもここで行う（止めたいだけのときに消さずに済む）。
+ */
+export async function updateWebhook(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const id = await numberField(formData, "webhookId", key);
+  if (id === null) return;
+  const name = String(formData.get("name") ?? "").trim();
+  const hookUrl = String(formData.get("hookUrl") ?? "").trim();
+  const enabled = formData.get("enabled") !== null;
+  if (!name) return await back(key, "Webhookの名前を入力してください", true);
+  if (!/^https?:\/\//.test(hookUrl)) {
+    return await back(key, "URLは http:// か https:// で始めてください", true);
+  }
+
+  const before = await prisma.webhook.findFirst({ where: { id, projectId: project.id } });
+  if (!before) return await back(key, "Webhookが見つかりません", true);
+
+  await prisma.webhook.update({
+    where: { id },
+    data: { name, hookUrl, enabled },
+  });
+  return await back(key, `Webhook「${name}」を更新しました`);
+}
+
 /** 参加ユーザーの追加 */
 export async function addMember(key: string, formData: FormData) {
   const actor = await currentUser();

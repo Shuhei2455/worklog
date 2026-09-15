@@ -16,6 +16,10 @@ import {
 import {
   updateFeatures,
   addStatus,
+  updateStatus,
+  updateCategory,
+  updateIssueType,
+  updateWebhook,
   reorderStatus,
   deleteStatus,
   addIssueType,
@@ -38,6 +42,7 @@ import {
 } from "./git-actions";
 import {
   addCustomField,
+  updateCustomField,
   deleteCustomField,
   toggleCustomFieldRequired,
   setCustomFieldIssueTypes,
@@ -221,11 +226,35 @@ export default async function ProjectSettings({
           {statuses.map((s, i) => (
             <li key={s.id} className="flex items-center gap-3 px-3 py-2 text-sm">
               <span className="w-6 text-right text-xs text-slate-400">{i + 1}</span>
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ background: s.color }}
-              />
-              <span className="flex-1">{s.name}</span>
+              {canEditProject ? (
+                // 名前と色を直せるようにする。打ち間違えたまま使い続けないため
+                <form action={bind(updateStatus)} className="flex flex-1 items-center gap-2">
+                  <input type="hidden" name="statusId" value={s.id} />
+                  <input
+                    type="color"
+                    name="color"
+                    defaultValue={s.color}
+                    className="h-5 w-7 rounded border border-slate-300"
+                  />
+                  <input
+                    name="name"
+                    required
+                    defaultValue={s.name}
+                    className="w-40 rounded border border-slate-300 px-2 py-0.5 text-sm"
+                  />
+                  <Button variant="secondary" size="xs">
+                    保存
+                  </Button>
+                </form>
+              ) : (
+                <>
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{ background: s.color }}
+                  />
+                  <span className="flex-1">{s.name}</span>
+                </>
+              )}
               {s.isDefault && (
                 <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
                   標準
@@ -301,6 +330,9 @@ export default async function ProjectSettings({
               label: "課題種別",
               items: issueTypes.map((t) => ({ id: t.id, name: t.name, color: t.color })),
               action: bind(addIssueType),
+              // 一覧の各行を直せるようにする。以前は作るだけで直せなかった
+              editAction: bind(updateIssueType),
+              idField: "issueTypeId",
               withColor: true,
               extra: null,
             },
@@ -308,6 +340,8 @@ export default async function ProjectSettings({
               label: "カテゴリー",
               items: categories.map((c) => ({ id: c.id, name: c.name, color: null })),
               action: bind(addCategory),
+              editAction: bind(updateCategory),
+              idField: "categoryId",
               withColor: false,
               extra: null,
             },
@@ -323,13 +357,41 @@ export default async function ProjectSettings({
                     <span className="w-5 text-right text-xs text-slate-400">
                       {it.id}
                     </span>
-                    {it.color && (
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ background: it.color }}
-                      />
+                    {canManageMasters ? (
+                      <form
+                        action={g.editAction}
+                        className="flex flex-1 items-center gap-1"
+                      >
+                        <input type="hidden" name={g.idField} value={it.id} />
+                        {g.withColor && (
+                          <input
+                            type="color"
+                            name="color"
+                            defaultValue={it.color ?? "#3b82f6"}
+                            className="h-5 w-7 rounded border border-slate-300"
+                          />
+                        )}
+                        <input
+                          name="name"
+                          required
+                          defaultValue={it.name}
+                          className="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-0.5 text-sm"
+                        />
+                        <Button variant="secondary" size="xs">
+                          保存
+                        </Button>
+                      </form>
+                    ) : (
+                      <>
+                        {it.color && (
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full"
+                            style={{ background: it.color }}
+                          />
+                        )}
+                        {it.name}
+                      </>
                     )}
-                    {it.name}
                   </li>
                 ))}
               </ul>
@@ -543,19 +605,38 @@ export default async function ProjectSettings({
               {customFields.map((f) => (
                 <li key={f.id} className="px-3 py-2 text-sm">
                   <div className="flex items-center gap-3">
-                    <span className="font-medium">{f.name}</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
-                      {CUSTOM_FIELD_TYPE_LABEL[f.typeId]}
-                    </span>
+                    {/* 名前と説明を直せるようにする。
+                        型と選択肢は変えられない（入力済みの値の解釈が変わるため） */}
+                    <form
+                      action={bind(updateCustomField)}
+                      className="flex flex-1 items-center gap-2"
+                    >
+                      <input type="hidden" name="id" value={f.id} />
+                      <input
+                        name="name"
+                        required
+                        defaultValue={f.name}
+                        className="w-32 rounded border border-slate-300 px-1.5 py-0.5 text-sm"
+                      />
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
+                        {CUSTOM_FIELD_TYPE_LABEL[f.typeId]}
+                      </span>
+                      <input
+                        name="description"
+                        defaultValue={f.description ?? ""}
+                        placeholder="説明"
+                        className="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-0.5 text-xs"
+                      />
+                      <Button variant="secondary" size="xs">
+                        保存
+                      </Button>
+                    </form>
                     <form action={bind(toggleCustomFieldRequired)}>
                       <input type="hidden" name="id" value={f.id} />
                       <ToggleChip on={f.required} tone="amber" size="xs">
                         {f.required ? "必須" : "任意"}
                       </ToggleChip>
                     </form>
-                    <span className="flex-1 truncate text-xs text-slate-500">
-                      {f.description ?? ""}
-                    </span>
                     {f._count.values > 0 && (
                       <span className="text-xs text-slate-400">
                         入力済み {f._count.values} 件
@@ -834,12 +915,33 @@ export default async function ProjectSettings({
           ) : (
             <ul className="divide-y divide-slate-100 rounded border border-slate-200">
               {webhooks.map((w) => (
-                <li key={w.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                  <span className="font-medium">{w.name}</span>
-                  <span className="flex-1 truncate font-mono text-xs text-slate-500">
-                    {w.hookUrl}
-                  </span>
-                  <span className="text-xs text-slate-400">
+                <li key={w.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                  {/* URLを直せないと、送信先を間違えたとき作り直すしかなかった。
+                      止めたいだけのときのために有効・無効も置く */}
+                  <form
+                    action={bind(updateWebhook)}
+                    className="flex flex-1 items-center gap-2"
+                  >
+                    <input type="hidden" name="webhookId" value={w.id} />
+                    <input
+                      name="name"
+                      required
+                      defaultValue={w.name}
+                      className="w-28 rounded border border-slate-300 px-1.5 py-0.5 text-sm"
+                    />
+                    <input
+                      name="hookUrl"
+                      required
+                      defaultValue={w.hookUrl}
+                      className="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-0.5 font-mono text-xs"
+                    />
+                    <label className="flex items-center gap-1 text-xs text-slate-600">
+                      <input type="checkbox" name="enabled" defaultChecked={w.enabled} />
+                      有効
+                    </label>
+                    <Button variant="secondary" size="xs">保存</Button>
+                  </form>
+                  <span className="shrink-0 text-xs text-slate-400">
                     {w.allEvent ? "全イベント" : `${w.activityTypes.length}種`}
                   </span>
                   <form action={bind(deleteWebhook)}>

@@ -31,6 +31,9 @@ export type Card = {
   summary: string;
   assigneeName: string | null;
   dueDate: string | null;
+  /** 期限切れかどうか。日付の比較はサーバー側で済ませて渡す
+      （クライアントの時計に依存させない） */
+  overdue: boolean;
   statusId: number;
 };
 

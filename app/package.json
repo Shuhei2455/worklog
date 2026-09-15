@@ -16,7 +16,8 @@
     "postinstall": "prisma generate",
     "db:password": "tsx prisma/set-password.ts",
     "reindex": "tsx src/scripts/reindex.ts",
-    "demo:seed": "tsx prisma/demo-seed.ts"
+    "demo:seed": "tsx prisma/demo-seed.ts",
+    "check": "node ../scripts/check-consistency.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

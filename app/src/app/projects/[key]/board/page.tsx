@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext, visibleProjectIds } from "@/lib/session";
 import { parseIssueFilter, buildIssueWhere } from "@/lib/issue-filter";
+import { STATUS_ID_CLOSED } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
 import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { saveFilter } from "../issues/actions";
@@ -81,12 +82,19 @@ export default async function BoardPage({
       }),
     ]);
 
+  // 期限切れの判定はここで済ませる。クライアントの時計に任せない
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const cards: Card[] = issues.map((i) => ({
     id: i.id,
     keyId: i.keyId,
     summary: i.summary,
     assigneeName: i.assignee?.name ?? null,
     dueDate: i.dueDate ? i.dueDate.toISOString().slice(0, 10) : null,
+    // 完了した課題は過ぎていても急ぎではない（一覧と同じ扱い）
+    overdue:
+      i.dueDate != null && i.dueDate < today && i.statusId !== STATUS_ID_CLOSED,
     statusId: i.statusId,
   }));
 

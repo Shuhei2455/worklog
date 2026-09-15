@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
@@ -29,12 +30,18 @@ async function projectByKey(key: string) {
   return project;
 }
 
-function back(key: string, message?: string, isError = false): never {
-  const q = message
-    ? `?${isError ? "error" : "ok"}=${encodeURIComponent(message)}`
-    : "";
-  revalidatePath(`/projects/${key}/settings`);
-  redirect(`/projects/${key}/settings${q}`);
+/**
+ * **redirect しない。** 同じURLへ飛ばすと先頭までスクロールが戻り、
+ * 「リロードされた」ように見える（CLAUDE.md の規約）。
+ * メッセージはフラッシュ（cookie）で運ぶ。
+ *
+ * 以前は `never` を返していたので `if (cond) return await back(...)` で処理が止まっていた。
+ * いまは通常復帰するので、**呼び出し側は必ず `return await back(...)`**。
+ */
+async function back(key: string, message?: string, isError = false): Promise<void> {
+  const path = `/projects/${key}/settings`;
+  if (message) await setFlash(path, message, isError);
+  revalidatePath(path);
 }
 
 /**
@@ -50,20 +57,20 @@ export async function createRepository(key: string, formData: FormData) {
   await assertCan(actor, "project.edit", project.id);
 
   if (!giteaEnabled()) {
-    back(key, "Gitea が設定されていません（GITEA_URL と GITEA_ADMIN_TOKEN）", true);
+    return await back(key, "Gitea が設定されていません（GITEA_URL と GITEA_ADMIN_TOKEN）", true);
   }
 
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
 
   if (!REPO_NAME_RE.test(name)) {
-    back(key, "リポジトリ名は英数字・ハイフン・アンダースコア・ドットで1〜64文字です", true);
+    return await back(key, "リポジトリ名は英数字・ハイフン・アンダースコア・ドットで1〜64文字です", true);
   }
 
   const dup = await prisma.repository.findFirst({
     where: { projectId: project.id, name },
   });
-  if (dup) back(key, `${name} は既にあります`, true);
+  if (dup) return await back(key, `${name} は既にあります`, true);
 
   try {
     const org = await ensureOrg(project.id);
@@ -95,7 +102,7 @@ export async function createRepository(key: string, formData: FormData) {
     const { syncOrgMembers } = await import("@/lib/gitea-members");
     await syncOrgMembers(project.id);
   } catch (e) {
-    back(key, `Gitea でのリポジトリ作成に失敗しました: ${(e as Error).message}`, true);
+    return await back(key, `Gitea でのリポジトリ作成に失敗しました: ${(e as Error).message}`, true);
   }
 
   await audit(actor.id, {
@@ -105,7 +112,7 @@ export async function createRepository(key: string, formData: FormData) {
     detail: { description },
   });
 
-  back(key, `${name} を作成しました`);
+  return await back(key, `${name} を作成しました`);
 }
 
 async function nextDisplayOrder(projectId: number): Promise<number> {
@@ -132,14 +139,14 @@ export async function toggleLinkCommits(key: string, formData: FormData) {
   const repo = await prisma.repository.findFirst({
     where: { id, projectId: project.id },
   });
-  if (!repo) back(key, "リポジトリが見つかりません", true);
+  if (!repo) return await back(key, "リポジトリが見つかりません", true);
 
   await prisma.repository.update({
     where: { id: repo.id },
     data: { linkCommitsToIssues: !repo.linkCommitsToIssues },
   });
 
-  back(
+  return await back(
     key,
     `${repo.name}: コミットと課題の連携を${repo.linkCommitsToIssues ? "OFF" : "ON"}にしました`,
   );
@@ -161,7 +168,7 @@ export async function detachRepository(key: string, formData: FormData) {
   const repo = await prisma.repository.findFirst({
     where: { id, projectId: project.id },
   });
-  if (!repo) back(key, "リポジトリが見つかりません", true);
+  if (!repo) return await back(key, "リポジトリが見つかりません", true);
 
   await audit(actor.id, {
     action: "repository.detach",
@@ -171,7 +178,7 @@ export async function detachRepository(key: string, formData: FormData) {
   });
 
   await prisma.repository.delete({ where: { id: repo.id } });
-  back(key, `${repo.name} の登録を解除しました（Gitea 側のリポジトリは残っています）`);
+  return await back(key, `${repo.name} の登録を解除しました（Gitea 側のリポジトリは残っています）`);
 }
 
 /** Gitea に既にあるリポジトリを、この一覧に取り込む */
@@ -181,7 +188,7 @@ export async function importRepository(key: string, formData: FormData) {
   await assertCan(actor, "project.edit", project.id);
 
   const name = String(formData.get("name") ?? "").trim();
-  if (!REPO_NAME_RE.test(name)) back(key, "リポジトリ名が不正です", true);
+  if (!REPO_NAME_RE.test(name)) return await back(key, "リポジトリ名が不正です", true);
 
   try {
     const org = await giteaOrgOf(project.id);
@@ -202,8 +209,8 @@ export async function importRepository(key: string, formData: FormData) {
       },
     });
   } catch (e) {
-    back(key, `取り込みに失敗しました: ${(e as Error).message}`, true);
+    return await back(key, `取り込みに失敗しました: ${(e as Error).message}`, true);
   }
 
-  back(key, `${name} を取り込みました`);
+  return await back(key, `${name} を取り込みました`);
 }
