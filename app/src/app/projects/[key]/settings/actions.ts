@@ -244,7 +244,15 @@ export async function addVersion(key: string, formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const releaseDue = String(formData.get("releaseDueDate") ?? "");
+  // **開始日も受ける。** バーンダウンは開始日と終了日の両方が要るのに、
+  // 以前は終了日の欄しか無く、「プロジェクト設定で入れてください」と
+  // 案内しておきながら入れる場所が無かった
+  const startDate = String(formData.get("startDate") ?? "");
+  const description = String(formData.get("description") ?? "").trim();
   if (!name) return await back(key, "バージョンの名前を入力してください", true);
+  if (startDate && releaseDue && startDate > releaseDue) {
+    return await back(key, "開始日が終了日より後になっています", true);
+  }
 
   await prisma.$transaction(async (tx) => {
     const id = await nextMasterId(tx, "versions", project.id);
@@ -257,12 +265,57 @@ export async function addVersion(key: string, formData: FormData) {
         projectId: project.id,
         id,
         name,
+        description: description || null,
+        startDate: startDate ? new Date(startDate) : null,
         releaseDueDate: releaseDue ? new Date(releaseDue) : null,
         displayOrder: (max._max.displayOrder ?? 0) + 1000,
       },
     });
   });
   return await back(key, `バージョン「${name}」を追加しました`);
+}
+
+/**
+ * バージョン（＝マイルストーン）の更新。
+ *
+ * 以前は**作成しかできなかった**ため、開始日を入れ忘れると直す手段が無く、
+ * バーンダウンが永久に描けなかった。
+ */
+export async function updateVersion(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "version.manage", project.id);
+
+  const id = await numberField(formData, "versionId", key);
+  if (id === null) return;
+
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const startDate = String(formData.get("startDate") ?? "");
+  const releaseDue = String(formData.get("releaseDueDate") ?? "");
+  const archived = formData.get("archived") !== null;
+
+  if (!name) return await back(key, "バージョンの名前を入力してください", true);
+  if (startDate && releaseDue && startDate > releaseDue) {
+    return await back(key, "開始日が終了日より後になっています", true);
+  }
+
+  const before = await prisma.version.findUnique({
+    where: { projectId_id: { projectId: project.id, id } },
+  });
+  if (!before) return await back(key, "バージョンが見つかりません", true);
+
+  await prisma.version.update({
+    where: { projectId_id: { projectId: project.id, id } },
+    data: {
+      name,
+      description: description || null,
+      startDate: startDate ? new Date(startDate) : null,
+      releaseDueDate: releaseDue ? new Date(releaseDue) : null,
+      archived,
+    },
+  });
+  return await back(key, `「${name}」を更新しました`);
 }
 
 /** 参加ユーザーの追加 */

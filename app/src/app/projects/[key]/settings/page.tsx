@@ -21,6 +21,7 @@ import {
   addIssueType,
   addCategory,
   addVersion,
+  updateVersion,
   addMember,
   removeMember,
   toggleProjectAdmin,
@@ -291,10 +292,10 @@ export default async function ProjectSettings({
 
       {/* ---------------- 種別・カテゴリー・バージョン ---------------- */}
       <Section
-        title="種別・カテゴリー・バージョン"
-        note="これらは「制限なし」の一般ユーザーでも編集できます（プロジェクト管理者専用ではありません）。バージョンはマイルストーンと同一です。"
+        title="課題種別・カテゴリー"
+        note="これらは「制限なし」の一般ユーザーでも編集できます（プロジェクト管理者専用ではありません）。"
       >
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2">
           {[
             {
               label: "課題種別",
@@ -309,27 +310,6 @@ export default async function ProjectSettings({
               action: bind(addCategory),
               withColor: false,
               extra: null,
-            },
-            {
-              label: "バージョン / マイルストーン",
-              items: versions.map((v) => ({
-                id: v.id,
-                name:
-                  v.name +
-                  (v.releaseDueDate
-                    ? ` (${v.releaseDueDate.toISOString().slice(0, 10)})`
-                    : ""),
-                color: null,
-              })),
-              action: bind(addVersion),
-              withColor: false,
-              extra: (
-                <input
-                  type="date"
-                  name="releaseDueDate"
-                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
-                />
-              ),
             },
           ].map((g) => (
             <div key={g.label}>
@@ -378,6 +358,132 @@ export default async function ProjectSettings({
             </div>
           ))}
         </div>
+      </Section>
+
+      {/* ---------------- マイルストーン / バージョン ---------------- */}
+      <Section
+        title="マイルストーン / バージョン"
+        note="本家と同じく、マイルストーンとバージョンは同一のものです。バーンダウンチャートを描くには開始日と終了日の両方が必要です。"
+      >
+        {versions.length === 0 ? (
+          <p className="text-xs text-slate-400">なし</p>
+        ) : (
+          <ul className="divide-y divide-slate-100 rounded border border-slate-200">
+            {versions.map((v) => (
+              <li key={v.id} className="px-3 py-3">
+                {canManageMasters ? (
+                  // 1行が1つのフォーム。既存のものを直せないと、
+                  // 開始日を入れ忘れたマイルストーンが永久に直せない
+                  <form action={bind(updateVersion)} className="flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="versionId" value={v.id} />
+                    <span className="w-6 pb-1.5 text-right text-xs text-slate-400">{v.id}</span>
+                    <label className="text-xs">
+                      <span className="block text-slate-500">名前</span>
+                      <input
+                        name="name"
+                        required
+                        defaultValue={v.name}
+                        className="mt-0.5 w-40 rounded border border-slate-300 px-2 py-1 text-sm"
+                      />
+                    </label>
+                    <label className="text-xs">
+                      <span className="block text-slate-500">開始日</span>
+                      <input
+                        type="date"
+                        name="startDate"
+                        defaultValue={v.startDate ? v.startDate.toISOString().slice(0, 10) : ""}
+                        className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-sm"
+                      />
+                    </label>
+                    <label className="text-xs">
+                      <span className="block text-slate-500">終了日</span>
+                      <input
+                        type="date"
+                        name="releaseDueDate"
+                        defaultValue={
+                          v.releaseDueDate ? v.releaseDueDate.toISOString().slice(0, 10) : ""
+                        }
+                        className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-sm"
+                      />
+                    </label>
+                    <label className="min-w-[10rem] flex-1 text-xs">
+                      <span className="block text-slate-500">説明</span>
+                      <input
+                        name="description"
+                        defaultValue={v.description ?? ""}
+                        className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 pb-1.5 text-xs text-slate-600">
+                      <input type="checkbox" name="archived" defaultChecked={v.archived} />
+                      完了
+                    </label>
+                    <Button variant="secondary" size="xs" className="mb-0.5">
+                      保存
+                    </Button>
+                  </form>
+                ) : (
+                  <span className="text-sm">
+                    <span className="mr-2 text-xs text-slate-400">{v.id}</span>
+                    {v.name}
+                    <span className="ml-2 text-xs text-slate-500">
+                      {v.startDate ? v.startDate.toISOString().slice(0, 10) : "開始日なし"}
+                      {" 〜 "}
+                      {v.releaseDueDate
+                        ? v.releaseDueDate.toISOString().slice(0, 10)
+                        : "終了日なし"}
+                    </span>
+                    {v.archived && (
+                      <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                        完了
+                      </span>
+                    )}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {canManageMasters && (
+          <form action={bind(addVersion)} className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="text-xs">
+              <span className="block text-slate-500">名前</span>
+              <input
+                name="name"
+                required
+                placeholder="v1.0"
+                className="mt-0.5 w-40 rounded border border-slate-300 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="text-xs">
+              <span className="block text-slate-500">開始日</span>
+              <input
+                type="date"
+                name="startDate"
+                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="text-xs">
+              <span className="block text-slate-500">終了日</span>
+              <input
+                type="date"
+                name="releaseDueDate"
+                className="mt-0.5 rounded border border-slate-300 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="min-w-[10rem] flex-1 text-xs">
+              <span className="block text-slate-500">説明</span>
+              <input
+                name="description"
+                className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+              />
+            </label>
+            <Button variant="primary" size="xs" className="mb-0.5">
+              追加
+            </Button>
+          </form>
+        )}
       </Section>
 
       {/* ---------------- チーム ---------------- */}
