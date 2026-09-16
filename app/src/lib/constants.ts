@@ -54,11 +54,21 @@ export const RESOLUTIONS = [
  * displayOrder は 1000 刻み(決定 D5)。本家で判明しているのは Open=1000 のみで、
  * 並べ替え制約は相対比較で足りるため実値を合わせる必要はない。
  */
+/**
+ * 標準の4状態。
+ *
+ * **`isDefault: true` をここに持たせている。**
+ * 以前は各所で付け足す形だったため、demo-seed が付け忘れて
+ * デモデータでは標準状態の保護（削除・並べ替え・名前変更の禁止）が
+ * 全部効いていなかった。定数に含めておけば写し間違いが起きない。
+ *
+ * 本家では**名前も色も変更できない**（00-spec-verified.md 1.1）。
+ */
 export const DEFAULT_STATUSES = [
-  { id: 1, name: "未対応", color: "#ed8077", displayOrder: 1000 },
-  { id: 2, name: "処理中", color: "#4488c5", displayOrder: 2000 },
-  { id: 3, name: "処理済み", color: "#5eb5a6", displayOrder: 3000 },
-  { id: 4, name: "完了", color: "#a1af2f", displayOrder: 4000 },
+  { id: 1, name: "未対応", color: "#ed8077", displayOrder: 1000, isDefault: true },
+  { id: 2, name: "処理中", color: "#4488c5", displayOrder: 2000, isDefault: true },
+  { id: 3, name: "処理済み", color: "#5eb5a6", displayOrder: 3000, isDefault: true },
+  { id: 4, name: "完了", color: "#a1af2f", displayOrder: 4000, isDefault: true },
 ] as const;
 
 /** 追加した状態の既定色。本家は `#bbbbbb`（12.1） */

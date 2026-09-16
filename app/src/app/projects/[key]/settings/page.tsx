@@ -220,14 +220,16 @@ export default async function ProjectSettings({
       {/* ---------------- 状態 ---------------- */}
       <Section
         title="状態"
-        note="標準の4状態は削除も並べ替えもできません。追加した状態は「未対応」より前、「完了」より後には置けません。"
+        note="標準の4状態は名前・色・並び順を変更できず、削除もできません（本家と同じ）。追加できるのは8つまでで、「未対応」より前、「完了」より後には置けません。"
       >
         <ul className="divide-y divide-slate-100 rounded border border-slate-200">
           {statuses.map((s, i) => (
             <li key={s.id} className="flex items-center gap-3 px-3 py-2 text-sm">
               <span className="w-6 text-right text-xs text-slate-400">{i + 1}</span>
-              {canEditProject ? (
-                // 名前と色を直せるようにする。打ち間違えたまま使い続けないため
+              {/* **標準4状態は名前も色も変えられない**（本家と同じ。
+                  00-spec-verified.md 1.1）。編集フォームを出さない */}
+              {canEditProject && !s.isDefault ? (
+                // 追加した状態だけ、名前と色を直せる
                 <form action={bind(updateStatus)} className="flex flex-1 items-center gap-2">
                   <input type="hidden" name="statusId" value={s.id} />
                   <input

@@ -93,6 +93,15 @@ export async function addStatus(key: string, formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const color = String(formData.get("color") ?? "#64748b");
+
+  // **追加できる状態は1プロジェクトにつき8つ**（00-spec-verified.md 1.1）。
+  // 標準4つと合わせて最大12
+  const added = await prisma.status.count({
+    where: { projectId: project.id, isDefault: false },
+  });
+  if (added >= 8) {
+    return await back(key, "追加できる状態は8つまでです（標準4つと合わせて12）", true);
+  }
   if (!name) return await back(key, "状態の名前を入力してください", true);
 
   await prisma.$transaction(async (tx) => {
@@ -335,6 +344,17 @@ export async function updateStatus(key: string, formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const color = String(formData.get("color") ?? "").trim();
   if (!name) return await back(key, "状態の名前を入力してください", true);
+
+  const before = await prisma.status.findUnique({
+    where: { projectId_id: { projectId: project.id, id } },
+  });
+  if (!before) return await back(key, "状態が見つかりません", true);
+  // **標準の4状態は名前も色も変えられない**（00-spec-verified.md 1.1）。
+  // 本家の公式ブログに「既存の状態（未対応、処理中、処理済み、完了）の
+  // 名前や色を変更することはできません」と明記されている
+  if (before.isDefault) {
+    return await back(key, "標準の状態は名前も色も変更できません", true);
+  }
 
   const dup = await prisma.status.findFirst({
     where: { projectId: project.id, name, id: { not: id } },
