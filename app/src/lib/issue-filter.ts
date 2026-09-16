@@ -1,5 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
+import {
+  parseCustomFieldFilters,
+  customFieldWhere,
+  type CustomFieldFilter,
+} from "@/lib/custom-field-filter";
 
 /**
  * 課題フィルタの正規化と Prisma の where 組み立て。
@@ -118,7 +123,17 @@ export const issueFilterSchema = z.object({
   count: z.coerce.number().int().min(1).max(MAX_COUNT).catch(DEFAULT_COUNT),
 });
 
-export type IssueFilter = z.infer<typeof issueFilterSchema>;
+export type IssueFilter = z.infer<typeof issueFilterSchema> & {
+  /**
+   * カスタム属性での絞り込み。
+   *
+   * パラメータ名が `customField_12_min` のように動的なので、
+   * 固定の zod オブジェクトでは受けられない。別に解析して足す
+   * （lib/custom-field-filter.ts）。
+   */
+  // 省略可。CSV出力のように固定条件で組み立てる箇所があるため
+  customFields?: CustomFieldFilter[];
+};
 
 /**
  * 壊れた値を落としつつ、必ずフィルタを返す。
@@ -129,10 +144,11 @@ export type IssueFilter = z.infer<typeof issueFilterSchema>;
 export function parseIssueFilter(
   params: Record<string, string | string[] | undefined>,
 ): IssueFilter {
+  const customFields = parseCustomFieldFilters(params);
   const result = issueFilterSchema.safeParse(params);
-  if (result.success) return result.data;
+  if (result.success) return { ...result.data, customFields };
   // ここには来ない想定だが、来ても既定で返す
-  return issueFilterSchema.parse({});
+  return { ...issueFilterSchema.parse({}), customFields };
 }
 
 /** 日付範囲を Prisma の gte/lte に畳む。両方 undefined なら undefined */
@@ -229,20 +245,27 @@ export function buildIssueWhere(
   const due = range(filter.dueDateSince, filter.dueDateUntil);
   if (due) where.dueDate = due;
 
+  // AND に積むものをまとめる。
+  // **キーワードとカスタム属性が両方あるとき、片方で上書きしない**ようにする
+  const and: Prisma.IssueWhereInput[] = [];
+
   if (keywordIssueIds) {
     where.id = { in: keywordIssueIds };
   } else if (filter.keyword) {
     // Meilisearch 未接続のあいだの代替。
     // TODO(M3): Meilisearch に投げて返ったIDで絞る二段構えにする
-    where.AND = [
-      {
-        OR: [
-          { summary: { contains: filter.keyword, mode: "insensitive" } },
-          { description: { contains: filter.keyword, mode: "insensitive" } },
-        ],
-      },
-    ];
+    and.push({
+      OR: [
+        { summary: { contains: filter.keyword, mode: "insensitive" } },
+        { description: { contains: filter.keyword, mode: "insensitive" } },
+      ],
+    });
   }
+
+  // カスタム属性は条件ごとに独立した some になる（組み合わせで絞るため）
+  and.push(...(customFieldWhere(filter.customFields ?? []) as Prisma.IssueWhereInput[]));
+
+  if (and.length > 0) where.AND = and;
 
   return where;
 }
