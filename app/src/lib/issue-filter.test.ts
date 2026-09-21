@@ -31,6 +31,14 @@ describe("パラメータの正規化", () => {
     expect(f({ statusId: "1,abc,3" }).statusId).toEqual([1, 3]);
   });
 
+  it("空の指定は絞り込みなしになる（「すべて」を選んだとき）", () => {
+    // Number("") は 0 で Number.isInteger(0) も真なので、素通しすると
+    // 「id=0で絞る」に化けて0件になる
+    expect(f({ statusId: "" }).statusId).toBeUndefined();
+    expect(f({ statusId: [] }).statusId).toBeUndefined();
+    expect(f({ statusId: "1,,3" }).statusId).toEqual([1, 3]);
+  });
+
   it("count は 100 までに丸める", () => {
     // 上限超えはその項目だけ既定に寄る
     expect(f({ count: "500" }).count).toBe(DEFAULT_COUNT);

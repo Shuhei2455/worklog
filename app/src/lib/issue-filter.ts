@@ -65,7 +65,12 @@ const numList = z
     const arr = Array.isArray(v) ? v : [v];
     const nums = arr
       .flatMap((x) => String(x).split(","))
-      .map((x) => Number(x.trim()))
+      .map((x) => x.trim())
+      // 空文字を先に落とす。Number("") は 0 で Number.isInteger(0) も真なので、
+      // 落とさないと `?statusId=`（絞り込みの「すべて」）が「id=0で絞る」に化けて
+      // 0件になる
+      .filter((x) => x !== "")
+      .map(Number)
       .filter((n) => Number.isInteger(n));
     return nums.length ? nums : undefined;
   });
