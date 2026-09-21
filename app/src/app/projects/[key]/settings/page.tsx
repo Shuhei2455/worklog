@@ -606,12 +606,14 @@ export default async function ProjectSettings({
             <ul className="divide-y divide-slate-100 rounded border border-slate-200">
               {customFields.map((f) => (
                 <li key={f.id} className="px-3 py-2 text-sm">
-                  <div className="flex items-center gap-3">
+                  {/* スマホ幅では4ブロックが1行に入らない（375pxで167pxはみ出していた）。
+                      折り返しを許し、編集フォームだけ1行を占有させる */}
+                  <div className="flex flex-wrap items-center gap-3">
                     {/* 名前と説明を直せるようにする。
                         型と選択肢は変えられない（入力済みの値の解釈が変わるため） */}
                     <form
                       action={bind(updateCustomField)}
-                      className="flex flex-1 items-center gap-2"
+                      className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"
                     >
                       <input type="hidden" name="id" value={f.id} />
                       <input
@@ -826,7 +828,10 @@ export default async function ProjectSettings({
                     >
                       {r.name}
                     </a>
-                    <span className="flex-1 truncate text-xs text-slate-500">
+                    <span
+                      title={r.description ?? undefined}
+                      className="flex-1 truncate text-xs text-slate-500"
+                    >
                       {r.description ?? ""}
                     </span>
                     <form action={bind(toggleLinkCommits)}>

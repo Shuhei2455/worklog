@@ -20,6 +20,10 @@ import { connect } from "node:net";
 const BASE = process.env.CHECK_BASE ?? "http://localhost:8088";
 const PASSWORD = process.env.CHECK_PASSWORD ?? "kadai-demo-2026";
 const DEVTOOLS = process.env.CHECK_DEVTOOLS ?? "127.0.0.1:9222";
+// スマホ幅で見るときは CHECK_WIDTH=375（iPhone SE / 一般的な下限）。
+// 幅が狭いときだけ「ページ全体の横はみ出し」も見る（PCでは起きない壊れ方）。
+const WIDTH = Number(process.env.CHECK_WIDTH ?? 1400);
+const MOBILE = WIDTH <= 500;
 
 // ---- 最小のWebSocketクライアント -------------------------------------------
 
@@ -195,8 +199,14 @@ const PROBE = `
     if (sibs.length < 2) continue;
     const boxes = sibs.map(e => {
       const r = e.getBoundingClientRect();
-      // 文字の実幅で見る（セルより文字がはみ出すことがある）
-      const w = Math.max(r.width, e.scrollWidth);
+      const cs = getComputedStyle(e);
+      // 文字の実幅で見る（セルより文字がはみ出すことがある）。
+      // ただし切り詰めている要素は枠の外に描かれないので、枠の幅で見る。
+      // これをしないと truncate した件名が必ず隣と「重なり」として挙がる
+      // （スマホ幅ではほぼ全ての件名が該当し、本物の重なりが埋もれる）
+      const clipped = cs.textOverflow === 'ellipsis'
+        || cs.overflow === 'hidden' || cs.overflowX === 'hidden';
+      const w = clipped ? r.width : Math.max(r.width, e.scrollWidth);
       return { l: r.left + (r.width - w) / 2, r: r.left + (r.width + w) / 2,
                t: r.top, b: r.bottom, s: e.innerText.trim().slice(0, 16) };
     }).filter(b => b.r > b.l && b.b > b.t);
@@ -209,7 +219,34 @@ const PROBE = `
       }
     }
   }
+  // 画面より横に広い要素。スマホで最初に出る壊れ方で、画面ごと横に
+  // スクロールしてしまい、右端の文字が読めなくなる。
+  // overflow-x:auto/scroll の中は「その枠の中で横に送る」という意図した
+  // 作りなので除く（ガント・ボード・表の枠がこれに当たる）。
+  const wide = [];
+  const vw = document.documentElement.clientWidth;
+  if (document.documentElement.scrollWidth > vw + 1) {
+    for (const e of document.querySelectorAll('body *')) {
+      const r = e.getBoundingClientRect();
+      if (r.width === 0 || r.right <= vw + 1) continue;
+      let scrollable = false;
+      for (let p = e.parentElement; p; p = p.parentElement) {
+        const ox = getComputedStyle(p).overflowX;
+        if (ox === 'auto' || ox === 'scroll') { scrollable = true; break; }
+      }
+      if (scrollable) continue;
+      // 親も同じだけはみ出しているなら、原因は親側。子は挙げない
+      const pe = e.parentElement;
+      if (pe && pe !== document.body && pe.getBoundingClientRect().right > vw + 1) continue;
+      const cls = typeof e.className === 'string' && e.className.trim()
+        ? '.' + e.className.trim().split(/\\s+/).slice(0, 3).join('.')
+        : '';
+      wide.push(e.tagName.toLowerCase() + cls + ' → ' + Math.round(r.right - vw) + 'px はみ出し');
+    }
+  }
+
   return { cut: [...new Set(cut)].slice(0, 8), overlap: [...new Set(overlap)].slice(0, 8),
+           wide: [...new Set(wide)].slice(0, 8),
            noTitle: [...new Set(noTitle)].slice(0, 8) };
 })()
 `;
@@ -220,13 +257,27 @@ const SCREENS = [
   ["/dashboard", "ダッシュボード"],
   ["/", "プロジェクト一覧"],
   ["/projects/WEB/issues", "課題一覧"],
+  ["/projects/WEB/issues/new", "課題の追加"],
+  ["/projects/WEB/issues/import", "CSV取り込み"],
   ["/projects/WEB/board", "ボード"],
   ["/projects/WEB/gantt?scale=day", "ガント（日）"],
   ["/projects/WEB/gantt?scale=week", "ガント（週）"],
   ["/projects/WEB/burndown", "バーンダウン"],
+  ["/projects/WEB/wiki", "Wiki一覧"],
+  ["/projects/WEB/wiki/new", "Wiki追加"],
+  ["/projects/WEB/files", "ファイル"],
+  ["/projects/WEB/git", "Gitリポジトリ"],
   ["/projects/WEB/settings", "プロジェクト設定"],
   ["/issues/WEB-1", "課題詳細"],
+  ["/search?q=%E8%AA%B2%E9%A1%8C", "検索"],
+  ["/notifications", "通知"],
   ["/users", "ユーザー管理"],
+  ["/teams", "チーム管理"],
+  ["/audit", "監査ログ"],
+  ["/settings/password", "パスワード"],
+  ["/settings/api", "APIキー"],
+  ["/settings/git", "Git設定"],
+  ["/settings/language", "表示言語"],
 ];
 
 const findings = [];
@@ -235,10 +286,10 @@ const cdp = await wsConnect(await pageTarget());
 await cdp.send("Page.enable");
 await cdp.send("Runtime.enable");
 await cdp.send("Emulation.setDeviceMetricsOverride", {
-  width: 1400,
-  height: 1000,
+  width: WIDTH,
+  height: MOBILE ? 812 : 1000,
   deviceScaleFactor: 1,
-  mobile: false,
+  mobile: MOBILE,
 });
 
 // ログイン
@@ -255,15 +306,16 @@ await cdp.evaluate(`
 `);
 await new Promise((r) => setTimeout(r, 8000));
 
-console.log(`== レイアウトの検査（${BASE}） ==\n`);
+console.log(`== レイアウトの検査（${BASE} / 幅 ${WIDTH}px${MOBILE ? " スマホ" : ""}） ==\n`);
 for (const [path, label] of SCREENS) {
   await goto(cdp, path);
   const r = await cdp.evaluate(PROBE);
-  const must = (r?.cut?.length ?? 0) + (r?.overlap?.length ?? 0);
+  const must = (r?.cut?.length ?? 0) + (r?.overlap?.length ?? 0) + (r?.wide?.length ?? 0);
   const info = r?.noTitle?.length ?? 0;
   console.log(`  ${must === 0 ? "OK" : `${must}件`}  ${label}${info ? `（参考 ${info}件）` : ""}`);
   for (const c of r?.cut ?? []) findings.push({ label, kind: "見切れ", detail: c, level: "要対応" });
   for (const o of r?.overlap ?? []) findings.push({ label, kind: "重なり", detail: o, level: "要対応" });
+  for (const w of r?.wide ?? []) findings.push({ label, kind: "横はみ出し", detail: w, level: "要対応" });
   for (const t of r?.noTitle ?? [])
     findings.push({ label, kind: "省略", detail: `${t}（title が無く全文を確かめられない）`, level: "参考" });
 }

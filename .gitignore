@@ -18,3 +18,4 @@ caddy/certs/*
 .env.prodtest
 .env.nogitea
 .check-prod.env
+.env.prod

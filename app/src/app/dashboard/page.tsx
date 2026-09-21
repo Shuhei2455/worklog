@@ -208,7 +208,10 @@ export default async function Dashboard({
     <Shell user={user} breadcrumbs={[{ label: t("nav.dashboard") }]}>
       <PageTitle>{t("nav.dashboard")}</PageTitle>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      {/* grid-cols-1 を明示する。付けないと狭い幅で暗黙の列が auto になり、
+          グリッド項目の min-width:auto と合わさって中身の最大幅まで伸びる
+          （375pxで101pxはみ出していた）。grid-cols-1 は minmax(0,1fr) なので縮められる */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* ==== 左: 自分の課題 / プルリクエスト / 最近の更新 ==== */}
         <div className="space-y-4">
           <Block
@@ -248,8 +251,10 @@ export default async function Dashboard({
                         >
                           {i.project.key}-{i.keyId}
                         </Link>
+                        {/* 省略したら全文を確かめる手段が要る（狭い幅ではほぼ必ず省略される） */}
                         <Link
                           href={`/issues/${i.project.key}-${i.keyId}`}
+                          title={i.summary}
                           className="min-w-0 flex-1 truncate hover:underline"
                         >
                           {i.summary}
@@ -297,7 +302,7 @@ export default async function Dashboard({
                     >
                       {pr.repository.name}#{pr.giteaPrNumber}
                     </Link>
-                    <span className="min-w-0 flex-1 truncate">{pr.title}</span>
+                    <span title={pr.title} className="min-w-0 flex-1 truncate">{pr.title}</span>
                     <span className="shrink-0 text-sm text-slate-500">
                       {pr.headBranch} → {pr.baseBranch}
                     </span>
@@ -356,11 +361,11 @@ export default async function Dashboard({
                           {a.project.key}
                         </Link>
                         {href ? (
-                          <Link href={href} className="min-w-0 truncate text-brand-700 hover:underline">
+                          <Link href={href} title={target} className="min-w-0 truncate text-brand-700 hover:underline">
                             {target}
                           </Link>
                         ) : (
-                          <span className="min-w-0 truncate text-slate-500">{target || "—"}</span>
+                          <span title={target || undefined} className="min-w-0 truncate text-slate-500">{target || "—"}</span>
                         )}
                       </div>
                       {a.content && (
@@ -388,6 +393,7 @@ export default async function Dashboard({
                       <div className="flex items-baseline gap-2">
                         <Link
                           href={`/projects/${p.key}/issues`}
+                          title={p.name}
                           className="min-w-0 flex-1 truncate font-medium text-brand-700 hover:underline"
                         >
                           {p.name}
@@ -421,7 +427,7 @@ export default async function Dashboard({
                       <span className="shrink-0 font-mono text-sm text-brand-700">
                         {r.issue.project.key}-{r.issue.keyId}
                       </span>
-                      <span className="min-w-0 truncate">{r.issue.summary}</span>
+                      <span title={r.issue.summary} className="min-w-0 truncate">{r.issue.summary}</span>
                     </Link>
                   </li>
                 ))}

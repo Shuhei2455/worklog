@@ -140,12 +140,12 @@ export default async function BoardPage({
           ["milestoneId", "マイルストーン", versions.map((v) => [v.id, v.name] as const)],
           ["assigneeId", "担当者", members.map((m) => [m.userId, m.user.name] as const)],
         ].map(([name, label, opts]) => (
-          <label key={name as string}>
+          <label key={name as string} className="max-w-full">
             <span className="block text-xs text-slate-500">{label as string}</span>
             <select
               name={name as string}
               defaultValue={(sp[name as string] as string) ?? ""}
-              className="mt-1 rounded border border-slate-300 px-2 py-1"
+              className="mt-1 w-full rounded border border-slate-300 px-2 py-1 sm:w-auto"
             >
               <option value="">すべて</option>
               {(opts as ReadonlyArray<readonly [number, string]>).map(([v, l]) => (
@@ -170,7 +170,7 @@ export default async function BoardPage({
       {/* 本家もボードから検索条件を保存できる */}
       <form
         action={saveFilter.bind(null, key)}
-        className="mt-2 flex items-center gap-2 text-xs"
+        className="mt-2 flex flex-wrap items-center gap-2 text-xs"
       >
         <input type="hidden" name="from" value="board" />
         <input

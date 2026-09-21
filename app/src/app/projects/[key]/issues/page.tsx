@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext, visibleProjectIds } from "@/lib/session";
@@ -46,6 +46,31 @@ export default async function IssueList({
   // 参加していないプロジェクトは管理者でも見えない
   if (!can(user, "issue.view", ctx)) notFound();
 
+  // 本家は statusId 未指定で開くと「完了以外」をURLに書き込んでから表示する
+  // (00-spec-verified.md 13.1 / 13.6)。同じ挙動にするため既定値付きURLへ送る。
+  //
+  // - `statusId=""` は「すべて」を明示的に選んだ状態なので素通りさせる
+  //   (undefined のときだけ誘導するので、往復にはならない)
+  // - これは**画面の既定**。API の GET /issues には入れない(入れるとAPI互換が壊れる)
+  // - CLAUDE.md の「同じURLへ redirect しない」は、サーバーアクションの戻りで
+  //   スクロール位置が飛ぶのを防ぐための規約。ここは初回表示でクエリを足す誘導なので別物
+  if (sp.statusId === undefined) {
+    const open = await prisma.status.findMany({
+      where: { projectId: project.id, id: { not: STATUS_ID_CLOSED } },
+      select: { id: true },
+      orderBy: { displayOrder: "asc" },
+    });
+    if (open.length > 0) {
+      const q = new URLSearchParams();
+      for (const [k, v] of Object.entries(sp)) {
+        if (Array.isArray(v)) v.forEach((x) => q.append(k, x));
+        else if (typeof v === "string") q.set(k, v);
+      }
+      q.set("statusId", open.map((s) => s.id).join(","));
+      redirect(`/projects/${key}/issues?${q.toString()}`);
+    }
+  }
+
   // 一覧には権限条件を注入する。取得後にフィルタすると件数とページングが壊れる
   const visible = await visibleProjectIds(user.id);
   const filter = parseIssueFilter({ ...sp, projectId: String(project.id) });
@@ -75,6 +100,12 @@ export default async function IssueList({
       include: { user: true },
     }),
   ]);
+
+  // 上のリダイレクトが作る値と同じ並び・同じ連結でないと、select の選択状態が合わない
+  const openStatusValue = statuses
+    .filter((s) => s.id !== STATUS_ID_CLOSED)
+    .map((s) => s.id)
+    .join(",");
 
   const page = Math.floor(filter.offset / filter.count) + 1;
   const pages = Math.max(1, Math.ceil(total / filter.count));
@@ -147,6 +178,9 @@ export default async function IssueList({
             className="mt-1 rounded border border-slate-300 px-2 py-1"
           >
             <option value="">すべて</option>
+            {/* 本家にもある「完了以外」。既定はこれなので、選択状態と絞り込みが食い違わないよう
+                リダイレクトで入る値（displayOrder 順に連結したid）と同じ文字列にする */}
+            <option value={openStatusValue}>完了以外</option>
             {statuses.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -209,7 +243,7 @@ export default async function IssueList({
       {/* 条件はURLクエリなので、保存＝そのクエリを名前付きで覚えるだけ */}
       <form
         action={saveFilter.bind(null, key)}
-        className="mt-2 flex items-center gap-2 text-xs"
+        className="mt-2 flex flex-wrap items-center gap-2 text-xs"
       >
         <input type="hidden" name="from" value="issues" />
         <input
@@ -224,7 +258,7 @@ export default async function IssueList({
         <input
           name="name"
           placeholder="この条件に名前を付けて保存"
-          className="w-56 rounded border border-slate-300 px-2 py-1"
+          className="w-full rounded border border-slate-300 px-2 py-1 sm:w-56"
         />
         <Button variant="secondary">
           保存
@@ -236,7 +270,51 @@ export default async function IssueList({
         {Math.min(filter.offset + filter.count, total)} 件を表示
       </p>
 
-      <table className="mt-2 w-full border-collapse overflow-hidden rounded border border-slate-200 bg-white text-sm">
+      {/* スマホでは表が入らない（375px で 268px はみ出していた）。
+          1行をカードに積み替える。出すのはキー・状態・件名・担当者・期限日で、
+          種別と優先度は落とす（詳細を開けば見られる）。表はPC幅でだけ出す。 */}
+      <ul className="mt-2 space-y-2 md:hidden">
+        {issues.length === 0 && (
+          <li className="rounded border border-slate-200 bg-white px-3 py-8 text-center text-slate-400">
+            該当する課題がありません
+          </li>
+        )}
+        {issues.map((i) => (
+          <li key={i.id} className="rounded border border-slate-200 bg-white p-3">
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/issues/${key}-${i.keyId}`}
+                className="font-mono text-xs text-brand-700 hover:underline"
+              >
+                {key}-{i.keyId}
+              </Link>
+              <StatusLabel name={i.status.name} color={i.status.color} />
+            </div>
+            <Link
+              href={`/issues/${key}-${i.keyId}`}
+              className="mt-1 block text-base hover:underline"
+            >
+              {i.summary}
+            </Link>
+            <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-slate-600">
+              <span>担当 {i.assignee?.name ?? "未割り当て"}</span>
+              {i.dueDate && (
+                <span
+                  className={
+                    i.dueDate < today && i.statusId !== STATUS_ID_CLOSED
+                      ? "font-medium text-red-700"
+                      : ""
+                  }
+                >
+                  期限 {i.dueDate.toISOString().slice(0, 10)}
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <table className="mt-2 hidden w-full border-collapse overflow-hidden rounded border border-slate-200 bg-white text-sm md:table">
         <thead className="bg-slate-50 text-xs text-slate-500">
           <tr>
             {["キー", "種別", "件名", "状態", "担当者", "優先度", "期限日"].map((h) => (

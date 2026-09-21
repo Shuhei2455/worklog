@@ -73,9 +73,26 @@ export function ProjectSidebar({
     items.push({ key: "settings", label: t("project.settings"), href: `${base}/settings` });
   }
 
+  const renderItems = () => items.map((i) => (
+    <li key={i.key}>
+      <Link
+        href={i.href}
+        aria-current={i.key === current ? "page" : undefined}
+        className={`flex min-h-[50px] items-center border-b border-hairline/40 px-4 py-2 text-base hover:bg-slate-50 ${
+          i.key === current
+            ? "bg-brand-50 font-medium text-brand-600"
+            : "text-brand-700"
+        }`}
+      >
+        {i.label}
+      </Link>
+    </li>
+  ));
+
   return (
-    // 下地の緑は本家と同じ #4caf93。項目は白地なので、緑は端に細く見える
-    <nav className="w-[200px] shrink-0 bg-[#4caf93]">
+    <>
+      {/* 下地の緑は本家と同じ #4caf93。項目は白地なので、緑は端に細く見える */}
+    <nav className="hidden w-[200px] shrink-0 bg-[#4caf93] md:block">
       <div className="sticky top-0">
         {/* 先頭はプロジェクト名。本家は折りたたみボタンだが、
             こちらは折りたたみを作っていないので名前を出す */}
@@ -86,23 +103,17 @@ export function ProjectSidebar({
         </div>
 
         <ul className="bg-white">
-          {items.map((i) => (
-            <li key={i.key}>
-              <Link
-                href={i.href}
-                aria-current={i.key === current ? "page" : undefined}
-                className={`flex h-[50px] items-center border-b border-hairline/40 px-4 text-base hover:bg-slate-50 ${
-                  i.key === current
-                    ? "bg-brand-50 font-medium text-brand-600"
-                    : "text-brand-700"
-                }`}
-              >
-                {i.label}
-              </Link>
-            </li>
-          ))}
+          {renderItems()}
         </ul>
       </div>
     </nav>
+    <details className="border-b border-hairline bg-white md:hidden">
+      <summary className="flex min-h-[50px] cursor-pointer list-none items-center justify-between px-3 py-2 font-semibold text-brand-700">
+        <span className="truncate pr-3">{projectName}</span>
+        <span className="shrink-0 text-sm font-normal text-slate-500">プロジェクトメニュー ▾</span>
+      </summary>
+      <ul>{renderItems()}</ul>
+    </details>
+    </>
   );
 }

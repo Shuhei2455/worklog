@@ -150,13 +150,13 @@ export default async function Burndown({
           で追加してください。
         </p>
       ) : (
-        <form className="mt-4 flex items-end gap-2 text-sm">
-          <label>
+        <form className="mt-4 flex flex-wrap items-end gap-2 text-sm">
+          <label className="max-w-full">
             <span className="block text-xs text-slate-500">マイルストーン</span>
             <select
               name="milestoneId"
               defaultValue={selected ? String(selected.id) : ""}
-              className="mt-1 rounded border border-slate-300 px-2 py-1"
+              className="mt-1 w-full rounded border border-slate-300 px-2 py-1 sm:w-auto"
             >
               {milestones.map((m) => (
                 <option key={m.id} value={m.id}>

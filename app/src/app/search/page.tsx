@@ -105,6 +105,7 @@ export default async function Search({
                     </Link>
                     <Link
                       href={`/issues/${i.project.key}-${i.keyId}`}
+                      title={i.summary}
                       className="flex-1 truncate hover:underline"
                     >
                       {i.summary}
