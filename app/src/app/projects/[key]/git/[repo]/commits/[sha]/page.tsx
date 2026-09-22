@@ -2,8 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Shell } from "@/components/Shell";
 import { projectNav } from "@/lib/project-nav";
-import { loadGitContext, splitDiff } from "@/lib/git-view";
-import { listCommits, commitDiff } from "@/lib/gitea";
+import { loadGitContext, splitPatch } from "@/lib/git-view";
 
 /** コミット1件の差分と、紐づいた課題（コミット→課題の経路） */
 export default async function CommitDetail({
@@ -12,15 +11,20 @@ export default async function CommitDetail({
   params: Promise<{ key: string; repo: string; sha: string }>;
 }) {
   const { key, repo, sha } = await params;
-  const { user, project, ctx, repository, org } = await loadGitContext(
+  const { user, project, ctx, repository, org, provider, repoRef } = await loadGitContext(
     key,
     decodeURIComponent(repo),
   );
   const name = repository!.name;
 
-  const [commit] = await listCommits(org, name, { sha, limit: 1 });
-  const diff = await commitDiff(org, name, sha);
-  const files = splitDiff(diff);
+  const [commit] = provider && repoRef
+    ? await provider.listCommits(repoRef, { sha, limit: 1 })
+    : [];
+  // 提供元はファイル単位で patch を返す（GitHubの形）
+  const files = (provider && repoRef ? await provider.commitDiff(repoRef, sha) : []).map((f) => ({
+    file: f.path,
+    lines: splitPatch(f.patch),
+  }));
 
   const links = await prisma.commitIssueLink.findMany({
     where: { repositoryId: repository!.id, commitSha: sha },
@@ -43,11 +47,11 @@ export default async function CommitDetail({
       {commit ? (
         <div className="mt-3 rounded border border-slate-200 bg-white p-4">
           <pre className="whitespace-pre-wrap font-sans text-sm">
-            {commit.commit.message.trim()}
+            {commit.message.trim()}
           </pre>
           <p className="mt-3 text-xs text-slate-500">
-            {commit.commit.author.name} &lt;{commit.commit.author.email}&gt; /{" "}
-            {commit.commit.author.date.slice(0, 19).replace("T", " ")}
+            {commit.authorName} &lt;{commit.authorEmail}&gt; /{" "}
+            {commit.authoredAt.slice(0, 19).replace("T", " ")}
           </p>
         </div>
       ) : (

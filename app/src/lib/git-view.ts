@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { giteaEnabled, gitOwnerOf } from "@/lib/gitea";
+import { gitProvider } from "@/lib/git";
 
 /**
  * Git の画面で毎回やること（プロジェクトの取得・権限・organization 名）を
@@ -56,6 +57,11 @@ export async function loadGitContext(key: string, repoName?: string) {
     }
   }
 
+  // 提供元(GitHub/将来Bitbucket)。設定されていれば、画面はこちらを見る。
+  // owner はプロジェクト単位で持っている(Project.gitOwner)
+  const provider = gitProvider();
+  const repoRef = repository ? { owner: org, name: repository.name } : undefined;
+
   return {
     user,
     project,
@@ -63,6 +69,8 @@ export async function loadGitContext(key: string, repoName?: string) {
     repositories,
     repository,
     org,
+    provider,
+    repoRef,
     giteaConfigured,
     giteaReachable,
   };
@@ -110,3 +118,22 @@ export const PR_STATE_LABEL: Record<string, string> = {
   merged: "マージ済み",
   closed: "クローズ",
 };
+
+/**
+ * 1ファイル分のパッチを行に割る。
+ *
+ * 提供元は GitHub の形に合わせて**ファイル単位**で patch を返すので、
+ * `diff --git` から始まる塊を切り出す splitDiff とは入口が違う。
+ * 行頭の意味づけは同じものを使う。
+ */
+export function splitPatch(patch: string | null): DiffLine[] {
+  if (!patch) return [];
+  return patch.split("\n").map((raw): DiffLine => {
+    if (raw.startsWith("@@")) return { kind: "hunk", text: raw };
+    if (raw.startsWith("+++") || raw.startsWith("---") || raw.startsWith("index "))
+      return { kind: "meta", text: raw };
+    if (raw.startsWith("+")) return { kind: "add", text: raw };
+    if (raw.startsWith("-")) return { kind: "del", text: raw };
+    return { kind: "ctx", text: raw };
+  });
+}

@@ -4,7 +4,6 @@ import { Shell } from "@/components/Shell";
 import { projectNav } from "@/lib/project-nav";
 import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext, commitTitle } from "@/lib/git-view";
-import { listCommits } from "@/lib/gitea";
 import { RepoTabs } from "../../RepoTabs";
 
 /** コミット一覧。紐づいた課題キーも並べて「コミット→課題」を辿れるようにする */
@@ -17,7 +16,7 @@ export default async function Commits({
 }) {
   const { key, repo } = await params;
   const sp = await searchParams;
-  const { user, project, ctx, repository, org } = await loadGitContext(
+  const { user, project, ctx, repository, org, provider, repoRef } = await loadGitContext(
     key,
     decodeURIComponent(repo),
   );
@@ -25,7 +24,10 @@ export default async function Commits({
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
   const ref = sp.ref || repository!.defaultBranch;
 
-  const commits = await listCommits(org, name, { sha: ref, page, limit: 30 });
+  // 提供元が未設定なら空。画面は開く（繋ぐ前でも設定へ辿り着けるように）
+  const commits = provider && repoRef
+    ? await provider.listCommits(repoRef, { sha: ref, page, limit: 30 })
+    : [];
 
   // 紐づいている課題をまとめて引く（コミットごとにクエリを出さない）
   const links = await prisma.commitIssueLink.findMany({
@@ -75,10 +77,10 @@ export default async function Commits({
                 >
                   {c.sha.slice(0, 7)}
                 </Link>
-                <span className="flex-1 text-sm">{commitTitle(c.commit.message)}</span>
+                <span className="flex-1 text-sm">{commitTitle(c.message)}</span>
                 <span className="text-xs text-slate-400">
-                  {c.commit.author.name} /{" "}
-                  {c.commit.author.date.slice(0, 16).replace("T", " ")}
+                  {c.authorName} /{" "}
+                  {c.authoredAt.slice(0, 16).replace("T", " ")}
                 </span>
               </div>
               {(byCommit.get(c.sha) ?? []).length > 0 && (

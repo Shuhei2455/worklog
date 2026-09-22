@@ -3,7 +3,6 @@ import { Shell } from "@/components/Shell";
 import { projectNav } from "@/lib/project-nav";
 import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext, commitTitle } from "@/lib/git-view";
-import { listContents, readFile, listCommits } from "@/lib/gitea";
 import { RepoTabs } from "../RepoTabs";
 
 /**
@@ -21,7 +20,7 @@ export default async function RepoTree({
 }) {
   const { key, repo } = await params;
   const sp = await searchParams;
-  const { user, project, ctx, repository, org } = await loadGitContext(
+  const { user, project, ctx, repository, org, provider, repoRef } = await loadGitContext(
     key,
     decodeURIComponent(repo),
   );
@@ -29,12 +28,12 @@ export default async function RepoTree({
   const path = (sp.path ?? "").replace(/^\/+|\/+$/g, "");
   const ref = sp.ref || repository!.defaultBranch;
 
-  const entries = await listContents(org, name, path, ref);
+  const entries = provider && repoRef ? await provider.listContents(repoRef, path, ref) : [];
   // 1件で type が file なら、それはディレクトリではなくファイルを指している
   const single = entries.length === 1 && entries[0].type === "file" && entries[0].path === path;
-  const file = single ? await readFile(org, name, path, ref) : null;
+  const file = single && provider && repoRef ? await provider.readFile(repoRef, path, ref) : null;
 
-  const [latest] = await listCommits(org, name, { sha: ref, limit: 1 });
+  const [latest] = provider && repoRef ? await provider.listCommits(repoRef, { sha: ref, limit: 1 }) : [];
 
   const crumbs = path ? path.split("/") : [];
   const href = (p: string) =>
@@ -65,9 +64,9 @@ export default async function RepoTree({
           >
             {latest.sha.slice(0, 7)}
           </Link>
-          <span className="mx-2">{commitTitle(latest.commit.message)}</span>
+          <span className="mx-2">{commitTitle(latest.message)}</span>
           <span className="text-slate-400">
-            {latest.commit.author.name} / {latest.commit.author.date.slice(0, 16).replace("T", " ")}
+            {latest.authorName} / {latest.authoredAt.slice(0, 16).replace("T", " ")}
           </span>
         </p>
       )}
