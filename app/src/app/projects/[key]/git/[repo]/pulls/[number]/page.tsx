@@ -44,8 +44,8 @@ export default async function PullDetail({
 
   const bind = linkPullRequestIssue.bind(null, key, name, pr.externalPrNumber);
   // 提供元が外にあるなら向こうのURL。Gitea のときは自前の /git プロキシ
-  const providerLabel = provider?.name === "github" ? "GitHub" : provider ? provider.name : "Gitea";
-  const giteaUrl = provider
+  const providerLabel = provider?.name === "github" ? "GitHub" : (provider?.name ?? "提供元");
+  const externalUrl = provider
     ? provider.webUrl({ owner: org, name }, { pull: pr.externalPrNumber })
     : `${process.env.APP_URL ?? ""}/git/${org}/${encodeURIComponent(name)}/pulls/${pr.externalPrNumber}`;
 
@@ -140,7 +140,7 @@ export default async function PullDetail({
           </div>
 
           <a
-            href={giteaUrl}
+            href={externalUrl}
             target="_blank"
             rel="noreferrer"
             className="block rounded border border-slate-300 px-3 py-2 text-center text-sm text-brand-700 hover:bg-slate-50"

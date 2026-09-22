@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
-import { giteaEnabled, gitOwnerOf } from "@/lib/gitea";
 import { gitProvider } from "@/lib/git";
 
 /**
@@ -34,28 +33,9 @@ export async function loadGitContext(key: string, repoName?: string) {
     : undefined;
   if (repoName && !repository) notFound();
 
-  // organization 名はプロジェクトキーと一致しないことがある（予約名の回避）。
-  //
-  // **Gitea が未設定・未到達でも画面は開くようにする。**
-  // 以前はここで無条件に gitOwnerOf() を呼んでいたため、
-  //   - Gitea 未設定（GITEA_ADMIN_TOKEN が空）だと画面全体が 500
-  //   - リポジトリが1つも無いのに organization が作られる（GETの副作用）
-  // の2つが起きていた。移設直後（gitea-setup.sh を流す前）に必ず踏む。
-  //
-  // organization 名はクローンURLの組み立てにしか使わないので、
-  // 解決できなければプロジェクトキーで代用し、画面に注意書きを出す。
-  const giteaConfigured = giteaEnabled();
-  let org = project.gitOwner ?? project.key;
-  let giteaReachable = giteaConfigured;
-
-  // リポジトリが無いなら organization は要らない。作りにも行かない
-  if (!project.gitOwner && repositories.length > 0 && giteaConfigured) {
-    try {
-      org = await gitOwnerOf(project.id);
-    } catch {
-      giteaReachable = false;
-    }
-  }
+  // 所有者はプロジェクト単位で持つ（Project.gitOwner）。未設定ならキーで代用する。
+  // 提供元が未設定・未到達でも画面は開くようにする（繋ぐ前に設定へ辿り着けなくなると困る）
+  const org = project.gitOwner ?? project.key;
 
   // 提供元(GitHub/将来Bitbucket)。設定されていれば、画面はこちらを見る。
   // owner はプロジェクト単位で持っている(Project.gitOwner)
@@ -71,8 +51,7 @@ export async function loadGitContext(key: string, repoName?: string) {
     org,
     provider,
     repoRef,
-    giteaConfigured,
-    giteaReachable,
+    gitConfigured: provider !== null,
   };
 }
 

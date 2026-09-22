@@ -12,7 +12,7 @@ export default async function GitRepositories({
   params: Promise<{ key: string }>;
 }) {
   const { key } = await params;
-  const { user, project, ctx, repositories, org, giteaConfigured, giteaReachable } =
+  const { user, project, ctx, repositories, org, gitConfigured } =
     await loadGitContext(key);
 
   return (
@@ -34,19 +34,11 @@ export default async function GitRepositories({
     >
       <PageTitle>Gitリポジトリ</PageTitle>
 
-      {/* 移設直後（gitea-setup.sh を流す前）はここに来る。
-          以前は画面全体が 500 になっていた */}
-      {!giteaConfigured && (
+      {/* 提供元が未設定でも画面は開く。繋ぐ前に設定へ辿り着けなくなると困る */}
+      {!gitConfigured && (
         <Notice tone="warn" className="mt-4">
-          Gitea が設定されていません。<code>GITEA_URL</code> と{" "}
-          <code>GITEA_ADMIN_TOKEN</code> を <code>.env</code> に入れて、
-          <code>scripts/gitea-setup.sh</code> を実行してください。
-        </Notice>
-      )}
-      {giteaConfigured && !giteaReachable && (
-        <Notice tone="warn" className="mt-4">
-          Gitea に繋がりません。クローンURLが正しく出ない場合があります。
-          <code>docker compose logs gitea</code> を確認してください。
+          Git連携が設定されていません。<code>GIT_PROVIDER</code> と{" "}
+          <code>GITHUB_TOKEN</code> を <code>.env</code> に入れてください。
         </Notice>
       )}
 

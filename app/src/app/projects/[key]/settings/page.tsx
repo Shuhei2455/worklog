@@ -35,11 +35,9 @@ import {
   removeProjectTeam,
 } from "./actions";
 import {
-  createRepository,
   connectRepository,
   toggleLinkCommits,
   detachRepository,
-  importRepository,
 } from "./git-actions";
 import {
   addCustomField,
@@ -53,7 +51,6 @@ import {
   CUSTOM_FIELD_TYPE_ID,
   hasItems,
 } from "@/lib/custom-field";
-import { giteaEnabled } from "@/lib/gitea";
 import { gitProvider, type GitRepo } from "@/lib/git";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 
@@ -822,13 +819,12 @@ export default async function ProjectSettings({
       {canEditProject && (
         <Section
           title="Gitリポジトリ"
-          note="リポジトリの実体は Gitea に置きます（Gitホスティングは自作しません）。ここで作ると organization・メンバー・webhook まで用意されます。"
+          note="提供元（GitHub など）にある既存のリポジトリを繋ぎます。向こうには何も作りません。"
         >
-          {!giteaEnabled() ? (
+          {!provider ? (
             <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Gitea が設定されていません。<code>GITEA_URL</code> と{" "}
-              <code>GITEA_ADMIN_TOKEN</code> を入れて app を再起動してください
-              （トークンの作り方は <code>scripts/gitea-setup.sh</code>）。
+              Git連携が設定されていません。<code>GIT_PROVIDER</code> と{" "}
+              <code>GITHUB_TOKEN</code> を入れて app を再起動してください。
             </p>
           ) : repositories.length === 0 ? (
             <p className="text-xs text-slate-400">なし</p>
@@ -917,56 +913,6 @@ export default async function ProjectSettings({
             </form>
           )}
 
-          {giteaEnabled() && (
-            <>
-            <form
-              action={bind(createRepository)}
-              className="mt-3 flex flex-wrap items-end gap-2"
-            >
-              <label className="text-sm">
-                <span className="block text-xs text-slate-500">リポジトリ名</span>
-                <input
-                  name="name"
-                  required
-                  placeholder="web"
-                  className="mt-1 rounded border border-slate-300 px-2 py-1"
-                />
-              </label>
-              <label className="flex-1 text-sm">
-                <span className="block text-xs text-slate-500">説明</span>
-                <input
-                  name="description"
-                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
-                />
-              </label>
-              <Button variant="secondary">
-                作成
-              </Button>
-            </form>
-
-            {/* Gitea に直接作ったリポジトリを、この一覧に載せる。
-                webhook も登録し直すので、連携もそこから効き始める */}
-            <form
-              action={bind(importRepository)}
-              className="mt-2 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3"
-            >
-              <label className="text-sm">
-                <span className="block text-xs text-slate-500">
-                  Gitea に既にあるリポジトリを取り込む
-                </span>
-                <input
-                  name="name"
-                  required
-                  placeholder="リポジトリ名"
-                  className="mt-1 rounded border border-slate-300 px-2 py-1"
-                />
-              </label>
-              <Button variant="secondary">
-                取り込む
-              </Button>
-            </form>
-            </>
-          )}
         </Section>
       )}
 

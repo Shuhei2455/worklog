@@ -125,8 +125,7 @@ export async function updateUser(formData: FormData) {
     },
   });
 
-  // 制限が変わると Git のアクセス権も変わる。Gitea 側も合わせる
-  const note = await syncGiteaForUser(id);
+  const note = "";
   return await back(`${before!.name} の種別と制限を変更しました${note}`);
 }
 
@@ -169,7 +168,7 @@ export async function toggleUserDisabled(formData: FormData) {
     detail: { name: user!.name },
   });
 
-  const note = await syncGiteaForUser(id);
+  const note = "";
   return await back(`${user!.name} を${disabling ? "無効化" : "有効化"}しました${note}`);
 }
 
@@ -210,30 +209,3 @@ export async function resetUserPassword(formData: FormData) {
   return await back(`${user!.name} のパスワードを再設定しました`);
 }
 
-/**
- * そのユーザーが参加している全プロジェクトの Gitea 権限を合わせる。
- *
- * 制限を変えたり無効化したときに、Gitea 側が開いたままだと
- * **画面は閉じているのにコードはクローンできる**状態になる（M4で踏んだ穴）。
- */
-async function syncGiteaForUser(userId: number): Promise<string> {
-  const { giteaEnabled } = await import("@/lib/gitea");
-  if (!giteaEnabled()) return "";
-
-  try {
-    const { syncOrgMembers } = await import("@/lib/gitea-members");
-    const members = await prisma.projectMember.findMany({
-      where: { userId },
-      select: { projectId: true },
-    });
-    let touched = 0;
-    for (const m of members) {
-      const out = await syncOrgMembers(m.projectId);
-      if (out.added.length > 0 || out.removed.length > 0) touched++;
-    }
-    return touched > 0 ? "（Gitの権限も合わせました）" : "";
-  } catch (e) {
-    console.error("[gitea] ユーザー変更後の同期に失敗:", e);
-    return "（※Gitへの反映に失敗しました）";
-  }
-}

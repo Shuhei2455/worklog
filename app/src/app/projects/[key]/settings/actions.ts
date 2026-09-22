@@ -452,9 +452,6 @@ export async function addMember(key: string, formData: FormData) {
     create: { projectId: project.id, userId: user!.id },
   });
 
-  // リポジトリがあるなら Gitea 側にも入れる。ここを飛ばすと、
-  // 後から参加した人はクローンできない（権限がプロジェクトと食い違う）
-  const giteaNote = await syncGiteaMembership(project.id);
 
   await audit(actor.id, {
     action: "project.member.add",
@@ -463,7 +460,7 @@ export async function addMember(key: string, formData: FormData) {
     detail: { userId: user!.userId, name: user!.name },
   });
 
-  return await back(key, `${user!.name} を追加しました${giteaNote}`);
+  return await back(key, `${user!.name} を追加しました`);
 }
 
 export async function removeMember(key: string, formData: FormData) {
@@ -483,9 +480,6 @@ export async function removeMember(key: string, formData: FormData) {
     where: { projectId_userId: { projectId: project.id, userId } },
   });
 
-  // Gitea 側からも外す。残したままだとプロジェクトから外れた人が
-  // コードを引き続き見られる
-  const giteaNote = await syncGiteaMembership(project.id);
 
   await audit(actor.id, {
     action: "project.member.remove",
@@ -494,7 +488,7 @@ export async function removeMember(key: string, formData: FormData) {
     detail: { userId },
   });
 
-  return await back(key, `参加ユーザーを外しました${giteaNote}`);
+  return await back(key, `参加ユーザーを外しました`);
 }
 
 /** プロジェクト管理者フラグ。ゲストには付けられない */
@@ -532,10 +526,8 @@ export async function toggleProjectAdmin(key: string, formData: FormData) {
   });
 
   // プロジェクト管理者になると git.access が付く（制限があっても）。
-  // Gitea 側の権限も合わせる
-  const giteaNote = await syncGiteaMembership(project.id);
 
-  return await back(key, `プロジェクト管理者の設定を変更しました${giteaNote}`);
+  return await back(key, `プロジェクト管理者の設定を変更しました`);
 }
 
 /** webhook の追加。Slack や Teams への連携を想定している */
@@ -574,29 +566,6 @@ export async function deleteWebhook(key: string, formData: FormData) {
 }
 
 
-/**
- * プロジェクトのメンバーを Gitea の organization に反映する。
- *
- * 判定は syncOrgMembers に集約してある（**`git.access` を持つ人だけ**を入れる）。
- * Gitea が落ちていてもメンバー操作自体は成立させる——権限の変更を
- * Gitea の都合で止めない。結果は画面に出す。
- */
-async function syncGiteaMembership(projectId: number): Promise<string> {
-  const { giteaEnabled } = await import("@/lib/gitea");
-  if (!giteaEnabled()) return "";
-
-  try {
-    const { syncOrgMembers } = await import("@/lib/gitea-members");
-    const out = await syncOrgMembers(projectId);
-    if (out.added.length === 0 && out.removed.length === 0) return "";
-    return out.removed.length > 0
-      ? `（Gitも反映。${out.removed.length}人を外しました）`
-      : "（Gitも反映）";
-  } catch (e) {
-    console.error("[gitea] メンバーの同期に失敗:", e);
-    return "（※Gitへの反映に失敗しました。設定を確認してください）";
-  }
-}
 
 /**
  * プロジェクトにチームを割り当てる。

@@ -2,7 +2,7 @@ import { apiRoute, findProject } from "@/lib/api/handler";
 import { serializeRepository } from "@/lib/api/serialize";
 import { prisma } from "@/lib/db";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
-import { gitOwnerOf } from "@/lib/gitea";
+import { gitProvider } from "@/lib/git";
 
 /**
  * GET /api/v2/projects/:projectIdOrKey/git/repositories
@@ -10,7 +10,8 @@ import { gitOwnerOf } from "@/lib/gitea";
  */
 export const GET = apiRoute<{ projectIdOrKey: string }>(async (_req, ctx, params) => {
   const project = await findProject(params.projectIdOrKey, ctx);
-  const org = project.gitOwner ?? (await gitOwnerOf(project.id));
+  const org = project.gitOwner ?? project.key;
+  const provider = gitProvider();
 
   const repos = await prisma.repository.findMany({
     where: { projectId: project.id },
@@ -20,10 +21,10 @@ export const GET = apiRoute<{ projectIdOrKey: string }>(async (_req, ctx, params
 
   return repos.map((r) =>
     serializeRepository(r, {
-      httpUrl: httpCloneUrl(org, r.name),
+      httpUrl: provider ? provider.cloneUrls({ owner: org, name: r.name }).http : httpCloneUrl(org, r.name),
       // 本家は常に sshUrl を返すのでキーは残す。
       // SSH を使えない環境では空文字（決定 D31）
-      sshUrl: sshCloneUrl(org, r.name) ?? "",
+      sshUrl: (provider ? provider.cloneUrls({ owner: org, name: r.name }).ssh : sshCloneUrl(org, r.name)) ?? "",
     }),
   );
 });

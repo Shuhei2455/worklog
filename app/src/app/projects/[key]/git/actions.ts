@@ -103,7 +103,7 @@ export async function syncPullRequests(key: string, repoName: string) {
   await assertCan(actor, "git.access", project.id);
   if (!ctx.isMember) redirect("/");
 
-  const { handlePullRequest } = await import("@/lib/gitea-webhook");
+  const { handlePullRequest } = await import("@/lib/git-webhook");
   const { gitProvider } = await import("@/lib/git");
 
   const repository = await prisma.repository.findFirst({

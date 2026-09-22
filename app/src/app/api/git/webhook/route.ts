@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { gitProvider } from "@/lib/git";
-import { handlePush, handlePullRequest } from "@/lib/gitea-webhook";
+import { handlePush, handlePullRequest } from "@/lib/git-webhook";
 
 /**
  * POST /api/git/webhook

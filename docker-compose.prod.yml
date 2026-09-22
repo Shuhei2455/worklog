@@ -10,7 +10,6 @@
 #     自宅では .env に何も書かなくてもそのまま動く
 #   - ソースをバインドマウントしない
 #   - 公開するポートは Caddy の HTTP(80) と HTTPS(443) だけ。
-#     Gitea の SSH は職場で塞がれているため公開しない（HTTPSクローンのみ）。
 #     DB・Redis・Meilisearch・アプリはコンテナ間ネットワークの中だけに置く
 #   - 外部へ出る通信（テレメトリ・更新確認・アナリティクス）を全部切る
 #
@@ -55,7 +54,6 @@ services:
       - caddy_config:/config
     depends_on:
       - app
-      - gitea
 
   # ---- Next.js（ビルド済み standalone サーバ） ---------------------
   app:
@@ -247,62 +245,10 @@ services:
       timeout: 5s
       retries: 12
 
-  # ---- Gitea -----------------------------------------------------
-  gitea:
-    image: ${GITEA_IMAGE:-gitea/gitea:1.22}
-    pull_policy: ${IMAGE_PULL_POLICY:-missing}
-    restart: unless-stopped
-    environment:
-      USER_UID: ${RUN_UID:-1000}
-      USER_GID: ${RUN_GID:-1000}
-      GITEA__database__DB_TYPE: postgres
-      GITEA__database__HOST: postgres:5432
-      GITEA__database__NAME: gitea
-      GITEA__database__USER: ${POSTGRES_USER}
-      GITEA__database__PASSWD: ${POSTGRES_PASSWORD}
-      GITEA__server__ROOT_URL: ${APP_URL}/git/
-      # HTTP のホスト名。クローンURLに出るので localhost のままにしない
-      GITEA__server__DOMAIN: ${GITEA_DOMAIN}
-      # ---- Git over SSH は使わない（2026-09-14 にユーザーが確認） ----
-      # 職場のVMは2222番が塞がれているため、**HTTPSクローンのみ**で運用する。
-      # 切っておかないと画面に届かないSSHのクローンURLが出て、利用者が混乱する。
-      #
-      # 使える環境に移すときに戻すもの（この3つ）:
-      #   1. ここを "false" にする
-      #   2. GITEA__server__SSH_PORT と SSH_DOMAIN を戻す
-      #   3. 下の ports に "${GITEA_SSH_PORT}:22" を戻す
-      GITEA__server__DISABLE_SSH: "true"
-      # インストールウィザードを出さない。手作業なしで立てるため
-      GITEA__security__INSTALL_LOCK: "true"
-      GITEA__service__ENABLE_CAPTCHA: "false"
-      GITEA__api__ENABLE_SWAGGER: "false"
-      # webhook の送信先がコンテナ名(http://app:3000)になるため、
-      # 既定のプライベートアドレス禁止を解除する必要がある
-      GITEA__webhook__ALLOWED_HOST_LIST: "*"
-      # 新版の確認で dl.gitea.com へ出る。明示的に切る。
-      # セクション名のドットは `_0X2E_` と書く決まり。`_2E_` と書くと
-      # [cron_2e_update_checker] という別セクションが生まれて黙って無視される
-      # （gitea/gitea:1.22 の environment-to-ini で実測して確認した）
-      GITEA__cron__ENABLED: "true"
-      GITEA__cron_0X2E_update_checker__ENABLED: "false"
-      # 新規登録とメール通知は閉じる。社内で管理者が作る運用
-      GITEA__service__DISABLE_REGISTRATION: "true"
-      GITEA__mailer__ENABLED: "false"
-    volumes:
-      - giteadata:/data
-    # ポートは公開しない。HTTP(S)は Caddy 経由、SSH は上記のとおり無効。
-    # SSH を使う環境に移すときは次の2行を戻す:
-    #   ports:
-    #     - "${GITEA_SSH_PORT}:22"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
 volumes:
   pgdata:
   redisdata:
   meilidata:
-  giteadata:
   caddy_data:
   caddy_config:
   files:

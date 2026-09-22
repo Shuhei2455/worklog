@@ -2,17 +2,6 @@
 :80 {
 	encode gzip
 
-	# Gitea は /git/ 配下にぶら下げる。ユーザーからは1つのアプリに見せる方針。
-	#
-	# handle_path なので /git は剥がして渡す。Gitea 本体はルート配下で
-	# 配信し、ROOT_URL に書いた /git/ は**生成するリンク**にだけ使う。
-	#
-	# ここで 404 が返るときは、まず Gitea がインストール未完了でないかを見る
-	# （未完了だと全リクエストがインストール画面に落ちる）。
-	# プレフィックスの付け外しを疑って直すと、かえって壊れる。
-	handle_path /git/* {
-		reverse_proxy gitea:3000
-	}
 
 	handle {
 		reverse_proxy app:3000 {

@@ -5,13 +5,6 @@ import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
-import {
-  giteaEnabled,
-  ensureOrg,
-  gitOwnerOf,
-  createGiteaRepo,
-  ensureRepoWebhook,
-} from "@/lib/gitea";
 import { REPO_NAME_RE } from "@/lib/repo";
 import { audit } from "@/lib/audit";
 import { gitProvider } from "@/lib/git";
@@ -45,76 +38,6 @@ async function back(key: string, message?: string, isError = false): Promise<voi
   revalidatePath(path);
 }
 
-/**
- * リポジトリを作る。
- *
- * Gitea 側（organization・メンバー・リポジトリ・webhook）とこちらの
- * メタデータを同時に用意する。**Gitea が先**で、成功したら行を作る。
- * 逆にすると、行はあるのに実体が無い状態が残る。
- */
-export async function createRepository(key: string, formData: FormData) {
-  const actor = await currentUser();
-  const project = await projectByKey(key);
-  await assertCan(actor, "project.edit", project.id);
-
-  if (!giteaEnabled()) {
-    return await back(key, "Gitea が設定されていません（GITEA_URL と GITEA_ADMIN_TOKEN）", true);
-  }
-
-  const name = String(formData.get("name") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
-
-  if (!REPO_NAME_RE.test(name)) {
-    return await back(key, "リポジトリ名は英数字・ハイフン・アンダースコア・ドットで1〜64文字です", true);
-  }
-
-  const dup = await prisma.repository.findFirst({
-    where: { projectId: project.id, name },
-  });
-  if (dup) return await back(key, `${name} は既にあります`, true);
-
-  try {
-    const org = await ensureOrg(project.id);
-    const repo = await createGiteaRepo(org, name, description);
-    await ensureRepoWebhook(org, name, process.env.GITEA_WEBHOOK_SECRET ?? "");
-
-    await prisma.repository.create({
-      data: {
-        projectId: project.id,
-        externalRepoId: String(repo.id),
-        name: repo.name,
-        description: description || null,
-        defaultBranch: repo.default_branch || "main",
-        createdById: actor.id,
-        displayOrder: await nextDisplayOrder(project.id),
-      },
-    });
-
-    // Git を使い始めたならプロジェクトの機能も開けておく
-    if (!project.gitEnabled) {
-      await prisma.project.update({
-        where: { id: project.id },
-        data: { gitEnabled: true },
-      });
-    }
-
-    // メンバーを organization に入れる。**`git.access` を持つ人だけ**。
-    // 行を作ってから呼ぶ（リポジトリが無いと syncOrgMembers は何もしない）
-    const { syncOrgMembers } = await import("@/lib/gitea-members");
-    await syncOrgMembers(project.id);
-  } catch (e) {
-    return await back(key, `Gitea でのリポジトリ作成に失敗しました: ${(e as Error).message}`, true);
-  }
-
-  await audit(actor.id, {
-    action: "repository.create",
-    targetType: "repository",
-    targetId: `${project.key}/${name}`,
-    detail: { description },
-  });
-
-  return await back(key, `${name} を作成しました`);
-}
 
 async function nextDisplayOrder(projectId: number): Promise<number> {
   const last = await prisma.repository.findFirst({
@@ -179,42 +102,9 @@ export async function detachRepository(key: string, formData: FormData) {
   });
 
   await prisma.repository.delete({ where: { id: repo.id } });
-  return await back(key, `${repo.name} の登録を解除しました（Gitea 側のリポジトリは残っています）`);
+  return await back(key, `${repo.name} の登録を解除しました（提供元のリポジトリは残ります）`);
 }
 
-/** Gitea に既にあるリポジトリを、この一覧に取り込む */
-export async function importRepository(key: string, formData: FormData) {
-  const actor = await currentUser();
-  const project = await projectByKey(key);
-  await assertCan(actor, "project.edit", project.id);
-
-  const name = String(formData.get("name") ?? "").trim();
-  if (!REPO_NAME_RE.test(name)) return await back(key, "リポジトリ名が不正です", true);
-
-  try {
-    const org = await gitOwnerOf(project.id);
-    const repo = await createGiteaRepo(org, name, ""); // あれば既存を返す
-    await ensureRepoWebhook(org, name, process.env.GITEA_WEBHOOK_SECRET ?? "");
-
-    await prisma.repository.upsert({
-      where: { projectId_name: { projectId: project.id, name: repo.name } },
-      update: { externalRepoId: String(repo.id) },
-      create: {
-        projectId: project.id,
-        externalRepoId: String(repo.id),
-        name: repo.name,
-        description: repo.description || null,
-        defaultBranch: repo.default_branch || "main",
-        createdById: actor.id,
-        displayOrder: await nextDisplayOrder(project.id),
-      },
-    });
-  } catch (e) {
-    return await back(key, `取り込みに失敗しました: ${(e as Error).message}`, true);
-  }
-
-  return await back(key, `${name} を取り込みました`);
-}
 
 /**
  * 提供元（GitHub / 将来 Bitbucket）にある既存リポジトリを繋ぐ。

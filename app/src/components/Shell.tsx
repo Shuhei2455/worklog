@@ -112,7 +112,6 @@ export async function Shell({
               )}
               <Link href="/settings/password" className="rounded px-3 py-2 text-base hover:bg-brand-50">{t("nav.password")}</Link>
               <Link href="/settings/api" className="rounded px-3 py-2 text-base hover:bg-brand-50">{t("nav.apiKey")}</Link>
-              <Link href="/settings/git" className="rounded px-3 py-2 text-base hover:bg-brand-50">{t("nav.git")}</Link>
               <Link href="/settings/language" className="rounded px-3 py-2 text-base hover:bg-brand-50">{t("common.language")}</Link>
               <form action={logout} className="border-t border-slate-200 pt-2">
                 <Button variant="secondary" className="w-full">{t("common.logout")}</Button>
@@ -147,9 +146,6 @@ export async function Shell({
         </Link>
         <Link href="/settings/api" className={`hidden md:block ${headerLink}`}>
           {t("nav.apiKey")}
-        </Link>
-        <Link href="/settings/git" className={`hidden md:block ${headerLink}`}>
-          {t("nav.git")}
         </Link>
         <form action={logout} className="hidden md:block">
           <Button variant="secondary">{t("common.logout")}</Button>

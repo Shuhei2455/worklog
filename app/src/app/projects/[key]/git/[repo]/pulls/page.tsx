@@ -29,7 +29,7 @@ export default async function Pulls({
   const name = repository!.name;
   const state = sp.state ?? "open";
 
-  const providerLabel = provider?.name === "github" ? "GitHub" : provider ? provider.name : "Gitea";
+  const providerLabel = provider?.name === "github" ? "GitHub" : (provider?.name ?? "提供元");
   const pulls = await prisma.pullRequest.findMany({
     where: {
       repositoryId: repository!.id,

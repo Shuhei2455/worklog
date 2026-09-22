@@ -178,7 +178,7 @@ tags: [開発, backlog-clone]
 | 非同期 | BullMQ + Redis |
 | 検索 | Meilisearch |
 | リアルタイム | Server-Sent Events（WebSocketは職場のプロキシで詰まる可能性がある） |
-| Git | Gitea（Gitホスティングは自作しない） |
+| Git | **既存の提供元に繋ぐ**（Gitホスティングは自作しない）。本命は社内 Bitbucket。接続できるまでは GitHub で使用感を見る。`src/lib/git/` の `GitProvider` で差し替える |
 | UI | Tailwind + shadcn/ui + TanStack Table + dnd-kit |
 | Markdown | remark / rehype（GFM） |
 | メール | nodemailer（2026-09-12にユーザー承認のうえ追加。Nodeに標準のSMTPクライアントが無いため） |
@@ -289,7 +289,11 @@ UPDATE projects SET last_issue_no = last_issue_no + 1 WHERE id = $1 RETURNING la
 
 理由があって除外している。「あった方がよさそう」で追加しない。
 
-- Gitホスティングの実装本体（Giteaに任せる）
+- Gitホスティングの実装本体（既存の提供元に任せる）
+- **提供元のリポジトリ・ユーザー・organization を作る機能。**
+  2026-09-22 に Gitea をやめた時点で落とした。GitHub や Bitbucket の
+  リポジトリはこちらの持ち物ではないので、既にあるものに繋ぐだけにする
+  （Gitea のときはアプリが作っていた）
 - SVN対応
 - コミットログのキーワード（`#fix` / `#close`）による状態変更 — **本家が2019年12月に廃止済み**
 - ガントの依存関係と自動スケジューリング — 本家に無い
