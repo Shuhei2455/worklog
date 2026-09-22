@@ -19,17 +19,23 @@ export default async function Home({
   const user = await currentUser();
   const { error } = await searchParams;
 
-  // 一覧には権限条件を注入する。取得後にフィルタすると件数とページングが壊れる。
-  // 管理者であっても参加していないプロジェクトは見えない
-  const ids = await visibleProjectIds(user.id);
+  // 決定 D31: 一覧には**全プロジェクトの名前**を出す。
+  // ただし参加していないものは名前だけで、中身(課題・Wiki・進捗・人数)は出さない。
+  // 管理者は参加していなくても中身を扱えるので、全部を「開ける」扱いにする。
+  const memberIds = new Set(await visibleProjectIds(user.id));
   const projects = await prisma.project.findMany({
-    where: { id: { in: ids }, archived: false },
+    where: { archived: false },
     orderBy: { key: "asc" },
     include: { _count: { select: { members: true } } },
   });
+  const canOpen = (projectId: number) =>
+    user.userType === "admin" || memberIds.has(projectId);
 
-  // 進捗はまとめて1回で取る（プロジェクトごとに引くとN+1になる）
-  const progress = await loadProjectProgress(projects.map((p) => p.id));
+  // 進捗はまとめて1回で取る（プロジェクトごとに引くとN+1になる）。
+  // 開けないプロジェクトの進捗は件数が漏れるので取りに行かない
+  const progress = await loadProjectProgress(
+    projects.filter((p) => canOpen(p.id)).map((p) => p.id),
+  );
 
   const canCreate = can(user, "project.create");
 
@@ -70,44 +76,69 @@ export default async function Home({
       )}
 
       {projects.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500">
-          参加しているプロジェクトはありません。
-        </p>
+        <p className="mt-6 text-sm text-slate-500">プロジェクトはありません。</p>
       ) : (
         <ul className="mt-4 divide-y divide-slate-200 rounded border border-slate-200 bg-white">
           {projects.map((p) => {
-            const prog = progress.get(p.id)!;
+            // 参加していないプロジェクト（管理者以外）は名前だけ。
+            // 進捗も人数も出さない。件数から中身が推測できてしまうため
+            const open = canOpen(p.id);
+            const prog = progress.get(p.id);
             return (
               <li key={p.id} className="px-4 py-3">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-600">
                     {p.key}
                   </span>
-                  <Link
-                    href={`/projects/${p.key}/issues`}
-                    className="min-w-0 flex-1 truncate font-medium text-brand-700 hover:underline"
-                  >
-                    {p.name}
-                  </Link>
-                  <span className="text-sm text-slate-500">{p._count.members} 人</span>
-                  <Link
-                    href={`/projects/${p.key}/settings`}
-                    className="text-sm text-slate-500 hover:underline"
-                  >
-                    設定
-                  </Link>
+                  {open ? (
+                    <Link
+                      href={`/projects/${p.key}/issues`}
+                      title={p.name}
+                      className="min-w-0 flex-1 truncate font-medium text-brand-700 hover:underline"
+                    >
+                      {p.name}
+                    </Link>
+                  ) : (
+                    <span
+                      title={p.name}
+                      className="min-w-0 flex-1 truncate font-medium text-slate-500"
+                    >
+                      {p.name}
+                    </span>
+                  )}
+                  {open ? (
+                    <>
+                      <span className="text-sm text-slate-500">
+                        {p._count.members} 人
+                      </span>
+                      <Link
+                        href={`/projects/${p.key}/settings`}
+                        className="text-sm text-slate-500 hover:underline"
+                      >
+                        設定
+                      </Link>
+                    </>
+                  ) : (
+                    <span className="rounded-pill bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                      未参加
+                    </span>
+                  )}
                 </div>
 
                 {/* 進捗（本家には無い機能。決定 D29） */}
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <ProgressBar progress={prog} locale={user.locale} />
-                  </div>
-                  <ProgressPercent progress={prog} />
-                </div>
-                <div className="mt-1">
-                  <ProgressBreakdown progress={prog} locale={user.locale} />
-                </div>
+                {open && prog && (
+                  <>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <ProgressBar progress={prog} locale={user.locale} />
+                      </div>
+                      <ProgressPercent progress={prog} />
+                    </div>
+                    <div className="mt-1">
+                      <ProgressBreakdown progress={prog} locale={user.locale} />
+                    </div>
+                  </>
+                )}
               </li>
             );
           })}

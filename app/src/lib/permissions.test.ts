@@ -46,7 +46,8 @@ describe("各機能に関する権限（7.1のマトリクス）", () => {
     ["issue.view", [true, true, true, true, true, true, true, true]],
     ["issue.create", [true, true, true, true, false, true, true, false]],
     ["issue.edit", [true, true, true, false, false, true, false, false]],
-    ["issue.delete", [true, true, false, false, false, false, false, false]],
+    // 決定 D31: 一般:制限なし も削除できる（本家は × ）。ゲストは × のまま
+    ["issue.delete", [true, true, true, false, false, false, false, false]],
     ["comment.manage", [true, true, true, true, false, true, true, false]],
     ["issueAttachment.add", [true, true, true, true, false, true, true, false]],
     ["issueAttachment.delete", [true, true, true, false, false, true, false, false]],
@@ -94,11 +95,9 @@ describe("プロジェクトに関する権限（7.1のマトリクス）", () =
 });
 
 describe("スペース全体に関する権限（7.1のマトリクス）", () => {
-  const spaceActions: Action[] = [
-    "space.edit",
-    "project.create",
-    "project.delete",
-  ];
+  // project.create は決定 D31 で一般にも開放したので、このループからは外し
+  // 下に専用のテストを置く
+  const spaceActions: Action[] = ["space.edit", "project.delete"];
 
   for (const action of spaceActions) {
     it(`${action} は管理者だけ`, () => {
@@ -107,19 +106,34 @@ describe("スペース全体に関する権限（7.1のマトリクス）", () =
       expect(can(actor("guest", "none"), action)).toBe(false);
     });
   }
+
+  // 決定 D31: プロジェクトの作成だけは一般ユーザー（制限なし）にも開放した。
+  // 本家は管理者だけ
+  it("project.create は一般ユーザー（制限なし）もできる", () => {
+    expect(can(actor("member", "none"), "project.create")).toBe(true);
+    expect(can(actor("member", "issue_create_only"), "project.create")).toBe(false);
+    expect(can(actor("guest", "none"), "project.create")).toBe(false);
+  });
 });
 
-describe("参加していないプロジェクトは管理者でも見られない", () => {
-  // 本家の明記された挙動で、実装で最も忘れやすい点。
-  // v1設計ではここが抜けていた
+describe("参加していないプロジェクト（決定 D31）", () => {
+  // 本家は「管理者でも未参加プロジェクトには触れない」だが、
+  // 2026-09-22 のユーザー指示で管理者だけ例外にした
   const notMember = { projectId: 1, isMember: false };
 
-  it("管理者でも課題を閲覧できない", () => {
-    expect(can(actor("admin"), "issue.view", notMember)).toBe(false);
+  it("管理者は未参加でも閲覧・編集・削除できる", () => {
+    expect(can(actor("admin"), "issue.view", notMember)).toBe(true);
+    expect(can(actor("admin"), "wiki.view", notMember)).toBe(true);
+    expect(can(actor("admin"), "project.edit", notMember)).toBe(true);
+    expect(can(actor("admin"), "project.delete", notMember)).toBe(true);
   });
 
-  it("管理者でもWikiを閲覧できない", () => {
-    expect(can(actor("admin"), "wiki.view", notMember)).toBe(false);
+  it("一般・ゲストは未参加なら中身に触れない（名前が見えるだけ）", () => {
+    for (const a of [actor("member", "none"), actor("guest", "none")]) {
+      expect(can(a, "issue.view", notMember)).toBe(false);
+      expect(can(a, "wiki.view", notMember)).toBe(false);
+      expect(can(a, "project.delete", notMember)).toBe(false);
+    }
   });
 
   it("参加していれば見られる", () => {
@@ -139,6 +153,18 @@ describe("ゲストはプロジェクト管理者になれない", () => {
 
   it("一般ユーザーなら同じフラグで削除できる", () => {
     expect(can(actor("member", "none"), "issue.delete", inProject(true))).toBe(true);
+  });
+
+  // 決定 D31: ゲストは制限なしでも削除できない。
+  // ALLOWED_BY_RESTRICTION は一般とゲストで共用なので、そこへ足すと漏れる
+  it("ゲストはプロジェクトも課題も削除できない", () => {
+    expect(can(actor("guest", "none"), "issue.delete", inProject())).toBe(false);
+    expect(can(actor("guest", "none"), "project.delete", inProject())).toBe(false);
+  });
+
+  it("一般（制限なし）は参加プロジェクトを削除できる", () => {
+    expect(can(actor("member", "none"), "project.delete", inProject())).toBe(true);
+    expect(can(actor("member", "issue_create_only"), "project.delete", inProject())).toBe(false);
   });
 });
 

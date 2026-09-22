@@ -140,9 +140,15 @@ const SPACE_ACTIONS: ReadonlySet<Action> = new Set<Action>([
 /**
  * actor が resource に対して action を行えるか。
  *
- * 重要: **管理者であっても、参加していないプロジェクトの課題やWikiは見られない。**
- * これは本家の明記された挙動で、実装で最も忘れやすい点
- * (docs/00-spec-verified.md 7章「メモ」)。
+ * **本家と意図的に相違している**（決定 D31、2026-09-22 にユーザーが指示）:
+ *
+ * - 管理者は参加していないプロジェクトも編集・削除できる
+ *   （本家は管理者でも未参加プロジェクトに触れない）
+ * - 一般ユーザー（制限なし）はプロジェクトを作成でき、参加している
+ *   プロジェクトなら課題もプロジェクト自体も削除できる
+ *   （本家では課題の削除は管理者とプロジェクト管理者だけ）
+ * - 一般・ゲストにとって、参加していないプロジェクトは**名前が見えるだけ**。
+ *   課題・Wiki・共有ファイルは開けない
  */
 export function can(
   actor: ActorUser,
@@ -155,6 +161,11 @@ export function can(
   // --- スペース全体の操作 ---------------------------------------------
   if (SPACE_ACTIONS.has(action) && resource.projectId === undefined) {
     if (action === "personalSettings.edit") return true;
+    // 決定 D31: プロジェクトの作成は一般ユーザー（制限なし）にも許す。
+    // 削除は対象プロジェクトが決まって初めて判定できるので、ここでは扱わない
+    if (action === "project.create") {
+      return actor.userType !== "guest" && actor.restriction === "none";
+    }
     return actor.userType === "admin";
   }
 
@@ -164,17 +175,28 @@ export function can(
     return false;
   }
 
-  // 参加していないプロジェクトは、管理者でも触れない。
-  // 種別に関わらず最初にここで落とす
-  if (!resource.isMember) return false;
-
-  // スペース管理者は、参加しているプロジェクトでは何でもできる
+  // 決定 D31: スペース管理者は参加していないプロジェクトも操作できる。
+  // **本家と意図的に相違**（本家は管理者でも未参加プロジェクトに触れない）。
+  // isMember の判定より前に置く
   if (actor.userType === "admin") return true;
+
+  // 一般・ゲストは、参加していないプロジェクトの中身には触れない。
+  // 一覧に名前が出るだけで、課題もWikiも開けない
+  if (!resource.isMember) return false;
 
   // プロジェクト管理者は、そのプロジェクトに関して管理者と同等。
   // ただしゲストはプロジェクト管理者になれない（本家の明記された制約）
   if (resource.isProjectAdmin && actor.userType !== "guest") {
     if (PROJECT_ADMIN_ACTIONS.has(action)) return true;
+  }
+
+  // 決定 D31: 参加しているプロジェクトなら、一般ユーザー（制限なし）も
+  // 課題とプロジェクトを削除できる。**本家と意図的に相違**。
+  //
+  // ALLOWED_BY_RESTRICTION は一般とゲストで共用しているので、そちらに足すと
+  // **ゲストにも削除権限が漏れる**。ゲストは対象外なのでここで分ける
+  if (actor.userType !== "guest" && actor.restriction === "none") {
+    if (action === "issue.delete" || action === "project.delete") return true;
   }
 
   return ALLOWED_BY_RESTRICTION[actor.restriction].has(action);
