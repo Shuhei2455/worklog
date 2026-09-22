@@ -26,6 +26,7 @@ import {
 } from "@/app/projects/[key]/issues/actions";
 import { renderMentions } from "@/lib/mention";
 import { Markdown } from "@/components/Markdown";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { projectNav } from "@/lib/project-nav";
 import { readFlash } from "@/lib/flash";
 import {
@@ -421,12 +422,13 @@ export default async function IssueDetail({
               action={editIssue.bind(null, fullKey)}
               className="mt-4 rounded border border-slate-200 bg-white p-3"
             >
-              <textarea
+              <MarkdownEditor
                 name="comment"
                 rows={3}
                 placeholder="コメント"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-              />
+                users={members.map((m) => ({ id: m.userId, name: m.user.name }))}
+                teams={teams.map((tm) => ({ id: tm.id, name: tm.name }))}
+              >
               {/* メンションは `@名前` ではなく `<@U5>`（本家と同じ記法）。
                   知らないと書けないので、実際のコードをここに出す */}
               <details className="mt-1 text-xs text-slate-500">
@@ -449,6 +451,7 @@ export default async function IssueDetail({
                   </li>
                 </ul>
               </details>
+              </MarkdownEditor>
               <div className="mt-2 flex items-center gap-3 text-sm">
                 {canEdit && (
                   <label className="flex items-center gap-2">
