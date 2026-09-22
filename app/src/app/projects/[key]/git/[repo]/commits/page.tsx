@@ -33,6 +33,9 @@ export default async function Commits({
 
   // 枝の配置。描画は行ごとに独立しているのでページングで崩れない
   const graph = layoutCommits(commits.map((c) => ({ sha: c.sha, parents: c.parents })));
+  // 列数は一覧で揃える。行ごとに変えると本文の開始位置がずれる。
+  // 狭い画面では本文の場所が無くなるので上限を設ける
+  const graphLanes = Math.min(Math.max(1, ...graph.map((r) => r.width)), 4);
 
   // 紐づいている課題をまとめて引く（コミットごとにクエリを出さない）
   const links = await prisma.commitIssueLink.findMany({
@@ -76,7 +79,7 @@ export default async function Commits({
           {commits.map((c, i) => (
             <li key={c.sha} className="h-11 py-0 pl-2 pr-3">
               <div className="flex items-stretch gap-2">
-                {graph[i] && <CommitGraph row={graph[i]} />}
+                {graph[i] && <CommitGraph row={graph[i]} lanes={graphLanes} />}
                 {/* 枝の線を繋げるため、行の高さを固定する。タスクのバッジも
                     同じ行に収める（折り返すと線が途切れる） */}
                 <div className="flex min-w-0 flex-1 items-center gap-3 self-center">

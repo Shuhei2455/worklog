@@ -9,12 +9,21 @@ import { laneColor, type GraphRow } from "@/lib/git-graph";
  *
  * **ライブラリは入れていない。** 線と丸だけなので素のSVGで足りる。
  */
-export function CommitGraph({ row, height = 44 }: { row: GraphRow; height?: number }) {
+export function CommitGraph({
+  row,
+  lanes,
+  height = 44,
+}: {
+  row: GraphRow;
+  /** 一覧全体で使う列数。**行ごとに変えると本文の開始位置がずれる** */
+  lanes: number;
+  height?: number;
+}) {
   const COL = 14; // 列の間隔
   const R = 3.5; // 丸の半径
   const x = (lane: number) => lane * COL + COL / 2;
   const mid = height / 2;
-  const width = Math.max(row.width, 1) * COL;
+  const width = Math.max(lanes, 1) * COL;
 
   return (
     <svg
