@@ -57,9 +57,9 @@ export function ProjectSidebar({
   const items: Array<{ key: ProjectNavKey; label: string; href: string }> = [
     { key: "home", label: t("project.home"), href: base },
   ];
-  if (show.addIssue) {
-    items.push({ key: "addIssue", label: t("project.addIssue"), href: `${base}/issues/new` });
-  }
+  // 「タスクの追加」はサイドバーに置かない（2026-09-23 のユーザー判断）。
+  // 本家にはあるが、タスク一覧の右上に追加ボタンがあり二重になる。
+  // 追加の導線を消したわけではない
   items.push({ key: "issues", label: t("project.issues"), href: `${base}/issues` });
   items.push({ key: "board", label: t("project.board"), href: `${base}/board` });
   if (show.chart) {
