@@ -55,7 +55,7 @@ export function ProjectSidebar({
   const base = `/projects/${projectKey}`;
 
   const items: Array<{ key: ProjectNavKey; label: string; href: string }> = [
-    { key: "home", label: t("project.home"), href: `${base}/issues` },
+    { key: "home", label: t("project.home"), href: base },
   ];
   if (show.addIssue) {
     items.push({ key: "addIssue", label: t("project.addIssue"), href: `${base}/issues/new` });
