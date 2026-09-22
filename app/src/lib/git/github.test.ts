@@ -36,6 +36,7 @@ describe("応答の写し", () => {
             author: { name: "山田", email: "y@example.com", date: "2026-09-22T01:00:00Z" },
           },
           author: { login: "yamada" },
+          parents: [{ sha: "p1" }],
         },
       ]),
     );
@@ -47,6 +48,8 @@ describe("応答の写し", () => {
       authorEmail: "y@example.com",
       authoredAt: "2026-09-22T01:00:00Z",
       authorLogin: "yamada",
+      // 枝を描くのに要る。応答に無ければ空配列
+      parents: ["p1"],
     });
   });
 
@@ -63,6 +66,8 @@ describe("応答の写し", () => {
     );
     const [c] = await github.listCommits({ owner: "o", name: "r" });
     expect(c.authorLogin).toBeNull();
+    // 応答に parents が無い場合もある（グラフは空として扱う）
+    expect(c.parents).toEqual([]);
   });
 
   it("PR一覧には merged が無いので merged_at から判断する", async () => {
