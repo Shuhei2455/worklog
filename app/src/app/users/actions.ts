@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import { hashPassword, checkPasswordStrength } from "@/lib/password";
 import { audit } from "@/lib/audit";
+import { USER_ID_RE, USER_ID_RULE } from "@/lib/user-id";
 
 /**
  * ユーザーの管理（スペース管理者のみ）。
@@ -37,7 +38,7 @@ async function back(message?: string, isError = false): Promise<void> {
   revalidatePath("/users");
 }
 
-const USER_ID_RE = /^[a-zA-Z0-9_.-]{2,64}$/;
+
 
 export async function createUser(formData: FormData) {
   const actor = await currentUser();
@@ -50,9 +51,7 @@ export async function createUser(formData: FormData) {
   const userType = String(formData.get("userType") ?? "member");
   const restriction = String(formData.get("restriction") ?? "none");
 
-  if (!USER_ID_RE.test(userId)) {
-    return await back("ログインIDは英数字・ハイフン・アンダースコア・ドットで2〜64文字です", true);
-  }
+  if (!USER_ID_RE.test(userId)) return await back(USER_ID_RULE, true);
   if (!name) return await back("名前を入れてください", true);
   if (!email.includes("@")) return await back("メールアドレスの形が正しくありません", true);
   if (!["admin", "member", "guest"].includes(userType)) return await back("種別が不正です", true);

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signIn, auth } from "@/auth";
 import { AuthError } from "next-auth";
@@ -76,6 +77,13 @@ export default async function LoginPage({
             ログイン
           </Button>
         </div>
+
+        <p className="mt-3 text-sm text-slate-500">
+          アカウントが無い場合は{" "}
+          <Link href="/signup" className="text-brand-700 hover:underline">
+            アカウントを作る
+          </Link>
+        </p>
 
         <p className="mt-3 text-xs text-slate-400">
           {LOGIN_LIMIT.maxAttempts} 回続けて失敗すると、
