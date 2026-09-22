@@ -33,20 +33,30 @@ export function CommitGraph({
       aria-hidden="true"
       style={{ minWidth: width }}
     >
-      {/* 通過していく枝。この行とは関係ないが、下へ続いているので線を切らさない */}
-      {row.activeLanes
-        .filter((l) => l !== row.lane)
-        .map((l) => (
-          <line
-            key={`thru-${l}`}
-            x1={x(l)}
-            y1={0}
-            x2={x(l)}
-            y2={height}
-            stroke={laneColor(l)}
-            strokeWidth={1.5}
-          />
-        ))}
+      {/* 素通りしていく枝。この行とは関係ないが、下へ続いているので線を切らさない */}
+      {row.passing.map((l) => (
+        <line
+          key={`pass-${l}`}
+          x1={x(l)}
+          y1={0}
+          x2={x(l)}
+          y2={height}
+          stroke={laneColor(l)}
+          strokeWidth={1.5}
+        />
+      ))}
+
+      {/* 上から降りてきて、この commit に吸い込まれる枝（git log の `|/`）。
+          これを描かないと、枝が合流せず宙ぶらりんに見える */}
+      {row.merging.map((l) => (
+        <path
+          key={`merge-${l}`}
+          d={`M ${x(l)} 0 C ${x(l)} ${mid - 4}, ${x(row.lane)} ${mid - 12}, ${x(row.lane)} ${mid}`}
+          fill="none"
+          stroke={laneColor(l)}
+          strokeWidth={1.5}
+        />
+      ))}
 
       {/* この行に入ってくる線（上半分） */}
       <line

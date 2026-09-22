@@ -14,8 +14,16 @@ export type GraphRow = {
   sha: string;
   /** このコミットが乗る列。0 が左端 */
   lane: number;
-  /** この行で線が通っている列（このコミット自身の列を含む） */
-  activeLanes: number[];
+  /**
+   * この行を**素通りする**列。上から下へ線を通す。
+   * この行で新しく生まれた列は含めない（上半分に線が無いため）
+   */
+  passing: number[];
+  /**
+   * 上から降りてきて、**この commit に吸い込まれる**列。
+   * `git log --graph` の `|/` にあたる。自分の列は含めない
+   */
+  merging: number[];
   /** この行から下へ伸びる線。from はこのコミットの列、to は親が乗る列 */
   edges: Array<{ from: number; to: number }>;
   /** 使われている列の数。SVGの幅を決めるのに使う */
@@ -45,9 +53,20 @@ export function layoutCommits(commits: GraphInput[]): GraphRow[] {
     }
 
     // 同じ commit を複数の列が待っていることがある（複数の枝が合流した先）。
-    // 1本に集約し、残りは空ける
+    // それらは上から降りてきてこの commit に入るので、線を描くために控えておく
+    const merging: number[] = [];
     for (let i = 0; i < lanes.length; i++) {
-      if (i !== lane && lanes[i] === c.sha) lanes[i] = null;
+      if (i !== lane && lanes[i] === c.sha) {
+        merging.push(i);
+        lanes[i] = null;
+      }
+    }
+
+    // **この commit を処理する前**に埋まっていた列が「上から来ている」列。
+    // ここで判定しないと、マージで新しく作る列にも上向きの線を引いてしまう
+    const passing: number[] = [];
+    for (let i = 0; i < lanes.length; i++) {
+      if (i !== lane && lanes[i] !== null) passing.push(i);
     }
 
     const edges: Array<{ from: number; to: number }> = [];
@@ -71,15 +90,11 @@ export function layoutCommits(commits: GraphInput[]): GraphRow[] {
       }
     }
 
-    const activeLanes: number[] = [];
-    for (let i = 0; i < lanes.length; i++) {
-      if (lanes[i] !== null || i === lane) activeLanes.push(i);
-    }
-
     rows.push({
       sha: c.sha,
       lane,
-      activeLanes,
+      passing,
+      merging,
       edges,
       // 末尾の空き列は数えない
       width: lanes.reduce((max, v, i) => (v !== null ? i + 1 : max), lane + 1),

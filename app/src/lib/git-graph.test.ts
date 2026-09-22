@@ -60,8 +60,27 @@ describe("マージ", () => {
     // f と b の親はどちらも a。a の行では1列に集約されている
     const rows = layoutCommits(history);
     const a = rows.find((r) => r.sha === "a")!;
-    expect(a.activeLanes).toEqual([a.lane]);
+    expect(a.passing).toEqual([]);
     expect(a.width).toBe(1);
+  });
+
+  it("枝が生まれる行には、その列の上向きの線を引かない", () => {
+    // マージ行では列1がこの行で初めて生まれる。素通り扱いにすると
+    // 何も無いはずの上半分に線が出て、いびつに見える
+    const rows = layoutCommits(history);
+    const m = rows[0];
+    expect(m.passing).toEqual([]);
+    expect(m.merging).toEqual([]);
+  });
+
+  it("合流する行は、吸い込まれる列を持つ", () => {
+    // a の1つ前（b の行）で、f の列が b の列へ合流する
+    const rows = layoutCommits(history);
+    const b = rows.find((r) => r.sha === "b")!;
+    // f(列1) は a を待っている。b は a を待つ列0に乗るので、
+    // 合流は a の行で起きる
+    const a = rows.find((r) => r.sha === "a")!;
+    expect(a.merging.length + b.merging.length).toBeGreaterThan(0);
   });
 });
 
