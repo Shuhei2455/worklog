@@ -522,3 +522,39 @@ worker には healthcheck が無く、restarting でも数に出てこない。
   `issue.moved` のみ。`es.onerror` で `live=false` に落ちる作りなので、
   プロキシに切られてもボードは通常どおり動く（ライブ更新が止まるだけ）。
   代替はポーリングの追加で10行程度
+
+---
+
+## Webhook の登録（2026-09-22）
+
+提供元（GitHub / 将来 Bitbucket）から push 通知を受けるための設定。
+
+```bash
+docker compose exec -T app pnpm tsx scripts/git-webhook-setup.ts <owner/repo> <URL>
+```
+
+`GITHUB_WEBHOOK_SECRET` を `.env` に入れてから実行する。
+**秘密が未設定だと受け口は全ての通知を 401 で落とす。**
+素通りさせると、この受け口に届く誰もがタスクへコメントを書けてしまうため。
+
+### 自宅で GitHub を相手に試すときだけ必要なこと
+
+GitHub はクラウド側にあるので、自宅の開発機へ届く経路が要る。Tailscale Funnel で
+**受け口のパスだけ**を公開する（アプリ全体を公開するとデモデータも
+`admin` のパスワードも外から触れる）。
+
+```bash
+sudo tailscale funnel --bg --set-path /api/git/webhook http://localhost:8088/api/git/webhook
+```
+
+**本番では不要。** 社内 Bitbucket と社内VMは同じネットワークなので、
+アプリのURLをそのまま登録すればよい。
+
+### 開発サーバだと最初の1回が失敗する
+
+`next dev` はルートを初回アクセス時にコンパイルする。app を再起動した直後の
+1通目は **8〜9秒**かかり、**GitHub の 10 秒でタイムアウトする**。
+配信履歴には `EOF` と出て原因が分かりにくい。
+
+暖まれば 0.1 秒台になる。再送すれば通るので、失敗したら
+Recent Deliveries から Redeliver すればよい。本番はビルド済みなので起きない。
