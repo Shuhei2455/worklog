@@ -55,7 +55,7 @@ describe("buildBurndown", () => {
     expect(out.map((p) => p.remainingCount)).toEqual([2, 2, 1, 1, 1]);
   });
 
-  it("期間の途中で作られた課題は、その日から積む", () => {
+  it("期間の途中で作られたタスクは、その日から積む", () => {
     const out = buildBurndown(
       [issue({ id: 1 }), issue({ id: 2, createdAt: d("2026-09-04") })],
       range,
@@ -102,7 +102,7 @@ describe("buildBurndown", () => {
     expect(out.map((p) => p.future)).toEqual([false, false, false, true, true]);
   });
 
-  it("課題が0件なら全部0", () => {
+  it("タスクが0件なら全部0", () => {
     const out = buildBurndown([], range, d("2026-09-05"));
     expect(out.every((p) => p.remainingCount === 0 && p.idealCount === 0)).toBe(true);
   });

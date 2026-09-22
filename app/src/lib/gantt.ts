@@ -158,7 +158,7 @@ export const GANTT_GROUP_LABELS: Record<GanttGroupBy, string> = {
   issueType: "種別",
   milestone: "マイルストーン",
   category: "カテゴリー",
-  parentIssue: "親課題",
+  parentIssue: "親タスク",
 };
 
 /* ------------------------------------------------------------------ *

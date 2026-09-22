@@ -106,7 +106,7 @@ export default async function Files({
     >
       <PageTitle>ファイル</PageTitle>
       <p className="mt-1 text-xs text-slate-500">
-        課題やWikiから参照できる、プロジェクト共通の置き場です。課題の添付とは別物です。
+        タスクやWikiから参照できる、プロジェクト共通の置き場です。タスクの添付とは別物です。
       </p>
 
       <ActionResult ok={sp.ok ?? flash.ok} error={sp.error ?? flash.error} />

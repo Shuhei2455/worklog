@@ -167,7 +167,7 @@ export default async function ProjectSettings({
       {/* ---------------- 基本設定 ---------------- */}
       <Section
         title="基本設定"
-        note="「チャートを使用する」がOFFだと、課題に開始日・期限日を入力できません。"
+        note="「チャートを使用する」がOFFだと、タスクに開始日・期限日を入力できません。"
       >
         {canEditProject ? (
           <form action={bind(updateFeatures)} className="space-y-4">
@@ -191,7 +191,7 @@ export default async function ProjectSettings({
             <div className="grid grid-cols-2 gap-2 text-sm">
               {[
                 ["chartEnabled", "チャートを使用する", project.chartEnabled],
-                ["subtaskingEnabled", "親子課題を使用する", project.subtaskingEnabled],
+                ["subtaskingEnabled", "親子タスクを使用する", project.subtaskingEnabled],
                 ["wikiEnabled", "Wikiを使用する", project.wikiEnabled],
                 ["fileSharingEnabled", "ファイル共有を使用する", project.fileSharingEnabled],
                 ["gitEnabled", "Gitを使用する", project.gitEnabled],
@@ -323,13 +323,13 @@ export default async function ProjectSettings({
 
       {/* ---------------- 種別・カテゴリー・バージョン ---------------- */}
       <Section
-        title="課題種別・カテゴリー"
+        title="タスク種別・カテゴリー"
         note="これらは「制限なし」の一般ユーザーでも編集できます（プロジェクト管理者専用ではありません）。"
       >
         <div className="grid gap-6 md:grid-cols-2">
           {[
             {
-              label: "課題種別",
+              label: "タスク種別",
               items: issueTypes.map((t) => ({ id: t.id, name: t.name, color: t.color })),
               action: bind(addIssueType),
               // 一覧の各行を直せるようにする。以前は作るだけで直せなかった
@@ -554,7 +554,7 @@ export default async function ProjectSettings({
       {canEditProject && (
         <Section
           title="チーム"
-          note="チームは課題の「お知らせ」先にまとめて指定できます。割り当てても参加ユーザーにはなりません（権限は個人単位で持っています）。"
+          note="チームはタスクの「お知らせ」先にまとめて指定できます。割り当てても参加ユーザーにはなりません（権限は個人単位で持っています）。"
         >
           {projectTeams.length === 0 ? (
             <p className="text-xs text-slate-400">なし</p>
@@ -598,7 +598,7 @@ export default async function ProjectSettings({
       {canEditProject && (
         <Section
           title="カスタム属性"
-          note="課題に独自の入力欄を足します。型は本家と同じ8種（00-spec-verified.md 10.1）。削除すると入力済みの値も消えます。"
+          note="タスクに独自の入力欄を足します。型は本家と同じ8種（00-spec-verified.md 10.1）。削除すると入力済みの値も消えます。"
         >
           {customFields.length === 0 ? (
             <p className="text-xs text-slate-400">なし</p>
@@ -656,7 +656,7 @@ export default async function ProjectSettings({
                       選択肢: {f.items.map((i) => i.name).join(" / ")}
                     </p>
                   )}
-                  {/* 有効な課題種別。チェックを全部外すと全種別で有効（本家と同じ） */}
+                  {/* 有効なタスク種別。チェックを全部外すと全種別で有効（本家と同じ） */}
                   <form
                     action={bind(setCustomFieldIssueTypes)}
                     className="mt-1 flex flex-wrap items-center gap-2 text-xs"
@@ -836,8 +836,8 @@ export default async function ProjectSettings({
                     </span>
                     <form action={bind(toggleLinkCommits)}>
                       <input type="hidden" name="id" value={r.id} />
-                      <ToggleChip on={r.linkCommitsToIssues} tone="emerald" size="xs" title="コミットメッセージの課題キーから、課題へコメントを自動登録します">
-                        課題連携 {r.linkCommitsToIssues ? "ON" : "OFF"}
+                      <ToggleChip on={r.linkCommitsToIssues} tone="emerald" size="xs" title="コミットメッセージのタスクキーから、タスクへコメントを自動登録します">
+                        タスク連携 {r.linkCommitsToIssues ? "ON" : "OFF"}
                       </ToggleChip>
                     </form>
                     <form action={bind(detachRepository)}>
@@ -915,7 +915,7 @@ export default async function ProjectSettings({
       {canEditProject && (
         <Section
           title="webhook"
-          note="課題の追加・更新などを外部へ通知します。送信は非同期なので、相手が遅くても画面は待ちません。Discord の Webhook URL は自動で判別し、Discord が読める形に変換して送ります。それ以外の宛先には本家Backlogと同じ形のJSONを送るので、Slack や Teams にはそのままでは届きません（受け口側で変換が必要です）。"
+          note="タスクの追加・更新などを外部へ通知します。送信は非同期なので、相手が遅くても画面は待ちません。Discord の Webhook URL は自動で判別し、Discord が読める形に変換して送ります。それ以外の宛先には本家Backlogと同じ形のJSONを送るので、Slack や Teams にはそのままでは届きません（受け口側で変換が必要です）。"
         >
           {webhooks.length === 0 ? (
             <p className="text-xs text-slate-400">なし</p>

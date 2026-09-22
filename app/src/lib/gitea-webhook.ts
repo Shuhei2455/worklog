@@ -116,7 +116,7 @@ export async function handlePush(payload: PushPayload): Promise<string> {
   await enqueueWebhookFor(repo.projectId, pushActivity.id);
 
   if (!repo.linkCommitsToIssues) {
-    return `${repo.name}: 課題連携はOFF（コミット${payload.commits.length}件を記録のみ）`;
+    return `${repo.name}: タスク連携はOFF（コミット${payload.commits.length}件を記録のみ）`;
   }
 
   let linked = 0;
@@ -185,7 +185,7 @@ export async function handlePush(payload: PushPayload): Promise<string> {
     }
   }
 
-  return `${repo.name}: コミット${payload.commits.length}件 / 課題への登録${linked}件`;
+  return `${repo.name}: コミット${payload.commits.length}件 / タスクへの登録${linked}件`;
 }
 
 /** PR を処理する */

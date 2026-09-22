@@ -212,7 +212,7 @@ export default async function Dashboard({
           グリッド項目の min-width:auto と合わさって中身の最大幅まで伸びる
           （375pxで101pxはみ出していた）。grid-cols-1 は minmax(0,1fr) なので縮められる */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        {/* ==== 左: 自分の課題 / プルリクエスト / 最近の更新 ==== */}
+        {/* ==== 左: 自分のタスク / プルリクエスト / 最近の更新 ==== */}
         <div className="space-y-4">
           <Block
             title={t("dash.myIssues")}

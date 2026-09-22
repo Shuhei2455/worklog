@@ -143,7 +143,7 @@ describe("参加していないプロジェクト（決定 D31）", () => {
 
 describe("ゲストはプロジェクト管理者になれない", () => {
   // 本家の明記された制約。フラグが立っていても昇格させない
-  it("フラグが立っていても課題を削除できない", () => {
+  it("フラグが立っていてもタスクを削除できない", () => {
     expect(can(actor("guest", "none"), "issue.delete", inProject(true))).toBe(false);
   });
 
@@ -157,7 +157,7 @@ describe("ゲストはプロジェクト管理者になれない", () => {
 
   // 決定 D31: ゲストは制限なしでも削除できない。
   // ALLOWED_BY_RESTRICTION は一般とゲストで共用なので、そこへ足すと漏れる
-  it("ゲストはプロジェクトも課題も削除できない", () => {
+  it("ゲストはプロジェクトもタスクも削除できない", () => {
     expect(can(actor("guest", "none"), "issue.delete", inProject())).toBe(false);
     expect(can(actor("guest", "none"), "project.delete", inProject())).toBe(false);
   });
@@ -198,12 +198,12 @@ describe("本家APIの roleType への写像", () => {
     expect(toRoleType({ userType: "guest", restriction: "none" })).toBe(2);
   });
 
-  it("課題の登録のみは3", () => {
+  it("タスクの登録のみは3", () => {
     expect(toRoleType({ userType: "member", restriction: "issue_create_only" })).toBe(3);
     expect(toRoleType({ userType: "guest", restriction: "issue_create_only" })).toBe(3);
   });
 
-  it("課題の閲覧のみは4", () => {
+  it("タスクの閲覧のみは4", () => {
     expect(toRoleType({ userType: "member", restriction: "issue_view_only" })).toBe(4);
     expect(toRoleType({ userType: "guest", restriction: "issue_view_only" })).toBe(4);
   });

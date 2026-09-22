@@ -57,7 +57,7 @@ describe("issuesToCsv", () => {
       [
         {
           issueKey: "AA-1",
-          summary: "テスト課題",
+          summary: "テストタスク",
           description: "詳細\nです",
           statusName: "処理中",
           issueTypeName: "タスク",
@@ -86,7 +86,7 @@ describe("issuesToCsv", () => {
     const rows = parseCsv(csv);
     const row = rows[1];
     expect(row[0]).toBe("AA-1");
-    expect(row[1]).toBe("テスト課題");
+    expect(row[1]).toBe("テストタスク");
     // 改行を含む詳細も読み戻せる
     expect(row[2]).toBe("詳細\nです");
     expect(row[3]).toBe("処理中");
@@ -235,34 +235,57 @@ describe("csvToIssues", () => {
   });
 });
 
-describe("親課題の列（M5レビューで見つけた抜け）", () => {
-  it("既存の課題キーを親として解決する", () => {
-    const out = csvToIssues("件名,親課題\n子の課題,AA-1", masters());
+describe("親タスクの列（M5レビューで見つけた抜け）", () => {
+  it("既存のタスクキーを親として解決する", () => {
+    const out = csvToIssues("件名,親タスク\n子のタスク,AA-1", masters());
     expect(out.errors).toEqual([]);
     expect(out.issues[0].parentIssueId).toBe(100);
   });
 
   it("小文字で書かれても引ける", () => {
-    const out = csvToIssues("件名,親課題\n子の課題,aa-1", masters());
+    const out = csvToIssues("件名,親タスク\n子のタスク,aa-1", masters());
     expect(out.errors).toEqual([]);
     expect(out.issues[0].parentIssueId).toBe(100);
   });
 
-  it("存在しない課題キーはエラー（黙って無視しない）", () => {
-    const out = csvToIssues("件名,親課題\n子の課題,AA-999", masters());
+  it("存在しないタスクキーはエラー（黙って無視しない）", () => {
+    const out = csvToIssues("件名,親タスク\n子のタスク,AA-999", masters());
     expect(out.issues).toEqual([]);
-    expect(out.errors[0]).toContain("親課題「AA-999」");
+    expect(out.errors[0]).toContain("親タスク「AA-999」");
   });
 
   it("同じCSV内の行を親にしようとしたらエラーで知らせる", () => {
     // 取り込み前なのでIDが無い。黙って無視すると階層が崩れたまま入る
-    const out = csvToIssues("件名,親課題\n親になる行,\n子の行,親になる行", masters());
+    const out = csvToIssues("件名,親タスク\n親になる行,\n子の行,親になる行", masters());
     expect(out.errors.some((e) => e.includes("同じCSV内の行は親にできません"))).toBe(true);
   });
 
   it("空欄なら親なし", () => {
-    const out = csvToIssues("件名,親課題\n単独の課題,", masters());
+    const out = csvToIssues("件名,親タスク\n単独のタスク,", masters());
     expect(out.errors).toEqual([]);
     expect(out.issues[0].parentIssueId).toBeNull();
+  });
+});
+
+describe("旧いヘッダ名のCSV（2026-09-22の改名より前）", () => {
+  // 取り込みはヘッダ名で列を対応づけるので、改名で読めなくなると
+  // それ以前に出力したCSVが無効になる
+  it("「課題キー」「親課題」でも取り込める", () => {
+    // AA-1 は masters の issueKeys にある既存タスク（id=100）
+    const csv = "課題キー,件名,親課題\nAA-9,子のほう,AA-1";
+    const r = csvToIssues(csv, masters());
+    expect(r.errors).toEqual([]);
+    expect(r.issues).toHaveLength(1);
+    expect(r.issues[0].parentIssueId).toBe(100);
+    // 旧名を「知らない列」として警告しない
+    expect(r.ignoredColumns).toEqual([]);
+  });
+
+  it("新しい名前でも同じように取り込める", () => {
+    const csv = "タスクキー,件名,親タスク\nAA-9,子のほう,AA-1";
+    const r = csvToIssues(csv, masters());
+    expect(r.errors).toEqual([]);
+    expect(r.issues[0].parentIssueId).toBe(100);
+    expect(r.ignoredColumns).toEqual([]);
   });
 });

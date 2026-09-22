@@ -157,13 +157,13 @@ export default async function IssueList({
             )}
             {can(user, "issue.create", ctx) && (
               <ButtonLink href={`/projects/${key}/issues/new`} variant="primary">
-                課題を追加
+                タスクを追加
               </ButtonLink>
             )}
           </>
         }
       >
-        課題
+        タスク
       </PageTitle>
 
       <ActionResult ok={flash.ok} error={flash.error} />
@@ -276,7 +276,7 @@ export default async function IssueList({
       <ul className="mt-2 space-y-2 md:hidden">
         {issues.length === 0 && (
           <li className="rounded border border-slate-200 bg-white px-3 py-8 text-center text-slate-400">
-            該当する課題がありません
+            該当するタスクがありません
           </li>
         )}
         {issues.map((i) => (
@@ -328,7 +328,7 @@ export default async function IssueList({
           {issues.length === 0 && (
             <tr>
               <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
-                該当する課題がありません
+                該当するタスクがありません
               </td>
             </tr>
           )}
@@ -365,7 +365,7 @@ export default async function IssueList({
                 {PRIORITY_LABEL.get(i.priorityId) ?? i.priorityId}
               </td>
               {/* 期限切れは赤くする。ダッシュボードと揃える
-                  （完了した課題は過ぎていても急ぎではないので普通の色） */}
+                  （完了したタスクは過ぎていても急ぎではないので普通の色） */}
               <td
                 className={`px-3 py-2 ${
                   i.dueDate && i.dueDate < today && i.statusId !== STATUS_ID_CLOSED

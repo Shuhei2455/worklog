@@ -83,7 +83,7 @@ async function handle(job: SearchJob): Promise<string> {
     );
     if (issueDocs.length) await meili.index(ISSUE_INDEX).addDocuments(issueDocs);
     if (wikiDocs.length) await meili.index(WIKI_INDEX).addDocuments(wikiDocs);
-    return `project ${job.id}: 課題${issueDocs.length} / Wiki${wikiDocs.length}`;
+    return `project ${job.id}: タスク${issueDocs.length} / Wiki${wikiDocs.length}`;
   }
 
   const index = job.kind === "issue" ? ISSUE_INDEX : WIKI_INDEX;

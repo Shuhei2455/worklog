@@ -42,7 +42,7 @@ const FIELD_LABELS: Record<string, string> = {
   priorityId: "優先度",
   issueTypeId: "種別",
   assigneeId: "担当者",
-  parentIssueId: "親課題",
+  parentIssueId: "親タスク",
   startDate: "開始日",
   dueDate: "期限日",
   estimatedHours: "予定時間",

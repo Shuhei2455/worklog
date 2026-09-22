@@ -42,7 +42,7 @@ describe("id を名前に解決する", () => {
     expect(r).toEqual([{ label: "完了理由", from: null, to: "対応済み" }]);
   });
 
-  it("親課題は課題キーで出す", () => {
+  it("親タスクはタスクキーで出す", () => {
     const r = describeChanges([{ field: "parentIssueId", from: null, to: "100" }], lookups);
     expect(r[0].to).toBe("TEST-1");
   });

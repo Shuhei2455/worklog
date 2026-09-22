@@ -245,7 +245,7 @@ export default async function IssueDetail({
             )}
           </div>
 
-          {/* Git の連携。コミットメッセージに課題キーを書くと自動で増える。
+          {/* Git の連携。コミットメッセージにタスクキーを書くと自動で増える。
               **git.access が無い人には出さない。** 出すとリンク先が404になる
               （M3-b で共有ファイルのリンクで同じ間違いをした） */}
           {can(user, "git.access", ctx) &&
@@ -363,7 +363,7 @@ export default async function IssueDetail({
                   {t.type === "issue_created" && (
                     <span className="rounded bg-slate-100 px-1.5 py-0.5">登録</span>
                   )}
-                  {/* スターは課題・コメント・Wikiに付けられる(00-spec 9章)。
+                  {/* スターはタスク・コメント・Wikiに付けられる(00-spec 9章)。
                       コメント単位のスターはここから */}
                   <form action={toggleStar.bind(null, fullKey)} className="ml-auto">
                     <input type="hidden" name="activityId" value={t.id} />
@@ -483,7 +483,7 @@ export default async function IssueDetail({
             ))}
           </dl>
 
-        {/* カスタム属性。この課題種別で有効なものだけ出す */}
+        {/* カスタム属性。このタスク種別で有効なものだけ出す */}
         {activeFields.length > 0 && (
           <div className="rounded border border-slate-200 bg-white p-3">
             <h2 className="mb-1 text-xs font-semibold text-slate-600">カスタム属性</h2>
@@ -504,7 +504,7 @@ export default async function IssueDetail({
 
           {project.subtaskingEnabled && (
             <div className="rounded border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">親課題</p>
+              <p className="text-xs text-slate-500">親タスク</p>
               {issue.parent ? (
                 <Link
                   href={`/issues/${project.key}-${issue.parent.keyId}`}
@@ -540,7 +540,7 @@ export default async function IssueDetail({
 
           {/* 親子とは別の、対等なリンク */}
           <div className="rounded border border-slate-200 bg-white p-3">
-            <p className="text-xs text-slate-500">関連課題</p>
+            <p className="text-xs text-slate-500">関連タスク</p>
             {issue.relationsFrom.length === 0 ? (
               <p className="mt-1 text-xs text-slate-400">なし</p>
             ) : (
@@ -584,7 +584,7 @@ export default async function IssueDetail({
 
           {issue.children.length > 0 && (
             <div className="rounded border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">子課題</p>
+              <p className="text-xs text-slate-500">子タスク</p>
               <ul className="mt-1 space-y-1">
                 {issue.children.map((c) => (
                   <li key={c.id} className="text-xs">

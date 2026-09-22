@@ -58,8 +58,8 @@ describe("keyId の採番", () => {
   });
 });
 
-describe("親子課題は1階層まで", () => {
-  it("親を持つ課題を親に指定できない", async () => {
+describe("親子タスクは1階層まで", () => {
+  it("親を持つタスクを親に指定できない", async () => {
     const parent = await make("親");
     const child = await make("子", { parentIssueId: parent.id });
     await expect(make("孫", { parentIssueId: child.id })).rejects.toThrow(
@@ -67,13 +67,13 @@ describe("親子課題は1階層まで", () => {
     );
   });
 
-  it("子を持つ課題を他人の子にできない", async () => {
+  it("子を持つタスクを他人の子にできない", async () => {
     const parent = await make("親2");
     await make("子2", { parentIssueId: parent.id });
     const other = await make("別の親");
     await expect(
       updateIssue({ issueId: parent.id, updatedBy: userId, parentIssueId: other.id }),
-    ).rejects.toThrow(/子課題を持つ/);
+    ).rejects.toThrow(/子タスクを持つ/);
   });
 
   it("自分自身を親にできない", async () => {
@@ -84,8 +84,8 @@ describe("親子課題は1階層まで", () => {
   });
 });
 
-describe("課題の削除（決定 D13）", () => {
-  it("子課題は消さず、親への参照だけ外す", async () => {
+describe("タスクの削除（決定 D13）", () => {
+  it("子タスクは消さず、親への参照だけ外す", async () => {
     const parent = await make("消される親");
     const child = await make("残る子", { parentIssueId: parent.id });
     await deleteIssue(parent.id);

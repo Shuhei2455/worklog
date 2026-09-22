@@ -59,7 +59,7 @@ describe("pullRequestWhere", () => {
     expect(pullRequestWhere(3, q("statusId[]=9"))).toEqual({ repositoryId: 3 });
   });
 
-  it("担当者・課題・作成者で絞る", () => {
+  it("担当者・タスク・作成者で絞る", () => {
     expect(
       pullRequestWhere(3, q("assigneeId[]=2&issueId[]=10&createdUserId[]=1")),
     ).toEqual({

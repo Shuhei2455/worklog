@@ -58,7 +58,7 @@ export async function linkPullRequestIssue(
       where: { id: pr.id },
       data: { issueId: null },
     });
-      await setFlash(path, "課題の紐づけを解除しました");
+      await setFlash(path, "タスクの紐づけを解除しました");
       revalidatePath(path);
       return;
   }

@@ -178,7 +178,7 @@ export default async function GanttPage({
           ? i.categories.map((c) => categoryById.get(c.categoryId) ?? "?").join("、")
           : "カテゴリーなし";
       case "parentIssue":
-        return i.parent ? `${key}-${i.parent.keyId} ${i.parent.summary}` : "親課題なし";
+        return i.parent ? `${key}-${i.parent.keyId} ${i.parent.summary}` : "親タスクなし";
       default:
         return "";
     }
@@ -324,11 +324,11 @@ export default async function GanttPage({
         ))}
       </div>
 
-      {/* 本家と同じく「開始・期限日が未設定の課題」を出す */}
+      {/* 本家と同じく「開始・期限日が未設定のタスク」を出す */}
       {hidden.length > 0 && (
         <details className="mt-4 rounded border border-slate-200 bg-white">
           <summary className="cursor-pointer px-4 py-2 text-sm">
-            開始・期限日が未設定の課題（{hidden.length} 件）
+            開始・期限日が未設定のタスク（{hidden.length} 件）
           </summary>
           <ul className="divide-y divide-slate-100 border-t border-slate-200">
             {hidden.map((r) => (
@@ -347,7 +347,7 @@ export default async function GanttPage({
             ))}
           </ul>
           <p className="px-4 py-2 text-xs text-slate-500">
-            課題を開いて開始日・期限日を設定すると、ここからガントへ移ります。
+            タスクを開いて開始日・期限日を設定すると、ここからガントへ移ります。
           </p>
         </details>
       )}
@@ -375,7 +375,7 @@ export default async function GanttPage({
 
           {/* ---- ヘッダ下段: 日付 ---- */}
           <div className="flex border-b border-slate-200 bg-slate-50 text-[10px] text-slate-500">
-            <div className="w-80 shrink-0 border-r border-slate-200 px-3 py-1">課題</div>
+            <div className="w-80 shrink-0 border-r border-slate-200 px-3 py-1">タスク</div>
             <div className="relative flex" style={{ width }}>
               {ticks.map((t) => (
                 <div
@@ -399,7 +399,7 @@ export default async function GanttPage({
 
           {shown.length === 0 && (
             <p className="px-4 py-8 text-center text-sm text-slate-400">
-              表示できる課題がありません
+              表示できるタスクがありません
             </p>
           )}
 

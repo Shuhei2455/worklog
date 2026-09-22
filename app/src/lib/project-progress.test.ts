@@ -7,7 +7,7 @@ const doing = (count: number) => ({ statusId: 2, count });
 const done = (count: number) => ({ statusId: 4, count });
 
 describe("computeProgress", () => {
-  it("完了率は完了した課題の割合", () => {
+  it("完了率は完了したタスクの割合", () => {
     const p = computeProgress({ byStatus: [open(3), doing(1), done(4)], overdue: 0 });
     expect(p.total).toBe(8);
     expect(p.done).toBe(4);
@@ -31,7 +31,7 @@ describe("computeProgress", () => {
     expect(p.percent).toBe(0);
   });
 
-  it("課題が0件でも NaN を出さず 0% にする", () => {
+  it("タスクが0件でも NaN を出さず 0% にする", () => {
     const p = computeProgress({ byStatus: [], overdue: 0 });
     expect(p.total).toBe(0);
     expect(p.percent).toBe(0);
@@ -73,7 +73,7 @@ describe("computeProgress", () => {
 describe("progressTone", () => {
   const of = (i: Parameters<typeof computeProgress>[0]) => progressTone(computeProgress(i));
 
-  it("課題が無ければ empty", () => {
+  it("タスクが無ければ empty", () => {
     expect(of({ byStatus: [], overdue: 0 })).toBe("empty");
   });
 

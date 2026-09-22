@@ -32,8 +32,8 @@ describe("parseCsv", () => {
   });
 
   it("BOM を落とす（残すと1列目のヘッダが一致しない）", () => {
-    const rows = parseCsv("﻿課題キー,件名\nAA-1,テスト");
-    expect(rows[0][0]).toBe("課題キー");
+    const rows = parseCsv("﻿タスクキー,件名\nAA-1,テスト");
+    expect(rows[0][0]).toBe("タスクキー");
   });
 
   it("末尾に改行が無くても最後の行を落とさない", () => {
@@ -61,14 +61,14 @@ describe("parseCsv", () => {
 
 describe("decodeCsv", () => {
   it("UTF-8", () => {
-    const bytes = new TextEncoder().encode("課題キー,件名");
+    const bytes = new TextEncoder().encode("タスクキー,件名");
     const out = decodeCsv(bytes);
     expect(out.encoding).toBe("utf-8");
-    expect(out.text).toBe("課題キー,件名");
+    expect(out.text).toBe("タスクキー,件名");
   });
 
   it("BOM付きUTF-8", () => {
-    const bytes = new TextEncoder().encode("﻿課題キー");
+    const bytes = new TextEncoder().encode("﻿タスクキー");
     expect(decodeCsv(bytes).encoding).toBe("utf-8");
   });
 
@@ -108,12 +108,12 @@ describe("csvField", () => {
 describe("buildCsv", () => {
   it("BOM付き・CRLF で出す（Excelで化けない／行が崩れない）", () => {
     const out = buildCsv([
-      ["課題キー", "件名"],
+      ["タスクキー", "件名"],
       ["AA-1", "テスト"],
     ]);
     expect(out.startsWith("﻿")).toBe(true);
     expect(out).toContain("\r\n");
-    expect(out).toBe("﻿課題キー,件名\r\nAA-1,テスト\r\n");
+    expect(out).toBe("﻿タスクキー,件名\r\nAA-1,テスト\r\n");
   });
 
   it("書いたものを読み戻せる", () => {

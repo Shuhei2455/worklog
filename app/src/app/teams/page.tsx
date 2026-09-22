@@ -50,7 +50,7 @@ export default async function Teams({
 
   return (
     <Shell user={user} breadcrumbs={[{ label: "チーム" }]}>
-      <PageTitle note={<>ユーザーをまとめる単位です。プロジェクトにチーム単位で追加でき、課題の
+      <PageTitle note={<>ユーザーをまとめる単位です。プロジェクトにチーム単位で追加でき、タスクの
         「お知らせ」先にも指定できます。本文では <code>{"<@T{id}>"}</code>{" "}
         でメンションします。</>}>チーム</PageTitle>
 

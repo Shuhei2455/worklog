@@ -77,7 +77,7 @@ export async function editIssue(issueKey: string, formData: FormData) {
   const issue = await prisma.issue.findUnique({
     where: { projectId_keyId: { projectId: project.id, keyId } },
   });
-  if (!issue) throw new Error("課題が見つかりません");
+  if (!issue) throw new Error("タスクが見つかりません");
 
   const comment = String(formData.get("comment") ?? "").trim();
   const wantsChange = ["statusId", "assigneeId", "priorityId", "resolutionId"].some(
@@ -158,7 +158,7 @@ async function issueByKey(issueKey: string) {
   const issue = await prisma.issue.findUnique({
     where: { projectId_keyId: { projectId: project.id, keyId: Number(keyIdRaw) } },
   });
-  if (!issue) throw new Error("課題が見つかりません");
+  if (!issue) throw new Error("タスクが見つかりません");
   return { project, issue };
 }
 
@@ -268,7 +268,7 @@ export async function setParent(issueKey: string, formData: FormData) {
   const raw = String(formData.get("parentKey") ?? "").trim().toUpperCase();
   if (!raw) {
     await updateIssue({ issueId: issue.id, updatedBy: actor.id, parentIssueId: null });
-    await backToIssue(issueKey, "親課題を解除しました");
+    await backToIssue(issueKey, "親タスクを解除しました");
     return;
   }
 
@@ -279,7 +279,7 @@ export async function setParent(issueKey: string, formData: FormData) {
       })
     : null;
   if (!parent) {
-    await backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
+    await backToIssue(issueKey, `タスクが見つかりません: ${raw}`, true);
     return;
   }
 
@@ -293,7 +293,7 @@ export async function setParent(issueKey: string, formData: FormData) {
     await backToIssue(issueKey, e instanceof Error ? e.message : "設定できません", true);
     return;
   }
-  await backToIssue(issueKey, "親課題を設定しました");
+  await backToIssue(issueKey, "親タスクを設定しました");
 }
 
 /** 関連課題。親子とは別の、対等なリンク */
@@ -310,7 +310,7 @@ export async function addRelation(issueKey: string, formData: FormData) {
       })
     : null;
   if (!other) {
-    await backToIssue(issueKey, `課題が見つかりません: ${raw}`, true);
+    await backToIssue(issueKey, `タスクが見つかりません: ${raw}`, true);
     return;
   }
   if (other.id === issue.id) {
@@ -326,7 +326,7 @@ export async function addRelation(issueKey: string, formData: FormData) {
     ],
     skipDuplicates: true,
   });
-  await backToIssue(issueKey, "関連課題を追加しました");
+  await backToIssue(issueKey, "関連タスクを追加しました");
 }
 
 export async function removeRelation(issueKey: string, formData: FormData) {
@@ -343,7 +343,7 @@ export async function removeRelation(issueKey: string, formData: FormData) {
       ],
     },
   });
-  await backToIssue(issueKey, "関連課題を外しました");
+  await backToIssue(issueKey, "関連タスクを外しました");
 }
 
 /** 検索条件の保存。condition はURLクエリと同じ形なので、貼るだけで復元できる */

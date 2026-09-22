@@ -48,13 +48,13 @@ describe("toDiscord", () => {
     expect(Array.isArray(d.embeds)).toBe(true);
   });
 
-  it("課題キーと件名をタイトルにする", () => {
+  it("タスクキーと件名をタイトルにする", () => {
     expect(toDiscord(base).embeds[0].title).toBe(
       "OPS-8 深夜バッチの実行時間が伸びている",
     );
   });
 
-  it("APP_URL があれば課題へのリンクを付ける", () => {
+  it("APP_URL があればタスクへのリンクを付ける", () => {
     expect(toDiscord(base, "https://192.168.10.20").embeds[0].url).toBe(
       "https://192.168.10.20/issues/OPS-8",
     );
@@ -71,7 +71,7 @@ describe("toDiscord", () => {
   });
 
   it("誰が何をしたかを footer に出す", () => {
-    expect(toDiscord(base).embeds[0].footer.text).toBe("課題の追加 · 管理者");
+    expect(toDiscord(base).embeds[0].footer.text).toBe("タスクの追加 · 管理者");
   });
 
   it("コメントがあれば本文にする", () => {

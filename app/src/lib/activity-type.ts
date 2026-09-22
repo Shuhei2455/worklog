@@ -35,10 +35,10 @@ export const ACTIVITY_TYPE_BY_ID = new Map<number, ActivityType>(
 
 /** 画面に出す日本語 */
 export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {
-  issue_created: "課題の追加",
-  issue_updated: "課題の更新",
-  comment: "課題へのコメント",
-  issue_deleted: "課題の削除",
+  issue_created: "タスクの追加",
+  issue_updated: "タスクの更新",
+  comment: "タスクへのコメント",
+  issue_deleted: "タスクの削除",
   wiki_created: "Wikiの追加",
   wiki_updated: "Wikiの更新",
   wiki_deleted: "Wikiの削除",

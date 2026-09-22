@@ -100,7 +100,7 @@ export function ProgressBreakdown({
         </span>
       )}
       {/* 件数と時間がずれているとき（例: 件数80%・時間30%）は、
-          残っているのが重い課題だという合図になる */}
+          残っているのが重いタスクだという合図になる */}
       {p.hoursPercent !== null && (
         <span className="text-slate-500">
           {t("progress.byHours", { percent: p.hoursPercent })}

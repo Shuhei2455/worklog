@@ -134,22 +134,22 @@ describe("parentChild の5パターン", () => {
     expect(w.children).toBeUndefined();
   });
 
-  it("1=子課題のみ", () => {
+  it("1=子タスクのみ", () => {
     const w = buildIssueWhere(f({ parentChild: "1" }), VISIBLE);
     expect(w.parentIssueId).toEqual({ not: null });
   });
 
-  it("2=親課題のみ", () => {
+  it("2=親タスクのみ", () => {
     const w = buildIssueWhere(f({ parentChild: "2" }), VISIBLE);
     expect(w.children).toEqual({ some: {} });
   });
 
-  it("3=子課題以外", () => {
+  it("3=子タスク以外", () => {
     const w = buildIssueWhere(f({ parentChild: "3" }), VISIBLE);
     expect(w.parentIssueId).toBeNull();
   });
 
-  it("4=子課題を持たない", () => {
+  it("4=子タスクを持たない", () => {
     const w = buildIssueWhere(f({ parentChild: "4" }), VISIBLE);
     expect(w.children).toEqual({ none: {} });
   });
@@ -196,7 +196,7 @@ describe("並び替え", () => {
     ]);
   });
 
-  it("添付・共有ファイル・子課題の有無は件数で並べる", () => {
+  it("添付・共有ファイル・子タスクの有無は件数で並べる", () => {
     // 完了時レビューで見つけたバグ。以前は受け付けるだけで
     // 黙って更新日順に落ちていた
     expect(buildIssueOrderBy(f({ sort: "attachment", order: "asc" }))[0]).toEqual({

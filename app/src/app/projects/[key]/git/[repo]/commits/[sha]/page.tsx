@@ -58,7 +58,7 @@ export default async function CommitDetail({
 
       {links.length > 0 && (
         <div className="mt-4">
-          <h2 className="text-sm font-medium text-slate-600">関連する課題</h2>
+          <h2 className="text-sm font-medium text-slate-600">関連するタスク</h2>
           <ul className="mt-2 space-y-1">
             {links.map((l) => (
               <li key={l.id} className="text-sm">

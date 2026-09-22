@@ -70,7 +70,7 @@ export default async function Search({
         <input
           name="q"
           defaultValue={keyword}
-          placeholder="課題とWikiをまとめて探す"
+          placeholder="タスクとWikiをまとめて探す"
           className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
         />
         <Button variant="primary" size="md">
@@ -81,7 +81,7 @@ export default async function Search({
       {!available && (
         <p className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           検索エンジン（Meilisearch）に繋がりません。
-          課題一覧のキーワード絞り込みは引き続き使えます。
+          タスク一覧のキーワード絞り込みは引き続き使えます。
         </p>
       )}
 
@@ -89,7 +89,7 @@ export default async function Search({
         <>
           <section className="mt-6">
             <h2 className="text-sm font-semibold text-slate-600">
-              課題（{issuesWithRel.length}）
+              タスク（{issuesWithRel.length}）
             </h2>
             {issuesWithRel.length === 0 ? (
               <p className="mt-2 text-sm text-slate-400">該当なし</p>

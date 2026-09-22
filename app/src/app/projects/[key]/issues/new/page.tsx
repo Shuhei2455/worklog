@@ -48,10 +48,10 @@ export default async function NewIssue({
       project={projectNav(project, user, ctx, "addIssue")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
-        { label: "課題を追加" },
+        { label: "タスクを追加" },
       ]}
     >
-      <PageTitle>課題を追加</PageTitle>
+      <PageTitle>タスクを追加</PageTitle>
 
       {error && (
         <p className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -142,7 +142,7 @@ export default async function NewIssue({
           </p>
         )}
 
-        {/* カスタム属性。課題種別ごとの絞り込みは送信後に行う
+        {/* カスタム属性。タスク種別ごとの絞り込みは送信後に行う
             （種別を選ぶたびに出し入れするには client JS が必要なため、
             ここでは全件出して、保存時に有効なものだけを使う） */}
         {customFields.length > 0 && (

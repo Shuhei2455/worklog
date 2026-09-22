@@ -188,8 +188,8 @@ export default async function Burndown({
           <Chart points={points} />
           <Table points={points} />
           <p className="mt-3 text-xs text-slate-500">
-            残りは「その日の終わりに完了していない課題」で数えています。
-            予定時間が未入力の課題は0時間として扱うため、件数の線も並べています
+            残りは「その日の終わりに完了していないタスク」で数えています。
+            予定時間が未入力のタスクは0時間として扱うため、件数の線も並べています
             （計算式は本家非公開のため独自。決定 D26）。
           </p>
         </>
@@ -296,7 +296,7 @@ function Chart({ points }: { points: BurndownPoint[] }) {
 
       <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-600">
         <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-5" style={{ background: LINE_COLOR.count }} />残り課題数
+          <span className="inline-block h-0.5 w-5" style={{ background: LINE_COLOR.count }} />残りタスク数
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block h-0.5 w-5" style={{ background: LINE_COLOR.hours }} />残り予定時間

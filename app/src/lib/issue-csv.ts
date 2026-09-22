@@ -14,7 +14,7 @@ import { formatFieldValue, parseFieldValue, type FieldDef } from "@/lib/custom-f
 
 /** 固定列。カスタム属性はこの後ろに名前そのままで並ぶ */
 export const BASE_COLUMNS = [
-  "課題キー",
+  "タスクキー",
   "件名",
   "詳細",
   "状態",
@@ -26,7 +26,7 @@ export const BASE_COLUMNS = [
   "期限日",
   "予定時間",
   "実績時間",
-  "親課題",
+  "親タスク",
   "カテゴリー",
   "マイルストーン",
   "発生バージョン",
@@ -175,7 +175,22 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
   }
 
   const header = rows[0].map((h) => h.trim());
-  const col = (name: string) => header.indexOf(name);
+  // 2026-09-22 に画面の文言を「課題」から「タスク」へ改めた。取り込みはヘッダ名で
+  // 列を対応づけるので、旧名のCSV（それ以前に出したもの、本家から出したもの）も
+  // 読めるように別名を見る。出力は新しい名前だけを使う
+  const ALIASES: Record<string, string[]> = {
+    タスクキー: ["課題キー"],
+    親タスク: ["親課題"],
+  };
+  const col = (name: string) => {
+    const i = header.indexOf(name);
+    if (i !== -1) return i;
+    for (const old of ALIASES[name] ?? []) {
+      const j = header.indexOf(old);
+      if (j !== -1) return j;
+    }
+    return -1;
+  };
 
   if (col("件名") === -1) {
     return {
@@ -186,7 +201,11 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
   }
 
   const fieldByName = new Map(masters.fields.map((f) => [f.name, f]));
-  const known = new Set<string>([...BASE_COLUMNS, ...fieldByName.keys()]);
+  const known = new Set<string>([
+    ...BASE_COLUMNS,
+    ...Object.values(ALIASES).flat(),
+    ...fieldByName.keys(),
+  ]);
   const ignoredColumns = header.filter((h) => h && !known.has(h));
 
   const issues: ParsedIssue[] = [];
@@ -278,14 +297,14 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
 
     // 親課題。**既存の課題だけ**を親にできる。
     // 同じCSV内の行を親にしようとしても、その時点ではまだIDが無い
-    const parentRaw = at("親課題");
+    const parentRaw = at("親タスク");
     let parentIssueId: number | null = null;
     if (parentRaw) {
       const id = masters.issueKeys.get(parentRaw.toUpperCase());
       if (!id) {
         errors.push(
-          `${where}: 親課題「${parentRaw}」が見つかりません` +
-            "（既存の課題キーを書いてください。同じCSV内の行は親にできません）",
+          `${where}: 親タスク「${parentRaw}」が見つかりません` +
+            "（既存のタスクキーを書いてください。同じCSV内の行は親にできません）",
         );
         continue;
       }

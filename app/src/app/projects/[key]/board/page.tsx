@@ -119,7 +119,7 @@ export default async function BoardPage({
       <PageTitle>ボード</PageTitle>
         <div className="flex gap-3 text-sm">
           <Link href={`/projects/${key}/issues`} className="text-brand-700 hover:underline">
-            課題一覧
+            タスク一覧
           </Link>
           {project.chartEnabled && (
             <Link href={`/projects/${key}/gantt`} className="text-brand-700 hover:underline">

@@ -71,7 +71,7 @@ export default async function GitRepositories({
                 </Link>
                 {!r.linkCommitsToIssues && (
                   <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
-                    課題連携OFF
+                    タスク連携OFF
                   </span>
                 )}
                 <span className="flex-1 text-sm text-slate-500">{r.description ?? ""}</span>

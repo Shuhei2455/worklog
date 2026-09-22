@@ -18,7 +18,7 @@ describe("toDueFilter / toRoleFilter", () => {
 });
 
 describe("dueDateWhere", () => {
-  it("全てのときは条件を出さない（期限なしの課題も残す）", () => {
+  it("全てのときは条件を出さない（期限なしのタスクも残す）", () => {
     expect(dueDateWhere("all", today)).toEqual({});
   });
 

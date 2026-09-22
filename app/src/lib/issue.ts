@@ -54,17 +54,17 @@ async function assertParentIsValid(
     throw new Error("自分自身を親にはできません");
   }
   const parent = await tx.issue.findUnique({ where: { id: parentIssueId } });
-  if (!parent) throw new Error("親課題が見つかりません");
+  if (!parent) throw new Error("親タスクが見つかりません");
   if (parent.projectId !== projectId) {
-    throw new Error("別のプロジェクトの課題は親にできません");
+    throw new Error("別のプロジェクトのタスクは親にできません");
   }
   if (parent.parentIssueId != null) {
-    throw new Error("親子課題は1階層までです（子課題を親にはできません）");
+    throw new Error("親子タスクは1階層までです（子タスクを親にはできません）");
   }
   if (selfId) {
     const hasChildren = await tx.issue.count({ where: { parentIssueId: selfId } });
     if (hasChildren > 0) {
-      throw new Error("子課題を持つ課題は、他の課題の子にできません");
+      throw new Error("子タスクを持つタスクは、他のタスクの子にできません");
     }
   }
 }
@@ -83,7 +83,7 @@ export async function createIssue(input: CreateIssueInput) {
 
     if (input.parentIssueId != null) {
       if (!project.subtaskingEnabled) {
-        throw new Error("このプロジェクトでは親子課題を使いません");
+        throw new Error("このプロジェクトでは親子タスクを使いません");
       }
       await assertParentIsValid(tx, input.projectId, input.parentIssueId);
     }
@@ -253,7 +253,7 @@ export async function updateIssue(input: UpdateIssueInput) {
       where: { id: input.issueId },
       include: { categories: true, milestones: true, versions: true },
     });
-    if (!before) throw new Error("課題が見つかりません");
+    if (!before) throw new Error("タスクが見つかりません");
 
     const project = await tx.project.findUniqueOrThrow({
       where: { id: before.projectId },
@@ -261,7 +261,7 @@ export async function updateIssue(input: UpdateIssueInput) {
 
     if (input.parentIssueId != null) {
       if (!project.subtaskingEnabled) {
-        throw new Error("このプロジェクトでは親子課題を使いません");
+        throw new Error("このプロジェクトでは親子タスクを使いません");
       }
       await assertParentIsValid(
         tx,

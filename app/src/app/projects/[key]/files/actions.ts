@@ -131,7 +131,7 @@ export async function linkSharedFileToIssue(issueKey: string, formData: FormData
   const issue = await prisma.issue.findUnique({
     where: { projectId_keyId: { projectId: project.id, keyId: Number(keyIdRaw) } },
   });
-  if (!issue) throw new Error("課題が見つかりません");
+  if (!issue) throw new Error("タスクが見つかりません");
 
   const sharedFileId = Number(formData.get("sharedFileId"));
   const f = await prisma.sharedFile.findUnique({ where: { id: sharedFileId } });

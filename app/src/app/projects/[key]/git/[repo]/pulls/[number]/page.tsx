@@ -105,7 +105,7 @@ export default async function PullDetail({
           </dl>
 
           <div className="rounded border border-slate-200 bg-white p-3">
-            <h2 className="text-xs font-medium text-slate-500">関連する課題</h2>
+            <h2 className="text-xs font-medium text-slate-500">関連するタスク</h2>
             {pr.issue ? (
               <p className="mt-1">
                 <Link
@@ -118,7 +118,7 @@ export default async function PullDetail({
               </p>
             ) : (
               <p className="mt-1 text-xs text-slate-400">
-                なし（ブランチ名に課題キーを入れると自動で付きます）
+                なし（ブランチ名にタスクキーを入れると自動で付きます）
               </p>
             )}
             {ctx.isMember && (

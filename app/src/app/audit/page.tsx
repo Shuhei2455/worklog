@@ -65,7 +65,7 @@ export default async function Audit({
   return (
     <Shell user={user} breadcrumbs={[{ label: "監査ログ" }]}>
       <PageTitle note={<>権限の変更・削除・APIキーの発行など、<strong>管理操作</strong>の記録です。
-        課題やWikiの中身の変化は各画面の「コメントと変更履歴」にあります。</>}>監査ログ</PageTitle>
+        タスクやWikiの中身の変化は各画面の「コメントと変更履歴」にあります。</>}>監査ログ</PageTitle>
 
       <form className="mt-4 flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-white p-3 text-sm">
         <label>

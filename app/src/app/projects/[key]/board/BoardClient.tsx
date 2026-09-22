@@ -117,7 +117,7 @@ function ColumnView({
         </SortableContext>
         {canCreate && (
           <ButtonLink href={`/projects/${projectKey}/issues/new`} variant="secondary" className="border-dashed text-center text-slate-500 hover:bg-white">
-            課題の追加
+            タスクの追加
           </ButtonLink>
         )}
       </ul>

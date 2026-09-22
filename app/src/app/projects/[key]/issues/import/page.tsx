@@ -55,11 +55,11 @@ export default async function ImportIssues({
       project={projectNav(project, user, ctx, "issues")}
       breadcrumbs={[
         { label: project.name, href: `/projects/${key}/issues` },
-        { label: "課題", href: `/projects/${key}/issues` },
+        { label: "タスク", href: `/projects/${key}/issues` },
         { label: "CSV取り込み" },
       ]}
     >
-      <PageTitle>CSVから課題を取り込む</PageTitle>
+      <PageTitle>CSVからタスクを取り込む</PageTitle>
 
       <div className="mt-3 rounded border border-slate-200 bg-white p-4 text-sm">
         <h2 className="font-medium">使い方</h2>
@@ -88,7 +88,7 @@ export default async function ImportIssues({
           複数指定する列は <code>/</code> かカンマで区切ります。
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          いま入っている課題を
+          いま入っているタスクを
           <Link
             href={`/projects/${key}/issues/export`}
             className="mx-1 text-brand-700 underline"

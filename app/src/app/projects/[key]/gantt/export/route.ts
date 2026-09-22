@@ -51,7 +51,7 @@ export async function GET(
 
   const rows: Array<Array<string | number | null>> = [
     [
-      "課題キー",
+      "タスクキー",
       "件名",
       "種別",
       "状態",

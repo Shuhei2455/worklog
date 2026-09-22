@@ -174,7 +174,7 @@ export async function deleteStatus(key: string, formData: FormData) {
     where: { projectId: project.id, statusId: id },
   });
   if (used > 0) {
-    return await back(key, `この状態は ${used} 件の課題で使われています（置き換え先の選択は M1 で実装）`, true);
+    return await back(key, `この状態は ${used} 件のタスクで使われています（置き換え先の選択は M1 で実装）`, true);
   }
 
   await audit(actor.id, {

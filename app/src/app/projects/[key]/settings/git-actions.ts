@@ -148,7 +148,7 @@ export async function toggleLinkCommits(key: string, formData: FormData) {
 
   return await back(
     key,
-    `${repo.name}: コミットと課題の連携を${repo.linkCommitsToIssues ? "OFF" : "ON"}にしました`,
+    `${repo.name}: コミットとタスクの連携を${repo.linkCommitsToIssues ? "OFF" : "ON"}にしました`,
   );
 }
 

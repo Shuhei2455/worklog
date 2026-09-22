@@ -43,7 +43,7 @@ export const AUDIT_ACTIONS = {
   "project.admin.grant": "プロジェクト管理者を付与",
   "project.admin.revoke": "プロジェクト管理者を解除",
   // 消えるもの
-  "issue.delete": "課題を削除",
+  "issue.delete": "タスクを削除",
   "wiki.delete": "Wikiを削除",
   "sharedFile.delete": "共有ファイルを削除",
   "customField.delete": "カスタム属性を削除",
@@ -56,7 +56,7 @@ export const AUDIT_ACTIONS = {
   "repository.create": "リポジトリを作成",
   "repository.detach": "リポジトリの登録を解除",
   // 取り込み
-  "issue.import": "CSVから課題を取り込み",
+  "issue.import": "CSVからタスクを取り込み",
 } as const;
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS;

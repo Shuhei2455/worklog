@@ -32,7 +32,7 @@ export async function moveCard(
 
   const issue = await prisma.issue.findUnique({ where: { id: issueId } });
   if (!issue || issue.projectId !== project.id) {
-    throw new Error("課題が見つかりません");
+    throw new Error("タスクが見つかりません");
   }
 
   const statusChanged = issue.statusId !== toStatusId;
