@@ -1,4 +1,4 @@
-# Kadai（backlog-clone）
+# Worklog（backlog-clone）
 
 Backlog 相当の自己ホスト型プロジェクト管理アプリ。職場チーム5〜20人向け。
 自宅サーバの Docker で開発・検証し、動いたら職場VMへ移設する。

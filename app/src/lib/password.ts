@@ -42,7 +42,12 @@ export function verifyPassword(plain: string, stored: string | null): boolean {
  * 「記号を1文字入れる」を強いると `Password1!` のような定型に寄る。
  * 代わりに、よくある文字列と同じ文字の繰り返しを弾く。
  */
-export const PASSWORD_MIN_LENGTH = 10;
+/**
+ * 2026-09-22 にユーザーの指示で 10 から 6 に緩めた。
+ * 長さ以外の検査（よくある文字列・同じ文字の繰り返し・ログインIDや名前を
+ * 含む）はそのまま残してある
+ */
+export const PASSWORD_MIN_LENGTH = 6;
 
 /** 辞書ではなく、実際に使われがちな短い語だけ。長い辞書はここに持たない */
 const COMMON = [

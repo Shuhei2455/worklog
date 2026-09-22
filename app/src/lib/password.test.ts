@@ -30,8 +30,9 @@ describe("hashPassword / verifyPassword", () => {
     expect(verifyPassword("x", "scrypt$aabb$ccdd")).toBe(false);
   });
 
-  it("最小長の定数が10（決定 D27）", () => {
-    expect(PASSWORD_MIN_LENGTH).toBe(10);
+  // 2026-09-22 にユーザーの指示で 10 から 6 に緩めた
+  it("最小長の定数が6", () => {
+    expect(PASSWORD_MIN_LENGTH).toBe(6);
   });
 });
 
@@ -49,7 +50,12 @@ describe("checkPasswordStrength（M5・決定 D27）", () => {
   });
 
   it("短いものは弾く", () => {
-    expect(err("abc123")).toContain("10文字以上");
+    // 6文字未満。"abc123" は COMMON に入っていて別の理由で落ちるので使わない
+    expect(err("aB3x")).toContain("6文字以上");
+  });
+
+  it("6文字ちょうどは通る", () => {
+    expect(ok("aB3xq7")).toBe(true);
   });
 
   it("長すぎるものも弾く（scryptの計算時間）", () => {

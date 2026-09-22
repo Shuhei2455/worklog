@@ -34,7 +34,7 @@ export function toLocale(v: unknown): Locale {
 const MESSAGES = {
   ja: {
     // 共通
-    "app.name": "Kadai",
+    "app.name": "Worklog",
     "app.tagline": "プロジェクト管理",
     "common.add": "追加",
     "common.create": "作成",
@@ -136,7 +136,7 @@ const MESSAGES = {
     "issue.watching": "ウォッチ中",
   },
   en: {
-    "app.name": "Kadai",
+    "app.name": "Worklog",
     "app.tagline": "Project management",
     "common.add": "Add",
     "common.create": "Create",

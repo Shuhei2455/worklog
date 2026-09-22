@@ -42,7 +42,7 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen justify-center bg-slate-50 px-4 pt-20">
       <form action={login} className="w-full max-w-xs">
-        <h1 className="text-2xl font-semibold text-slate-800">Kadai</h1>
+        <h1 className="text-2xl font-semibold text-slate-800">Worklog</h1>
         <p className="mt-1 text-sm text-slate-500">プロジェクト管理</p>
 
         {error && (

@@ -134,6 +134,6 @@ describe("toDiscord", () => {
   });
 
   it("送信元が分かるよう username にプロジェクト名を入れる", () => {
-    expect(toDiscord(base).username).toBe("Kadai / 運用改善");
+    expect(toDiscord(base).username).toBe("Worklog / 運用改善");
   });
 });

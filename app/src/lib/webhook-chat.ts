@@ -136,7 +136,7 @@ export function toDiscord(payload: WebhookPayload, appUrl?: string): DiscordPayl
 
   return {
     // 送信元が分かるようにする。Discord側の名前より優先される
-    username: `Kadai / ${payload.project.name}`,
+    username: `Worklog / ${payload.project.name}`,
     embeds: [
       {
         title,
