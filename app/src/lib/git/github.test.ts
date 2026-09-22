@@ -134,8 +134,9 @@ describe("応答の写し", () => {
 describe("Webhookの署名", () => {
   const body = '{"zen":"design"}';
 
-  it("秘密が未設定なら検証しない（開発中に繋いで試せるように）", () => {
-    expect(github.verifyWebhook(new Headers(), body)).toBe(true);
+  it("秘密が未設定なら落とす（誰でもタスクにコメントを書ける穴になる）", () => {
+    delete process.env.GITHUB_WEBHOOK_SECRET;
+    expect(github.verifyWebhook(new Headers(), body)).toBe(false);
   });
 
   it("正しい署名は通る", () => {

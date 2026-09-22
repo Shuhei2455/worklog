@@ -235,8 +235,10 @@ export const github: GitProvider = {
 
   verifyWebhook(headers, rawBody) {
     const secret = process.env.GITHUB_WEBHOOK_SECRET;
-    // 秘密を設定していなければ検証しない（開発中に繋いで試せるように）
-    if (!secret) return true;
+    // **秘密が未設定なら全部落とす。**
+    // 素通りさせると、この受け口に届く誰もがタスクへコメントを書けてしまう。
+    // 置き換え前の Gitea の受け口も同じ判断だった
+    if (!secret) return false;
     const sent = headers.get("x-hub-signature-256");
     if (!sent) return false;
     const mine = "sha256=" + createHmac("sha256", secret).update(rawBody).digest("hex");
