@@ -24,6 +24,8 @@ import {
 // composeが未設定の変数を**空文字**で渡すため `??` では既定に落ちない
 // (`??` は null/undefined のときだけ)。空も既定に寄せる
 const API = process.env.GITHUB_API_BASE || "https://api.github.com";
+// APIと画面のホストは別。GitHub Enterprise では api.<host>/api/v3 と <host> に分かれる
+const WEB = process.env.GITHUB_WEB_BASE || "https://github.com";
 
 export function githubConfigured(): boolean {
   return Boolean(process.env.GITHUB_TOKEN);
@@ -98,7 +100,7 @@ type RawPull = {
   merged?: boolean;
   merged_at: string | null;
   closed_at: string | null;
-  base: { ref: string };
+  base: { ref: string; sha: string };
   head: { ref: string; sha: string };
   merge_commit_sha: string | null;
   user: { login: string } | null;
@@ -116,6 +118,7 @@ const toPull = (p: RawPull): GitPull => ({
   mergedAt: p.merged_at,
   closedAt: p.closed_at,
   baseRef: p.base.ref,
+  baseSha: p.base.sha,
   headRef: p.head.ref,
   headSha: p.head.sha,
   mergeCommitSha: p.merge_commit_sha,
@@ -212,6 +215,22 @@ export const github: GitProvider = {
       async () => toPull(await call<RawPull>(`${repoPath(ref)}/pulls/${number}`)),
       null,
     );
+  },
+
+  cloneUrls(ref) {
+    const web = WEB.replace(/\/$/, "");
+    const host = new URL(web).host;
+    return {
+      http: `${web}/${ref.owner}/${ref.name}.git`,
+      ssh: `git@${host}:${ref.owner}/${ref.name}.git`,
+    };
+  },
+
+  webUrl(ref, at) {
+    const base = `${WEB.replace(/\/$/, "")}/${ref.owner}/${ref.name}`;
+    if (at?.commit) return `${base}/commit/${at.commit}`;
+    if (at?.pull) return `${base}/pull/${at.pull}`;
+    return base;
   },
 
   verifyWebhook(headers, rawBody) {

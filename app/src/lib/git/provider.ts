@@ -65,6 +65,7 @@ export type GitPull = {
   mergedAt: string | null;
   closedAt: string | null;
   baseRef: string;
+  baseSha: string;
   headRef: string;
   headSha: string;
   mergeCommitSha: string | null;
@@ -96,6 +97,15 @@ export interface GitProvider {
 
   listPulls(ref: RepoRef, opts?: { state?: "open" | "closed" | "all" }): Promise<GitPull[]>;
   getPull(ref: RepoRef, number: number): Promise<GitPull | null>;
+
+  /**
+   * クローンURL。Gitea のときは自前の /git プロキシを指していたが、
+   * 提供元が外にある場合は**向こうのURL**でないと使えない
+   */
+  cloneUrls(ref: RepoRef): { http: string; ssh: string | null };
+
+  /** ブラウザで開くURL。コミットやPRへの直リンクに使う */
+  webUrl(ref: RepoRef, at?: { commit?: string; pull?: number }): string;
 
   /**
    * Webhookの署名を検証する。**本文は生のまま渡すこと**。

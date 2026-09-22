@@ -862,12 +862,22 @@ export default async function ProjectSettings({
                       </Button>
                     </form>
                   </div>
+                  {/* 提供元が外にある場合、クローンURLは**向こうのもの**でないと使えない。
+                      Gitea のときは自前の /git プロキシを指していた */}
                   <div className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-500">
-                    <div>{httpCloneUrl(project.gitOwner ?? project.key, r.name)}</div>
-                    {/* SSH が使えない環境では出さない（lib/repo.ts） */}
-                    {sshCloneUrl(project.gitOwner ?? project.key, r.name) && (
-                      <div>{sshCloneUrl(project.gitOwner ?? project.key, r.name)}</div>
-                    )}
+                    {(() => {
+                      const owner = project.gitOwner ?? project.key;
+                      const urls = provider
+                        ? provider.cloneUrls({ owner, name: r.name })
+                        : { http: httpCloneUrl(owner, r.name), ssh: sshCloneUrl(owner, r.name) };
+                      return (
+                        <>
+                          <div>{urls.http}</div>
+                          {/* SSH が使えない環境では出さない（lib/repo.ts） */}
+                          {urls.ssh && <div>{urls.ssh}</div>}
+                        </>
+                      );
+                    })()}
                   </div>
                 </li>
               ))}

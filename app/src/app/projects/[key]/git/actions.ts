@@ -103,17 +103,23 @@ export async function syncPullRequests(key: string, repoName: string) {
   await assertCan(actor, "git.access", project.id);
   if (!ctx.isMember) redirect("/");
 
-  const { gitOwnerOf, listPulls } = await import("@/lib/gitea");
   const { handlePullRequest } = await import("@/lib/gitea-webhook");
+  const { gitProvider } = await import("@/lib/git");
 
   const repository = await prisma.repository.findFirst({
     where: { projectId: project.id, name: repoName },
   });
   if (!repository) redirect(`/projects/${key}/git`);
 
-  const org = await gitOwnerOf(project.id);
-  const pulls = await listPulls(org, repoName);
+  const provider = gitProvider();
+  if (!provider) redirect(`/projects/${key}/git`);
 
+  const owner = project.gitOwner ?? project.key;
+  const pulls = await provider.listPulls({ owner, name: repoName }, { state: "all" });
+
+  // handlePullRequest は Gitea の形の payload を取る。課題キーの解釈と
+  // ユーザーの名寄せをそのまま使いたいので、中立な型から写して渡す。
+  // （この写しは webhook を提供元経由にする段階で消える）
   for (const p of pulls) {
     await handlePullRequest({
       action: "synchronized",
@@ -122,16 +128,16 @@ export async function syncPullRequests(key: string, repoName: string) {
       pull_request: {
         number: p.number,
         title: p.title,
-        body: p.body ?? "",
+        body: p.body,
         state: p.state,
         merged: p.merged,
-        merged_at: p.merged_at,
-        closed_at: p.closed_at,
-        base: p.base,
-        head: p.head,
-        merge_commit_sha: p.merge_commit_sha,
-        user: p.user,
-        assignee: p.assignee,
+        merged_at: p.mergedAt,
+        closed_at: p.closedAt,
+        base: { ref: p.baseRef, sha: p.baseSha },
+        head: { ref: p.headRef, sha: p.headSha },
+        merge_commit_sha: p.mergeCommitSha,
+        user: p.authorLogin ? { login: p.authorLogin } : null,
+        assignee: p.assigneeLogin ? { login: p.assigneeLogin } : null,
       },
     });
   }

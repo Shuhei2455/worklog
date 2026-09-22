@@ -22,13 +22,14 @@ export default async function Pulls({
 }) {
   const { key, repo } = await params;
   const sp = await searchParams;
-  const { user, project, ctx, repository, org } = await loadGitContext(
+  const { user, project, ctx, repository, org, provider } = await loadGitContext(
     key,
     decodeURIComponent(repo),
   );
   const name = repository!.name;
   const state = sp.state ?? "open";
 
+  const providerLabel = provider?.name === "github" ? "GitHub" : provider ? provider.name : "Gitea";
   const pulls = await prisma.pullRequest.findMany({
     where: {
       repositoryId: repository!.id,
@@ -63,12 +64,16 @@ export default async function Pulls({
       <div className="flex items-baseline justify-between">
         <PageTitle>{name} のプルリクエスト</PageTitle>
         <a
-          href={`${process.env.APP_URL ?? ""}/git/${org}/${encodeURIComponent(name)}/pulls`}
+          href={
+            provider
+              ? `${provider.webUrl({ owner: org, name })}/pulls`
+              : `${process.env.APP_URL ?? ""}/git/${org}/${encodeURIComponent(name)}/pulls`
+          }
           target="_blank"
           rel="noreferrer"
           className="text-xs text-brand-700 hover:underline"
         >
-          Gitea で開く（作成・レビューはこちら）
+          {providerLabel} で開く（作成・レビューはこちら）
         </a>
       </div>
 
@@ -95,7 +100,7 @@ export default async function Pulls({
             ここから手で埋められるようにする */}
         <form action={syncPullRequests.bind(null, key, name)}>
           <Button variant="secondary" size="xs">
-            Gitea から取り込む
+            {providerLabel} から取り込む
           </Button>
         </form>
       </div>
