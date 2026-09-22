@@ -27,6 +27,7 @@ import {
 import { renderMentions } from "@/lib/mention";
 import { Markdown } from "@/components/Markdown";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { projectNav } from "@/lib/project-nav";
 import { readFlash } from "@/lib/flash";
 import {
@@ -179,9 +180,13 @@ export default async function IssueDetail({
         </form>
         {canDelete && (
           <form action={removeIssue.bind(null, fullKey)}>
-            <Button variant="dangerOutline">
+            {/* 物理削除なので戻せない。押した瞬間に消えないよう確認を挟む */}
+            <ConfirmSubmit
+              variant="dangerOutline"
+              message={`${fullKey}「${issue.summary}」を削除します。\n\nコメント・添付・Gitとの紐付けも一緒に消え、元に戻せません。`}
+            >
               削除
-            </Button>
+            </ConfirmSubmit>
           </form>
         )}
       </div>

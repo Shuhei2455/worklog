@@ -6,6 +6,7 @@ import { PageTitle, Button } from "@/components/ui";
 import { RATE_LIMITS } from "@/lib/api/rate-limit";
 import { issueToken, revokeToken } from "./actions";
 
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 const jst = (d: Date) =>
   d.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });
 
@@ -75,7 +76,7 @@ export default async function ApiSettings({
               ) : (
                 <form action={revokeToken}>
                   <input type="hidden" name="id" value={t.id} />
-                  <Button variant="danger" size="xs">失効させる</Button>
+                  <ConfirmSubmit variant="danger" size="xs" message={`APIキー「${t.name}」を失効させます。\n\nこのキーを使っている連携は動かなくなります。元に戻せません。`}>失効させる</ConfirmSubmit>
                 </form>
               )}
             </li>

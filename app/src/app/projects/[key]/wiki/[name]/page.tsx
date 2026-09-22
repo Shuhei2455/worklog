@@ -9,6 +9,7 @@ import { PageTitle, Button, ButtonLink } from "@/components/ui";
 import { Markdown } from "@/components/Markdown";
 import { deleteWiki } from "../actions";
 
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 const jst = (d: Date) =>
   d.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour12: false });
 
@@ -79,9 +80,12 @@ export default async function WikiPage({
                 編集
               </ButtonLink>
               <form action={deleteWiki.bind(null, key, page.name)}>
-                <Button variant="dangerOutline">
+                <ConfirmSubmit
+                  variant="dangerOutline"
+                  message={`Wiki「${page.name}」を削除します。\n\n本文も履歴も消え、元に戻せません。`}
+                >
                   削除
-                </Button>
+                </ConfirmSubmit>
               </form>
             </>
           )}

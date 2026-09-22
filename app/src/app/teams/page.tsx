@@ -13,6 +13,7 @@ import {
   removeTeamMember,
 } from "./actions";
 
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 /**
  * チームの管理（スペース全体）。
  *
@@ -100,7 +101,7 @@ export default async function Teams({
                 <span className="flex-1" />
                 <form action={deleteTeam}>
                   <input type="hidden" name="id" value={t.id} />
-                  <Button variant="danger" size="xs">削除</Button>
+                  <ConfirmSubmit variant="danger" size="xs" message={`チーム「${t.name}」を削除します。\n\n元に戻せません。`}>削除</ConfirmSubmit>
                 </form>
               </div>
 

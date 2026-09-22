@@ -9,6 +9,7 @@ import { ActionResult, PageTitle, Button } from "@/components/ui";
 import { uploadSharedFile, deleteSharedFile } from "./actions";
 import { normalizeDir, parentDir } from "@/lib/shared-file-path";
 
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 const kb = (n: number) => `${Math.ceil(n / 1024)} KB`;
 
 export default async function Files({
@@ -162,7 +163,7 @@ export default async function Files({
             )}
             <form action={deleteSharedFile.bind(null, key)}>
               <input type="hidden" name="id" value={f.id} />
-              <Button variant="danger" size="xs">削除</Button>
+              <ConfirmSubmit variant="danger" size="xs" message={`ファイル「${f.name}」を削除します。\n\n元に戻せません。`}>削除</ConfirmSubmit>
             </form>
           </li>
         ))}
