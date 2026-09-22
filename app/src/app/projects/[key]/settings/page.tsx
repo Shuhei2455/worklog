@@ -36,6 +36,7 @@ import {
 } from "./actions";
 import {
   createRepository,
+  connectRepository,
   toggleLinkCommits,
   detachRepository,
   importRepository,
@@ -53,6 +54,7 @@ import {
   hasItems,
 } from "@/lib/custom-field";
 import { giteaEnabled } from "@/lib/gitea";
+import { gitProvider, type GitRepo } from "@/lib/git";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 
 
@@ -134,6 +136,19 @@ export default async function ProjectSettings({
       orderBy: { displayOrder: "asc" },
     }),
   ]);
+
+  // 提供元のリポジトリ一覧。未設定なら null にして、繋ぐ欄ごと出さない。
+  // 向こうが落ちていても設定画面が開けなくなると困るので、失敗は空扱いにする
+  const provider = gitProvider();
+  const gitProviderName = provider?.name ?? "";
+  let providerRepos: GitRepo[] | null = null;
+  if (provider && canEditProject) {
+    try {
+      providerRepos = await provider.listRepos();
+    } catch {
+      providerRepos = [];
+    }
+  }
 
   const bind = <T,>(fn: (key: string, fd: FormData) => Promise<T>) =>
     fn.bind(null, key);
@@ -858,6 +873,40 @@ export default async function ProjectSettings({
               ))}
             </ul>
           )}
+          {/* 提供元(GitHub/将来Bitbucket)にある既存リポジトリを繋ぐ。
+              向こうに何も作らないので、Gitea用の「作成」「取り込み」とは別物 */}
+          {providerRepos !== null && (
+            <form
+              action={bind(connectRepository)}
+              className="mt-3 flex flex-wrap items-end gap-2"
+            >
+              <label className="flex-1 text-sm">
+                <span className="block text-xs text-slate-500">
+                  繋ぐリポジトリ（{gitProviderName}）
+                </span>
+                {providerRepos.length === 0 ? (
+                  <span className="mt-1 block text-slate-400">
+                    見えるリポジトリがありません（トークンの権限を確認してください）
+                  </span>
+                ) : (
+                  <select
+                    name="repo"
+                    required
+                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
+                  >
+                    {providerRepos.map((r) => (
+                      <option key={`${r.owner}/${r.name}`} value={`${r.owner}/${r.name}`}>
+                        {r.owner}/{r.name}
+                        {r.private ? "（非公開）" : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+              <Button variant="primary">繋ぐ</Button>
+            </form>
+          )}
+
           {giteaEnabled() && (
             <>
             <form

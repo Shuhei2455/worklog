@@ -14,6 +14,7 @@ import {
 } from "@/lib/gitea";
 import { REPO_NAME_RE } from "@/lib/repo";
 import { audit } from "@/lib/audit";
+import { gitProvider } from "@/lib/git";
 
 /**
  * リポジトリの設定。
@@ -213,4 +214,56 @@ export async function importRepository(key: string, formData: FormData) {
   }
 
   return await back(key, `${name} を取り込みました`);
+}
+
+/**
+ * 提供元（GitHub / 将来 Bitbucket）にある既存リポジトリを繋ぐ。
+ *
+ * Gitea 向けの createRepository / importRepository と違い、**向こうに何も作らない**。
+ * GitHub や Bitbucket のリポジトリはこちらの持ち物ではないので、
+ * 既にあるものを選んで紐づけるだけにする。
+ *
+ * 所有者はリポジトリ単位ではなくプロジェクト単位（Project.gitOwner）で持つ。
+ * 社内 Bitbucket もプロジェクト配下にリポジトリが並ぶ形なので、この対応でよい。
+ */
+export async function connectRepository(key: string, formData: FormData) {
+  const actor = await currentUser();
+  const project = await projectByKey(key);
+  await assertCan(actor, "project.edit", project.id);
+
+  const provider = gitProvider();
+  if (!provider) return await back(key, "Git連携が設定されていません", true);
+
+  // 「owner/name」の形で来る。所有者ごと持たないと、他人のリポジトリを繋げない
+  const full = String(formData.get("repo") ?? "").trim();
+  const [owner, name] = full.split("/");
+  if (!owner || !name) return await back(key, "リポジトリを選んでください", true);
+
+  try {
+    const repo = await provider.getRepo({ owner, name });
+    if (!repo) return await back(key, `${full} が見つかりません`, true);
+
+    await prisma.$transaction([
+      prisma.project.update({
+        where: { id: project.id },
+        data: { gitOwner: repo.owner },
+      }),
+      prisma.repository.upsert({
+        where: { projectId_name: { projectId: project.id, name: repo.name } },
+        update: { externalRepoId: repo.externalId, defaultBranch: repo.defaultBranch },
+        create: {
+          projectId: project.id,
+          externalRepoId: repo.externalId,
+          name: repo.name,
+          defaultBranch: repo.defaultBranch,
+          createdById: actor.id,
+          displayOrder: await nextDisplayOrder(project.id),
+        },
+      }),
+    ]);
+  } catch (e) {
+    return await back(key, `接続に失敗しました: ${(e as Error).message}`, true);
+  }
+
+  return await back(key, `${full} を繋ぎました`);
 }
