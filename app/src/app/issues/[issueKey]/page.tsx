@@ -427,6 +427,28 @@ export default async function IssueDetail({
                 placeholder="コメント"
                 className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
               />
+              {/* メンションは `@名前` ではなく `<@U5>`（本家と同じ記法）。
+                  知らないと書けないので、実際のコードをここに出す */}
+              <details className="mt-1 text-xs text-slate-500">
+                <summary className="cursor-pointer">
+                  メンションの書き方（Markdown / GFM が使えます）
+                </summary>
+                <p className="mt-1">
+                  下のコードをそのまま本文に貼ると、相手に通知が届きます。
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {members.map((m) => (
+                    <li key={m.userId}>
+                      <code className="rounded bg-slate-100 px-1">{`<@U${m.userId}>`}</code>{" "}
+                      {m.user.name}
+                    </li>
+                  ))}
+                  <li>
+                    <code className="rounded bg-slate-100 px-1">{"<@project>"}</code>{" "}
+                    このプロジェクトの参加者全員
+                  </li>
+                </ul>
+              </details>
               <div className="mt-2 flex items-center gap-3 text-sm">
                 {canEdit && (
                   <label className="flex items-center gap-2">

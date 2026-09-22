@@ -12,7 +12,7 @@ export default async function GitRepositories({
   params: Promise<{ key: string }>;
 }) {
   const { key } = await params;
-  const { user, project, ctx, repositories, org, gitConfigured } =
+  const { user, project, ctx, repositories, org, gitConfigured, provider } =
     await loadGitContext(key);
 
   return (
@@ -42,13 +42,43 @@ export default async function GitRepositories({
         </Notice>
       )}
 
+      {/* この規約は知らないと使えない。ツールチップだけでは伝わらないので、
+          実際のプロジェクトキーを入れた例を画面に出す */}
+      <section className="mt-4 rounded border border-slate-200 bg-white p-4 text-sm">
+        <h2 className="font-semibold">タスクと結びつける書き方</h2>
+        <p className="mt-2 text-slate-600">
+          コミットメッセージに<strong>タスクキー</strong>を書くと、そのタスクに
+          コメントが自動で登録されます。
+        </p>
+        <pre className="mt-1 overflow-x-auto rounded bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">
+          git commit -m &quot;{project.key}-1 ログイン画面の配色を直す&quot;
+        </pre>
+        <p className="mt-3 text-slate-600">
+          ブランチ名に入れると、プルリクエストがそのタスクに紐づきます。
+        </p>
+        <pre className="mt-1 overflow-x-auto rounded bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">
+          {project.key}-1/login-redesign
+        </pre>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-500">
+          <li>
+            対象は<strong>このプロジェクトのタスクだけ</strong>です。
+            他プロジェクトのキーを書いても書き込みません
+          </li>
+          <li>リポジトリごとに「タスク連携」をOFFにできます（プロジェクト設定）</li>
+          <li>
+            反映には提供元側でのWebhook登録が要ります。登録していないと、
+            <strong>エラーは出ずに何も起きません</strong>
+          </li>
+        </ul>
+      </section>
+
       {repositories.length === 0 ? (
         <EmptyState className="mt-4">
           リポジトリがありません。
           <Link href={`/projects/${key}/settings`} className="ml-1 text-brand-700 underline">
             プロジェクト設定
           </Link>
-          で作成してください。
+          で繋いでください。
         </EmptyState>
       ) : (
         <ul className="mt-4 space-y-3">
@@ -80,20 +110,28 @@ export default async function GitRepositories({
                   プルリクエスト
                 </Link>
               </div>
-              <dl className="mt-3 space-y-1 font-mono text-[11px] text-slate-500">
-                <div>
-                  <span className="mr-2 font-sans text-slate-400">HTTP</span>
-                  {httpCloneUrl(org, r.name)}
-                </div>
-                {/* SSH が使えない環境では出さない。
-                    つながらないURLを見せると利用者が延々悩む（lib/repo.ts） */}
-                {sshCloneUrl(org, r.name) && (
-                  <div>
-                    <span className="mr-2 font-sans text-slate-400">SSH</span>
-                    {sshCloneUrl(org, r.name)}
-                  </div>
-                )}
-              </dl>
+              {/* 提供元が外にある場合は**向こうのURL**でないとクローンできない */}
+              {(() => {
+                const urls = provider
+                  ? provider.cloneUrls({ owner: org, name: r.name })
+                  : { http: httpCloneUrl(org, r.name), ssh: sshCloneUrl(org, r.name) };
+                return (
+                  <dl className="mt-3 space-y-1 font-mono text-[11px] text-slate-500">
+                    <div>
+                      <span className="mr-2 font-sans text-slate-400">HTTP</span>
+                      {urls.http}
+                    </div>
+                    {/* SSH が使えない環境では出さない。
+                        つながらないURLを見せると利用者が延々悩む（lib/repo.ts） */}
+                    {urls.ssh && (
+                      <div>
+                        <span className="mr-2 font-sans text-slate-400">SSH</span>
+                        {urls.ssh}
+                      </div>
+                    )}
+                  </dl>
+                );
+              })()}
               {r.pushedAt && (
                 <p className="mt-2 text-xs text-slate-400">
                   最終push: {r.pushedAt.toISOString().slice(0, 16).replace("T", " ")}
