@@ -5,6 +5,8 @@ import { projectNav } from "@/lib/project-nav";
 import { EmptyState, PageTitle } from "@/components/ui";
 import { loadGitContext, commitTitle } from "@/lib/git-view";
 import { RepoTabs } from "../../RepoTabs";
+import { CommitGraph } from "@/components/CommitGraph";
+import { layoutCommits } from "@/lib/git-graph";
 
 /** コミット一覧。紐づいた課題キーも並べて「コミット→課題」を辿れるようにする */
 export default async function Commits({
@@ -28,6 +30,9 @@ export default async function Commits({
   const commits = provider && repoRef
     ? await provider.listCommits(repoRef, { sha: ref, page, limit: 30 })
     : [];
+
+  // 枝の配置。描画は行ごとに独立しているのでページングで崩れない
+  const graph = layoutCommits(commits.map((c) => ({ sha: c.sha, parents: c.parents })));
 
   // 紐づいている課題をまとめて引く（コミットごとにクエリを出さない）
   const links = await prisma.commitIssueLink.findMany({
@@ -68,35 +73,38 @@ export default async function Commits({
         </EmptyState>
       ) : (
         <ul className="mt-3 divide-y divide-slate-100 rounded border border-slate-200 bg-white">
-          {commits.map((c) => (
-            <li key={c.sha} className="px-3 py-2.5">
-              <div className="flex items-baseline gap-3">
-                <Link
-                  href={`/projects/${key}/git/${encodeURIComponent(name)}/commits/${c.sha}`}
-                  className="font-mono text-xs text-brand-700 hover:underline"
-                >
-                  {c.sha.slice(0, 7)}
-                </Link>
-                <span className="flex-1 text-sm">{commitTitle(c.message)}</span>
-                <span className="text-xs text-slate-400">
-                  {c.authorName} /{" "}
-                  {c.authoredAt.slice(0, 16).replace("T", " ")}
-                </span>
-              </div>
-              {(byCommit.get(c.sha) ?? []).length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-2">
+          {commits.map((c, i) => (
+            <li key={c.sha} className="h-11 py-0 pl-2 pr-3">
+              <div className="flex items-stretch gap-2">
+                {graph[i] && <CommitGraph row={graph[i]} />}
+                {/* 枝の線を繋げるため、行の高さを固定する。タスクのバッジも
+                    同じ行に収める（折り返すと線が途切れる） */}
+                <div className="flex min-w-0 flex-1 items-center gap-3 self-center">
+                  <Link
+                    href={`/projects/${key}/git/${encodeURIComponent(name)}/commits/${c.sha}`}
+                    className="shrink-0 font-mono text-xs text-brand-700 hover:underline"
+                  >
+                    {c.sha.slice(0, 7)}
+                  </Link>
+                  <span className="min-w-0 flex-1 truncate text-sm" title={commitTitle(c.message)}>
+                    {commitTitle(c.message)}
+                  </span>
                   {(byCommit.get(c.sha) ?? []).map((l) => (
                     <Link
                       key={l.id}
                       href={`/issues/${project.key}-${l.issue.keyId}`}
-                      className="rounded bg-brand-50 px-1.5 py-0.5 text-xs text-brand-800 hover:underline"
+                      className="shrink-0 rounded bg-brand-50 px-1.5 py-0.5 text-xs text-brand-800 hover:underline"
                       title={l.issue.summary}
                     >
                       {project.key}-{l.issue.keyId}
                     </Link>
                   ))}
+                  <span className="hidden shrink-0 text-xs text-slate-400 sm:block">
+                    {c.authorName} /{" "}
+                    {c.authoredAt.slice(0, 16).replace("T", " ")}
+                  </span>
                 </div>
-              )}
+              </div>
             </li>
           ))}
         </ul>

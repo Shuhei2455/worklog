@@ -36,6 +36,8 @@ export type GitCommit = {
   authoredAt: string;
   /** 提供元アカウント名。紐付けできないときは null */
   authorLogin: string | null;
+  /** 親コミット。枝の分かれ方を描くのに要る。マージは2つ以上になる */
+  parents: string[];
 };
 
 export type GitEntry = {

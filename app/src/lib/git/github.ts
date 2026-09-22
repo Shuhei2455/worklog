@@ -81,6 +81,7 @@ type RawCommit = {
   sha: string;
   commit: { message: string; author: { name: string; email: string; date: string } };
   author: { login: string } | null;
+  parents?: Array<{ sha: string }>;
 };
 
 const toCommit = (c: RawCommit): GitCommit => ({
@@ -90,6 +91,7 @@ const toCommit = (c: RawCommit): GitCommit => ({
   authorEmail: c.commit.author.email,
   authoredAt: c.commit.author.date,
   authorLogin: c.author?.login ?? null,
+  parents: (c.parents ?? []).map((p) => p.sha),
 });
 
 type RawPull = {
@@ -280,6 +282,8 @@ export const github: GitProvider = {
           authorEmail: c.author.email,
           authoredAt: c.timestamp,
           authorLogin: c.author.username ?? null,
+          // push の payload に親は入らない。グラフはAPIから引くので空でよい
+          parents: [],
         })),
       };
     }
