@@ -42,9 +42,9 @@ export async function linkPullRequestIssue(
 
   const pr = await prisma.pullRequest.findUnique({
     where: {
-      repositoryId_giteaPrNumber: {
+      repositoryId_externalPrNumber: {
         repositoryId: repository.id,
-        giteaPrNumber: prNumber,
+        externalPrNumber: prNumber,
       },
     },
   });
@@ -103,7 +103,7 @@ export async function syncPullRequests(key: string, repoName: string) {
   await assertCan(actor, "git.access", project.id);
   if (!ctx.isMember) redirect("/");
 
-  const { giteaOrgOf, listPulls } = await import("@/lib/gitea");
+  const { gitOwnerOf, listPulls } = await import("@/lib/gitea");
   const { handlePullRequest } = await import("@/lib/gitea-webhook");
 
   const repository = await prisma.repository.findFirst({
@@ -111,14 +111,14 @@ export async function syncPullRequests(key: string, repoName: string) {
   });
   if (!repository) redirect(`/projects/${key}/git`);
 
-  const org = await giteaOrgOf(project.id);
+  const org = await gitOwnerOf(project.id);
   const pulls = await listPulls(org, repoName);
 
   for (const p of pulls) {
     await handlePullRequest({
       action: "synchronized",
       number: p.number,
-      repository: { id: repository.giteaRepoId, name: repoName },
+      repository: { id: Number(repository.externalRepoId), name: repoName },
       pull_request: {
         number: p.number,
         title: p.title,

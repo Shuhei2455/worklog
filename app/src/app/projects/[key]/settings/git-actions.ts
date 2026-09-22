@@ -8,7 +8,7 @@ import { currentUser, assertCan } from "@/lib/session";
 import {
   giteaEnabled,
   ensureOrg,
-  giteaOrgOf,
+  gitOwnerOf,
   createGiteaRepo,
   ensureRepoWebhook,
 } from "@/lib/gitea";
@@ -80,7 +80,7 @@ export async function createRepository(key: string, formData: FormData) {
     await prisma.repository.create({
       data: {
         projectId: project.id,
-        giteaRepoId: repo.id,
+        externalRepoId: String(repo.id),
         name: repo.name,
         description: description || null,
         defaultBranch: repo.default_branch || "main",
@@ -174,7 +174,7 @@ export async function detachRepository(key: string, formData: FormData) {
     action: "repository.detach",
     targetType: "repository",
     targetId: `${project.key}/${repo!.name}`,
-    detail: { giteaRepoId: repo!.giteaRepoId },
+    detail: { externalRepoId: repo!.externalRepoId },
   });
 
   await prisma.repository.delete({ where: { id: repo.id } });
@@ -191,16 +191,16 @@ export async function importRepository(key: string, formData: FormData) {
   if (!REPO_NAME_RE.test(name)) return await back(key, "リポジトリ名が不正です", true);
 
   try {
-    const org = await giteaOrgOf(project.id);
+    const org = await gitOwnerOf(project.id);
     const repo = await createGiteaRepo(org, name, ""); // あれば既存を返す
     await ensureRepoWebhook(org, name, process.env.GITEA_WEBHOOK_SECRET ?? "");
 
     await prisma.repository.upsert({
       where: { projectId_name: { projectId: project.id, name: repo.name } },
-      update: { giteaRepoId: repo.id },
+      update: { externalRepoId: String(repo.id) },
       create: {
         projectId: project.id,
-        giteaRepoId: repo.id,
+        externalRepoId: String(repo.id),
         name: repo.name,
         description: repo.description || null,
         defaultBranch: repo.default_branch || "main",

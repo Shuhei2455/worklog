@@ -18,9 +18,9 @@ export const GET = apiRoute<{
 
   const pr = await prisma.pullRequest.findUnique({
     where: {
-      repositoryId_giteaPrNumber: {
+      repositoryId_externalPrNumber: {
         repositoryId: repo.id,
-        giteaPrNumber: Number(params.number),
+        externalPrNumber: Number(params.number),
       },
     },
     include: { assignee: true, createdBy: true },

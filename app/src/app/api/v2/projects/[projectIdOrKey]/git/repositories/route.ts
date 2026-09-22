@@ -2,7 +2,7 @@ import { apiRoute, findProject } from "@/lib/api/handler";
 import { serializeRepository } from "@/lib/api/serialize";
 import { prisma } from "@/lib/db";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
-import { giteaOrgOf } from "@/lib/gitea";
+import { gitOwnerOf } from "@/lib/gitea";
 
 /**
  * GET /api/v2/projects/:projectIdOrKey/git/repositories
@@ -10,7 +10,7 @@ import { giteaOrgOf } from "@/lib/gitea";
  */
 export const GET = apiRoute<{ projectIdOrKey: string }>(async (_req, ctx, params) => {
   const project = await findProject(params.projectIdOrKey, ctx);
-  const org = project.giteaOrg ?? (await giteaOrgOf(project.id));
+  const org = project.gitOwner ?? (await gitOwnerOf(project.id));
 
   const repos = await prisma.repository.findMany({
     where: { projectId: project.id },

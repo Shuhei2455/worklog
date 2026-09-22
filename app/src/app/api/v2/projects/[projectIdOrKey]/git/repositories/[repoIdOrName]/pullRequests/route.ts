@@ -21,7 +21,7 @@ export const GET = apiRoute<{ projectIdOrKey: string; repoIdOrName: string }>(
     const pulls = await prisma.pullRequest.findMany({
       where: pullRequestWhere(repo.id, q),
       include: { assignee: true, createdBy: true },
-      orderBy: { giteaPrNumber: "desc" },
+      orderBy: { externalPrNumber: "desc" },
       skip: q.offset,
       take: q.count,
     });

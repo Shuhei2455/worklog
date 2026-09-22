@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
-import { giteaEnabled, giteaOrgOf } from "@/lib/gitea";
+import { giteaEnabled, gitOwnerOf } from "@/lib/gitea";
 
 /**
  * Git の画面で毎回やること（プロジェクトの取得・権限・organization 名）を
@@ -36,7 +36,7 @@ export async function loadGitContext(key: string, repoName?: string) {
   // organization 名はプロジェクトキーと一致しないことがある（予約名の回避）。
   //
   // **Gitea が未設定・未到達でも画面は開くようにする。**
-  // 以前はここで無条件に giteaOrgOf() を呼んでいたため、
+  // 以前はここで無条件に gitOwnerOf() を呼んでいたため、
   //   - Gitea 未設定（GITEA_ADMIN_TOKEN が空）だと画面全体が 500
   //   - リポジトリが1つも無いのに organization が作られる（GETの副作用）
   // の2つが起きていた。移設直後（gitea-setup.sh を流す前）に必ず踏む。
@@ -44,13 +44,13 @@ export async function loadGitContext(key: string, repoName?: string) {
   // organization 名はクローンURLの組み立てにしか使わないので、
   // 解決できなければプロジェクトキーで代用し、画面に注意書きを出す。
   const giteaConfigured = giteaEnabled();
-  let org = project.giteaOrg ?? project.key;
+  let org = project.gitOwner ?? project.key;
   let giteaReachable = giteaConfigured;
 
   // リポジトリが無いなら organization は要らない。作りにも行かない
-  if (!project.giteaOrg && repositories.length > 0 && giteaConfigured) {
+  if (!project.gitOwner && repositories.length > 0 && giteaConfigured) {
     try {
-      org = await giteaOrgOf(project.id);
+      org = await gitOwnerOf(project.id);
     } catch {
       giteaReachable = false;
     }

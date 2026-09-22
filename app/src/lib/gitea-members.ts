@@ -2,8 +2,8 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import {
   giteaEnabled,
-  giteaOrgOf,
-  giteaLoginOf,
+  gitOwnerOf,
+  gitLoginOf,
   ensureGiteaUser,
   addOrgMember,
   removeOrgMember,
@@ -47,13 +47,13 @@ export async function syncOrgMembers(projectId: number): Promise<{
     }),
   );
 
-  const org = await giteaOrgOf(projectId);
+  const org = await gitOwnerOf(projectId);
 
   // 入れるべき人を入れる
   const allowedLogins = new Set<string>();
   for (const m of allowed) {
     await ensureGiteaUser(m.userId);
-    const login = await giteaLoginOf(m.userId);
+    const login = await gitLoginOf(m.userId);
     allowedLogins.add(login);
     await addOrgMember(org, login);
   }

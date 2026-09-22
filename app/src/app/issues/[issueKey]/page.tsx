@@ -123,7 +123,7 @@ export default async function IssueDetail({
     prisma.pullRequest.findMany({
       where: { issueId: issue.id },
       include: { repository: { select: { name: true } } },
-      orderBy: { giteaPrNumber: "desc" },
+      orderBy: { externalPrNumber: "desc" },
     }),
     loadFieldDefs(project.id),
     prisma.issueCustomFieldValue.findMany({ where: { issueId: issue.id } }),
@@ -258,10 +258,10 @@ export default async function IssueDetail({
                   {relatedPulls.map((p) => (
                     <li key={p.id} className="flex items-baseline gap-2">
                       <a
-                        href={`/projects/${project.key}/git/${encodeURIComponent(p.repository.name)}/pulls/${p.giteaPrNumber}`}
+                        href={`/projects/${project.key}/git/${encodeURIComponent(p.repository.name)}/pulls/${p.externalPrNumber}`}
                         className="text-brand-700 hover:underline"
                       >
-                        {p.repository.name} #{p.giteaPrNumber} {p.title}
+                        {p.repository.name} #{p.externalPrNumber} {p.title}
                       </a>
                       <span className="text-xs text-slate-400">{p.state}</span>
                     </li>

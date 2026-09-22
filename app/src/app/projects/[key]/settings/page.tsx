@@ -848,10 +848,10 @@ export default async function ProjectSettings({
                     </form>
                   </div>
                   <div className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-500">
-                    <div>{httpCloneUrl(project.giteaOrg ?? project.key, r.name)}</div>
+                    <div>{httpCloneUrl(project.gitOwner ?? project.key, r.name)}</div>
                     {/* SSH が使えない環境では出さない（lib/repo.ts） */}
-                    {sshCloneUrl(project.giteaOrg ?? project.key, r.name) && (
-                      <div>{sshCloneUrl(project.giteaOrg ?? project.key, r.name)}</div>
+                    {sshCloneUrl(project.gitOwner ?? project.key, r.name) && (
+                      <div>{sshCloneUrl(project.gitOwner ?? project.key, r.name)}</div>
                     )}
                   </div>
                 </li>

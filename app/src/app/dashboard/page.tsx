@@ -172,7 +172,7 @@ export default async function Dashboard({
         wikiPage: { select: { id: true, name: true } },
         pullRequest: {
           select: {
-            giteaPrNumber: true,
+            externalPrNumber: true,
             title: true,
             repository: { select: { name: true } },
           },
@@ -297,10 +297,10 @@ export default async function Dashboard({
                 {pullRequests.map((pr) => (
                   <li key={pr.id} className="flex items-center gap-3 px-4 py-2">
                     <Link
-                      href={`/projects/${pr.repository.project.key}/git/${pr.repository.name}/pulls/${pr.giteaPrNumber}`}
+                      href={`/projects/${pr.repository.project.key}/git/${pr.repository.name}/pulls/${pr.externalPrNumber}`}
                       className="shrink-0 font-mono text-sm text-brand-700 hover:underline"
                     >
-                      {pr.repository.name}#{pr.giteaPrNumber}
+                      {pr.repository.name}#{pr.externalPrNumber}
                     </Link>
                     <span title={pr.title} className="min-w-0 flex-1 truncate">{pr.title}</span>
                     <span className="shrink-0 text-sm text-slate-500">
@@ -328,7 +328,7 @@ export default async function Dashboard({
                     href = `/projects/${a.project.key}/wiki/${a.wikiPage.id}`;
                     target = a.wikiPage.name;
                   } else if (a.pullRequest) {
-                    href = `/projects/${a.project.key}/git/${a.pullRequest.repository.name}/pulls/${a.pullRequest.giteaPrNumber}`;
+                    href = `/projects/${a.project.key}/git/${a.pullRequest.repository.name}/pulls/${a.pullRequest.externalPrNumber}`;
                     target = a.pullRequest.title;
                   }
 

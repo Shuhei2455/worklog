@@ -120,7 +120,7 @@ function isReservedError(e: unknown): boolean {
  * `-kadai` を付ける。決め方を固定しておかないと、作り直したときに
  * 別のユーザーができてしまう。
  */
-function giteaLoginFor(loginId: string, attempt: number): string {
+function gitLoginFor(loginId: string, attempt: number): string {
   if (attempt === 0 && !GITEA_RESERVED.has(loginId.toLowerCase())) return loginId;
   return `${loginId}-kadai${attempt > 1 ? attempt : ""}`;
 }
@@ -135,7 +135,7 @@ function giteaLoginFor(loginId: string, attempt: number): string {
 export async function ensureGiteaUser(userId: number): Promise<number> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error(`ユーザーが見つかりません: ${userId}`);
-  if (user.giteaUserId && user.giteaLogin) return user.giteaUserId;
+  if (user.gitExternalId && user.gitLogin) return Number(user.gitExternalId);
 
   // メールで先に探す。Gitea はメールの重複を拒むので、同じアドレスの
   // ユーザーが既にいるなら、名前を変えても作れない。それを掴んで紐づける
@@ -143,13 +143,13 @@ export async function ensureGiteaUser(userId: number): Promise<number> {
   if (byEmail) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { giteaUserId: byEmail.id, giteaLogin: byEmail.login },
+      data: { gitExternalId: String(byEmail.id), gitLogin: byEmail.login },
     });
     return byEmail.id;
   }
 
   for (let attempt = 0; attempt < 4; attempt++) {
-    const login = giteaLoginFor(user.userId, attempt);
+    const login = gitLoginFor(user.userId, attempt);
 
     // 既にいるかもしれない（過去に同期して列だけ消えた場合）。
     // ただし同じ名前の別人を掴まないよう、メールの一致も見る
@@ -161,7 +161,7 @@ export async function ensureGiteaUser(userId: number): Promise<number> {
       if (existing.email !== user.email) continue; // 別人。次の候補へ
       await prisma.user.update({
         where: { id: user.id },
-        data: { giteaUserId: existing.id, giteaLogin: login },
+        data: { gitExternalId: String(existing.id), gitLogin: login },
       });
       return existing.id;
     }
@@ -180,7 +180,7 @@ export async function ensureGiteaUser(userId: number): Promise<number> {
       });
       await prisma.user.update({
         where: { id: user.id },
-        data: { giteaUserId: gitea.id, giteaLogin: login },
+        data: { gitExternalId: String(gitea.id), gitLogin: login },
       });
       return gitea.id;
     } catch (e) {
@@ -212,26 +212,26 @@ async function findGiteaUserByEmail(email: string): Promise<GiteaUser | null> {
 }
 
 /** Gitea 側のログイン名。同期していなければ同期する */
-export async function giteaLoginOf(userId: number): Promise<string> {
+export async function gitLoginOf(userId: number): Promise<string> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { giteaLogin: true },
+    select: { gitLogin: true },
   });
-  if (user?.giteaLogin) return user.giteaLogin;
+  if (user?.gitLogin) return user.gitLogin;
   await ensureGiteaUser(userId);
   const after = await prisma.user.findUnique({
     where: { id: userId },
-    select: { giteaLogin: true },
+    select: { gitLogin: true },
   });
-  if (!after?.giteaLogin) throw new Error("Gitea のログイン名が決まりません");
-  return after.giteaLogin;
+  if (!after?.gitLogin) throw new Error("Gitea のログイン名が決まりません");
+  return after.gitLogin;
 }
 
 /** Gitea のパスワードを設定し直す。Gitea に直接ログインしたいとき用 */
 export async function setGiteaPassword(userId: number, password: string): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error(`ユーザーが見つかりません: ${userId}`);
-  const login = await giteaLoginOf(user.id);
+  const login = await gitLoginOf(user.id);
 
   await call(`/admin/users/${encodeURIComponent(login)}`, {
     method: "PATCH",
@@ -257,16 +257,16 @@ export async function setGiteaPassword(userId: number, password: string): Promis
 export async function ensureOrg(projectId: number): Promise<string> {
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) throw new Error(`プロジェクトが見つかりません: ${projectId}`);
-  if (project.giteaOrg) return project.giteaOrg;
+  if (project.gitOwner) return project.gitOwner;
 
   for (let attempt = 0; attempt < 4; attempt++) {
-    const name = giteaLoginFor(project.key, attempt);
+    const name = gitLoginFor(project.key, attempt);
 
     const org = await call<{ id: number } | null>(`/orgs/${name}`, { expect404: true });
     if (org) {
       await prisma.project.update({
         where: { id: project.id },
-        data: { giteaOrg: name },
+        data: { gitOwner: name },
       });
       return name;
     }
@@ -284,7 +284,7 @@ export async function ensureOrg(projectId: number): Promise<string> {
       });
       await prisma.project.update({
         where: { id: project.id },
-        data: { giteaOrg: name },
+        data: { gitOwner: name },
       });
       return name;
     } catch (e) {
@@ -295,26 +295,26 @@ export async function ensureOrg(projectId: number): Promise<string> {
 }
 
 /** organization 名を引く。無ければ作る */
-export async function giteaOrgOf(projectId: number): Promise<string> {
+export async function gitOwnerOf(projectId: number): Promise<string> {
   const p = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { giteaOrg: true },
+    select: { gitOwner: true },
   });
-  return p?.giteaOrg ?? (await ensureOrg(projectId));
+  return p?.gitOwner ?? (await ensureOrg(projectId));
 }
 
 /** organization にユーザーを入れる（= リポジトリが見えるようになる） */
-export async function addOrgMember(org: string, giteaLogin: string): Promise<void> {
+export async function addOrgMember(org: string, gitLogin: string): Promise<void> {
   // Owners は organization 作成時に作られる唯一のチーム。
   // 5〜20人の規模でチームを細かく分ける意味がないので、ここに入れる
-  await call(`/teams/${await ownersTeamId(org)}/members/${encodeURIComponent(giteaLogin)}`, {
+  await call(`/teams/${await ownersTeamId(org)}/members/${encodeURIComponent(gitLogin)}`, {
     method: "PUT",
   });
 }
 
 /** organization から外す。プロジェクトのメンバーを外したときに呼ぶ */
-export async function removeOrgMember(org: string, giteaLogin: string): Promise<void> {
-  await call(`/orgs/${org}/members/${encodeURIComponent(giteaLogin)}`, {
+export async function removeOrgMember(org: string, gitLogin: string): Promise<void> {
+  await call(`/orgs/${org}/members/${encodeURIComponent(gitLogin)}`, {
     method: "DELETE",
   });
 }

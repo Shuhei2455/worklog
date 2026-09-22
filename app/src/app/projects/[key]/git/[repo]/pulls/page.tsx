@@ -39,7 +39,7 @@ export default async function Pulls({
       assignee: { select: { name: true } },
       createdBy: { select: { name: true } },
     },
-    orderBy: { giteaPrNumber: "desc" },
+    orderBy: { externalPrNumber: "desc" },
   });
 
   const filters = [
@@ -110,10 +110,10 @@ export default async function Pulls({
             <li key={p.id} className="px-3 py-2.5">
               <div className="flex items-baseline gap-3">
                 <Link
-                  href={`/projects/${key}/git/${encodeURIComponent(name)}/pulls/${p.giteaPrNumber}`}
+                  href={`/projects/${key}/git/${encodeURIComponent(name)}/pulls/${p.externalPrNumber}`}
                   className="text-sm font-medium text-brand-700 hover:underline"
                 >
-                  #{p.giteaPrNumber} {p.title}
+                  #{p.externalPrNumber} {p.title}
                 </Link>
                 <span
                   className={`rounded px-1.5 py-0.5 text-xs ${

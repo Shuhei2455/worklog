@@ -276,7 +276,7 @@ export const PR_STATUS: Record<string, { id: number; name: string }> = {
 export function serializePullRequest(pr: {
   id: number;
   repositoryId: number;
-  giteaPrNumber: number;
+  externalPrNumber: number;
   title: string;
   body: string | null;
   baseBranch: string;
@@ -298,7 +298,7 @@ export function serializePullRequest(pr: {
     id: pr.id,
     projectId: pr.projectId,
     repositoryId: pr.repositoryId,
-    number: pr.giteaPrNumber,
+    number: pr.externalPrNumber,
     summary: pr.title,
     description: pr.body ?? "",
     base: pr.baseBranch,

@@ -636,23 +636,23 @@ async function main() {
   // Gitea 側の実体とは対応しない。ダッシュボードと一覧の見え方の確認用
   const repo = await prisma.repository.create({
     data: {
-      projectId: web.id, giteaRepoId: 9001, name: "portal",
+      projectId: web.id, externalRepoId: "9001", name: "portal",
       description: "社内ポータルのソース", defaultBranch: "main",
       createdById: u.admin.id, pushedAt: at(0, 11),
     },
   });
   await prisma.pullRequest.createMany({
     data: [
-      { repositoryId: repo.id, giteaPrNumber: 12, issueId: main0.id,
+      { repositoryId: repo.id, externalPrNumber: 12, issueId: main0.id,
         title: "ログイン画面のマークアップを差し替える",
         body: "WEB-1 の対応。配色は暫定です。",
         baseBranch: "main", headBranch: "WEB-1/login-redesign", state: "open",
         assigneeId: u.admin.id, createdById: u.nakamura.id, createdAt: at(-2, 14) },
-      { repositoryId: repo.id, giteaPrNumber: 13, issueId: webIssues[2].id,
+      { repositoryId: repo.id, externalPrNumber: 13, issueId: webIssues[2].id,
         title: "検索クエリに索引を足す",
         baseBranch: "main", headBranch: "WEB-3/search-index", state: "open",
         assigneeId: u.takahashi.id, createdById: u.admin.id, createdAt: at(-1, 9) },
-      { repositoryId: repo.id, giteaPrNumber: 11,
+      { repositoryId: repo.id, externalPrNumber: 11,
         title: "利用マニュアルの雛形を追加",
         baseBranch: "main", headBranch: "WEB-5/manual", state: "merged",
         assigneeId: u.yamada.id, createdById: u.yamada.id,

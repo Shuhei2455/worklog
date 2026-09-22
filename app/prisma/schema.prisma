@@ -110,13 +110,14 @@ model User {
   externalId   String?      @map("external_id")
   passwordHash String?      @map("password_hash")
 
-  /// Gitea 側のユーザーID(M4で使う)
-  giteaUserId  Int?         @map("gitea_user_id")
+  /// 提供元(GitHub/Bitbucket/Gitea)側のユーザー識別子。
+  /// 数値のこともスラッグのこともあるので文字列で持つ
+  gitExternalId String?     @map("git_external_id")
   /// Gitea 側のログイン名。**アプリの userId と一致しないことがある。**
   /// Gitea は admin / api / user / new など多くの名前を予約しており、
   /// その名前ではユーザーを作れない（422 name is reserved）。
   /// 衝突したときは別名を振るので、どちらを使ったかを覚えておく必要がある
-  giteaLogin   String?      @map("gitea_login")
+  gitLogin     String?      @map("git_login")
 
   lastLoginAt  DateTime?    @map("last_login_at")
   /// 論理削除。活動履歴が残るので物理削除しない
@@ -227,7 +228,7 @@ model Project {
   /// Gitea 側の organization 名。**プロジェクトキーと一致しないことがある。**
   /// Gitea は api / new / user などを予約しており、キーがそれに当たると
   /// organization を作れない。衝突時は別名を振るので覚えておく必要がある
-  giteaOrg    String?  @map("gitea_org")
+  gitOwner    String?  @map("git_owner")
 
   /// keyId の採番カウンタ。UPDATE ... RETURNING で進める。
   /// アプリ側で MAX+1 を取ってはいけない
@@ -858,7 +859,7 @@ model WikiSharedFile {
 model Repository {
   id            Int     @id @default(autoincrement())
   projectId     Int     @map("project_id")
-  giteaRepoId   Int     @map("gitea_repo_id")
+  externalRepoId String @map("external_repo_id")
   name          String
   description   String?
   defaultBranch String  @default("main") @map("default_branch")
@@ -903,7 +904,7 @@ model PullRequest {
   id             Int      @id @default(autoincrement())
   repositoryId   Int      @map("repository_id")
   /// リポジトリ内の連番。本家の `number` に対応する(課題の keyId と同じ役回り)
-  giteaPrNumber  Int      @map("gitea_pr_number")
+  externalPrNumber Int    @map("external_pr_number")
   /// ブランチ名に課題キーが含まれていれば自動で紐づく
   issueId        Int?     @map("issue_id")
   /// 本家は summary / description という名前で返す。APIで写像する
@@ -931,7 +932,7 @@ model PullRequest {
   createdBy  User?      @relation("PullRequestCreatedBy", fields: [createdById], references: [id])
   activities Activity[]
 
-  @@unique([repositoryId, giteaPrNumber])
+  @@unique([repositoryId, externalPrNumber])
   @@index([issueId])
   @@map("pull_requests")
 }

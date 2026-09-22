@@ -29,9 +29,9 @@ export default async function PullDetail({
 
   const pr = await prisma.pullRequest.findUnique({
     where: {
-      repositoryId_giteaPrNumber: {
+      repositoryId_externalPrNumber: {
         repositoryId: repository!.id,
-        giteaPrNumber: Number(number),
+        externalPrNumber: Number(number),
       },
     },
     include: {
@@ -42,8 +42,8 @@ export default async function PullDetail({
   });
   if (!pr) notFound();
 
-  const bind = linkPullRequestIssue.bind(null, key, name, pr.giteaPrNumber);
-  const giteaUrl = `${process.env.APP_URL ?? ""}/git/${org}/${encodeURIComponent(name)}/pulls/${pr.giteaPrNumber}`;
+  const bind = linkPullRequestIssue.bind(null, key, name, pr.externalPrNumber);
+  const giteaUrl = `${process.env.APP_URL ?? ""}/git/${org}/${encodeURIComponent(name)}/pulls/${pr.externalPrNumber}`;
 
   return (
     <Shell
@@ -57,12 +57,12 @@ export default async function PullDetail({
           label: "プルリクエスト",
           href: `/projects/${key}/git/${encodeURIComponent(name)}/pulls`,
         },
-        { label: `#${pr.giteaPrNumber}` },
+        { label: `#${pr.externalPrNumber}` },
       ]}
     >
       <div className="flex items-baseline gap-3">
         <PageTitle>
-          #{pr.giteaPrNumber} {pr.title}
+          #{pr.externalPrNumber} {pr.title}
         </PageTitle>
         <span
           className={`rounded px-2 py-0.5 text-xs ${

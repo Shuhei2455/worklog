@@ -72,7 +72,7 @@ type PullPayload = {
 /** Gitea のログイン名からこちらのユーザーを引く。分からなければ null */
 async function userByGiteaLogin(login: string | undefined | null) {
   if (!login) return null;
-  return prisma.user.findFirst({ where: { giteaLogin: login } });
+  return prisma.user.findFirst({ where: { gitLogin: login } });
 }
 
 /** webhook の送り主を、行を作る人として決める。不明ならリポジトリを作った人 */
@@ -87,7 +87,7 @@ async function actorFor(
 /** push を処理する。戻り値はログ用 */
 export async function handlePush(payload: PushPayload): Promise<string> {
   const repo = await prisma.repository.findFirst({
-    where: { giteaRepoId: payload.repository.id },
+    where: { externalRepoId: String(payload.repository.id) },
     include: { project: { select: { id: true, key: true } } },
   });
   if (!repo) return `未登録のリポジトリ: ${payload.repository.full_name}`;
@@ -191,7 +191,7 @@ export async function handlePush(payload: PushPayload): Promise<string> {
 /** PR を処理する */
 export async function handlePullRequest(payload: PullPayload): Promise<string> {
   const repo = await prisma.repository.findFirst({
-    where: { giteaRepoId: payload.repository.id },
+    where: { externalRepoId: String(payload.repository.id) },
     include: { project: { select: { id: true, key: true } } },
   });
   if (!repo) return `未登録のリポジトリ: ${payload.repository.name}`;
@@ -218,7 +218,7 @@ export async function handlePullRequest(payload: PullPayload): Promise<string> {
 
   const data: Prisma.PullRequestUncheckedCreateInput = {
     repositoryId: repo.id,
-    giteaPrNumber: pr.number,
+    externalPrNumber: pr.number,
     title: pr.title,
     body: pr.body || null,
     baseBranch: pr.base.ref,
@@ -236,13 +236,13 @@ export async function handlePullRequest(payload: PullPayload): Promise<string> {
 
   const before = await prisma.pullRequest.findUnique({
     where: {
-      repositoryId_giteaPrNumber: { repositoryId: repo.id, giteaPrNumber: pr.number },
+      repositoryId_externalPrNumber: { repositoryId: repo.id, externalPrNumber: pr.number },
     },
   });
 
   const saved = await prisma.pullRequest.upsert({
     where: {
-      repositoryId_giteaPrNumber: { repositoryId: repo.id, giteaPrNumber: pr.number },
+      repositoryId_externalPrNumber: { repositoryId: repo.id, externalPrNumber: pr.number },
     },
     create: data,
     // issueId は一度決まったら webhook で消さない。

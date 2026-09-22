@@ -23,7 +23,7 @@ export default async function GitSettings({
 
   const me = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { giteaLogin: true, giteaUserId: true },
+    select: { gitLogin: true, gitExternalId: true },
   });
 
   return (
@@ -59,7 +59,7 @@ export default async function GitSettings({
             <div className="flex justify-between border-b border-slate-100 py-1.5">
               <dt className="text-slate-500">Gitea のログインID</dt>
               <dd className="font-mono">
-                {me?.giteaLogin ?? "（未同期。リポジトリを作ると同期されます）"}
+                {me?.gitLogin ?? "（未同期。リポジトリを作ると同期されます）"}
               </dd>
             </div>
             <div className="flex justify-between py-1.5">
@@ -77,11 +77,11 @@ export default async function GitSettings({
             </div>
           </dl>
 
-          {me?.giteaLogin && me.giteaLogin !== user.userId && (
+          {me?.gitLogin && me.gitLogin !== user.userId && (
             <p className="mt-2 text-xs text-slate-500">
               このアプリのログインID（<code>{user.userId}</code>）は Gitea が
               予約している名前のため、Gitea 側は{" "}
-              <code>{me.giteaLogin}</code> になっています。
+              <code>{me.gitLogin}</code> になっています。
             </p>
           )}
 
