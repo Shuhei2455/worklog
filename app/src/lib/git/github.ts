@@ -21,7 +21,9 @@ import {
  * 認証は個人アクセストークン。使用感の確認が目的なので GitHub App は使わない。
  */
 
-const API = process.env.GITHUB_API_BASE ?? "https://api.github.com";
+// composeが未設定の変数を**空文字**で渡すため `??` では既定に落ちない
+// (`??` は null/undefined のときだけ)。空も既定に寄せる
+const API = process.env.GITHUB_API_BASE || "https://api.github.com";
 
 export function githubConfigured(): boolean {
   return Boolean(process.env.GITHUB_TOKEN);

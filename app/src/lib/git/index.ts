@@ -8,7 +8,7 @@ import { github, githubConfigured } from "./github";
  * ここに分岐を1行増やす（呼び出し側は変えない）。
  */
 export function gitProvider(): GitProvider | null {
-  const name = process.env.GIT_PROVIDER ?? "github";
+  const name = process.env.GIT_PROVIDER || "github";
   if (name === "github") return githubConfigured() ? github : null;
   return null;
 }
