@@ -212,9 +212,13 @@ export default async function IssueDetail({
                     {can(user, "issueAttachment.delete", ctx) && (
                       <form action={detachFile.bind(null, fullKey)}>
                         <input type="hidden" name="attachmentId" value={a.attachmentId} />
-                        <Button variant="danger" size="xs">
+                        <ConfirmSubmit
+                          variant="danger"
+                          size="xs"
+                          message={`添付ファイル「${a.attachment.name}」を削除します。\n\n元に戻せません。`}
+                        >
                           削除
-                        </Button>
+                        </ConfirmSubmit>
                       </form>
                     )}
                   </li>

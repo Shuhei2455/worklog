@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { Shell } from "@/components/Shell";
+import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import {
   Section,
   PageTitle,
@@ -280,10 +281,15 @@ export default async function ProjectSettings({
                   ))}
                   <form action={bind(deleteStatus)}>
                     <input type="hidden" name="id" value={s.id} />
-                    <Button variant="dangerOutline" size="xs" disabled={s.isDefault}
-                      title={s.isDefault ? "標準の4状態は削除できません" : "削除"}>
+                    <ConfirmSubmit
+                      variant="dangerOutline"
+                      size="xs"
+                      disabled={s.isDefault}
+                      title={s.isDefault ? "標準の4状態は削除できません" : "削除"}
+                      message={`状態「${s.name}」を削除します。\n\nこの状態のタスクがあると削除できません。元に戻せません。`}
+                    >
                       削除
-                    </Button>
+                    </ConfirmSubmit>
                   </form>
                 </span>
               )}
@@ -565,7 +571,7 @@ export default async function ProjectSettings({
                   </span>
                   <form action={bind(removeProjectTeam)}>
                     <input type="hidden" name="teamId" value={pt.teamId} />
-                    <Button variant="danger" size="xs">外す</Button>
+                    <ConfirmSubmit variant="danger" size="xs" message={`チーム「${pt.team.name}」をこのプロジェクトから外します。\n\nメンバー${pt.team._count.members}人がタスクとWikiを見られなくなります。`}>外す</ConfirmSubmit>
                   </form>
                 </li>
               ))}
@@ -626,9 +632,13 @@ export default async function ProjectSettings({
                     </form>
                     <form action={bind(detachRepository)}>
                       <input type="hidden" name="id" value={r.id} />
-                      <Button variant="danger" size="xs">
+                      <ConfirmSubmit
+                        variant="danger"
+                        size="xs"
+                        message={`${r.name} の登録を解除します。\n\n提供元のリポジトリは残りますが、取り込んだプルリクエストとタスクへのコミットの紐付けは消えます。`}
+                      >
                         登録解除
-                      </Button>
+                      </ConfirmSubmit>
                     </form>
                   </div>
                   {/* 提供元が外にある場合、クローンURLは**向こうのもの**でないと使えない。
@@ -731,7 +741,7 @@ export default async function ProjectSettings({
                   </span>
                   <form action={bind(deleteWebhook)}>
                     <input type="hidden" name="id" value={w.id} />
-                    <Button variant="danger" size="xs">削除</Button>
+                    <ConfirmSubmit variant="danger" size="xs" message={`Webhook「${w.name}」を削除します。\n\n通知が止まります。元に戻せません。`}>削除</ConfirmSubmit>
                   </form>
                 </li>
               ))}
@@ -798,9 +808,13 @@ export default async function ProjectSettings({
               {canEditProject && (
                 <form action={bind(removeMember)}>
                   <input type="hidden" name="userId" value={m.userId} />
-                  <Button variant="dangerOutline" size="xs">
+                  <ConfirmSubmit
+                    variant="dangerOutline"
+                    size="xs"
+                    message={`${m.user.name} をこのプロジェクトから外します。\n\nタスクとWikiを見られなくなります。`}
+                  >
                     外す
-                  </Button>
+                  </ConfirmSubmit>
                 </form>
               )}
             </li>
