@@ -571,7 +571,7 @@ export default async function ProjectSettings({
                   </span>
                   <form action={bind(removeProjectTeam)}>
                     <input type="hidden" name="teamId" value={pt.teamId} />
-                    <ConfirmSubmit variant="danger" size="xs" message={`チーム「${pt.team.name}」をこのプロジェクトから外します。\n\nメンバー${pt.team._count.members}人がタスクとWikiを見られなくなります。`}>外す</ConfirmSubmit>
+                    <ConfirmSubmit variant="danger" size="xs" message={`チーム「${pt.team.name}」をこのプロジェクトから外します。\n\nメンションの宛先として選べなくなります。参加ユーザーの権限は変わりません。`}>外す</ConfirmSubmit>
                   </form>
                 </li>
               ))}
