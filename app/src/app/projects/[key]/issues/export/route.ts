@@ -3,7 +3,6 @@ import { can } from "@/lib/permissions";
 import { currentUser, projectContext } from "@/lib/session";
 import { buildIssueWhere, buildIssueOrderBy, issueFilterSchema } from "@/lib/issue-filter";
 import { issuesToCsv, type IssueRow } from "@/lib/issue-csv";
-import { loadFieldDefs } from "@/lib/custom-field-form";
 
 /**
  * GET /projects/:key/issues/export?<一覧と同じ絞り込み>
@@ -41,16 +40,14 @@ export async function GET(
       categories: true,
       milestones: true,
       versions: true,
-      customFieldValues: true,
     },
     // 上限を置く。無制限にすると、事故で全社ぶんを1ファイルにしてしまう
     take: 5000,
   });
 
-  const [categories, versions, fields] = await Promise.all([
+  const [categories, versions] = await Promise.all([
     prisma.category.findMany({ where: { projectId: project.id } }),
     prisma.version.findMany({ where: { projectId: project.id } }),
-    loadFieldDefs(project.id),
   ]);
   const catName = new Map(categories.map((c) => [c.id, c.name]));
   const verName = new Map(versions.map((v) => [v.id, v.name]));
@@ -75,12 +72,9 @@ export async function GET(
     creatorName: i.creator.name,
     createdAt: i.createdAt,
     updatedAt: i.updatedAt,
-    customValues: Object.fromEntries(
-      i.customFieldValues.map((v) => [v.customFieldId, v.value]),
-    ),
   }));
 
-  const csv = issuesToCsv(rows, fields);
+  const csv = issuesToCsv(rows);
   const stamp = new Date().toISOString().slice(0, 10);
 
   return new Response(csv, {

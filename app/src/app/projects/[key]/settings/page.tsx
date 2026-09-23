@@ -39,18 +39,6 @@ import {
   toggleLinkCommits,
   detachRepository,
 } from "./git-actions";
-import {
-  addCustomField,
-  updateCustomField,
-  deleteCustomField,
-  toggleCustomFieldRequired,
-  setCustomFieldIssueTypes,
-} from "./custom-field-actions";
-import {
-  CUSTOM_FIELD_TYPE_LABEL,
-  CUSTOM_FIELD_TYPE_ID,
-  hasItems,
-} from "@/lib/custom-field";
 import { gitProvider, type GitRepo } from "@/lib/git";
 import { httpCloneUrl, sshCloneUrl } from "@/lib/repo";
 
@@ -92,7 +80,6 @@ export default async function ProjectSettings({
     webhooks,
     repositories,
     projectTeams,
-    customFields,
   ] = await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
@@ -126,11 +113,6 @@ export default async function ProjectSettings({
     prisma.projectTeam.findMany({
       where: { projectId: project.id },
       include: { team: { include: { _count: { select: { members: true } } } } },
-    }),
-    prisma.customField.findMany({
-      where: { projectId: project.id },
-      include: { items: { orderBy: { displayOrder: "asc" } }, _count: { select: { values: true } } },
-      orderBy: { displayOrder: "asc" },
     }),
   ]);
 
@@ -602,215 +584,6 @@ export default async function ProjectSettings({
             <Button variant="secondary">
               割り当て
             </Button>
-          </form>
-        </Section>
-      )}
-
-      {/* ---------------- カスタム属性 ---------------- */}
-      {canEditProject && (
-        <Section
-          title="カスタム属性"
-          note="タスクに独自の入力欄を足します。型は本家と同じ8種（00-spec-verified.md 10.1）。削除すると入力済みの値も消えます。"
-        >
-          {customFields.length === 0 ? (
-            <p className="text-xs text-slate-400">なし</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 rounded border border-slate-200">
-              {customFields.map((f) => (
-                <li key={f.id} className="px-3 py-2 text-sm">
-                  {/* スマホ幅では4ブロックが1行に入らない（375pxで167pxはみ出していた）。
-                      折り返しを許し、編集フォームだけ1行を占有させる */}
-                  <div className="flex flex-wrap items-center gap-3">
-                    {/* 名前と説明を直せるようにする。
-                        型と選択肢は変えられない（入力済みの値の解釈が変わるため） */}
-                    <form
-                      action={bind(updateCustomField)}
-                      className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1"
-                    >
-                      <input type="hidden" name="id" value={f.id} />
-                      <input
-                        name="name"
-                        required
-                        defaultValue={f.name}
-                        className="w-32 rounded border border-slate-300 px-1.5 py-0.5 text-sm"
-                      />
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
-                        {CUSTOM_FIELD_TYPE_LABEL[f.typeId]}
-                      </span>
-                      <input
-                        name="description"
-                        defaultValue={f.description ?? ""}
-                        placeholder="説明"
-                        className="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-0.5 text-xs"
-                      />
-                      <Button variant="secondary" size="xs">
-                        保存
-                      </Button>
-                    </form>
-                    <form action={bind(toggleCustomFieldRequired)}>
-                      <input type="hidden" name="id" value={f.id} />
-                      <ToggleChip on={f.required} tone="amber" size="xs">
-                        {f.required ? "必須" : "任意"}
-                      </ToggleChip>
-                    </form>
-                    {f._count.values > 0 && (
-                      <span className="text-xs text-slate-400">
-                        入力済み {f._count.values} 件
-                      </span>
-                    )}
-                    <form action={bind(deleteCustomField)}>
-                      <input type="hidden" name="id" value={f.id} />
-                      <Button variant="danger" size="xs">削除</Button>
-                    </form>
-                  </div>
-                  {f.items.length > 0 && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      選択肢: {f.items.map((i) => i.name).join(" / ")}
-                    </p>
-                  )}
-                  {/* 有効なタスク種別。チェックを全部外すと全種別で有効（本家と同じ） */}
-                  <form
-                    action={bind(setCustomFieldIssueTypes)}
-                    className="mt-1 flex flex-wrap items-center gap-2 text-xs"
-                  >
-                    <input type="hidden" name="id" value={f.id} />
-                    <span className="text-slate-500">有効な種別</span>
-                    {issueTypes.map((t) => (
-                      <label key={t.id} className="flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          name="issueTypeId"
-                          value={t.id}
-                          defaultChecked={f.applicableIssueTypes.includes(t.id)}
-                        />
-                        {t.name}
-                      </label>
-                    ))}
-                    <Button variant="secondary" size="xs">
-                      保存
-                    </Button>
-                    <span className="text-slate-400">
-                      {f.applicableIssueTypes.length === 0 ? "（いまは全種別）" : ""}
-                    </span>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <form action={bind(addCustomField)} className="mt-3 space-y-2">
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="text-sm">
-                <span className="block text-xs text-slate-500">名前</span>
-                <input
-                  name="name"
-                  required
-                  placeholder="顧客名"
-                  className="mt-1 rounded border border-slate-300 px-2 py-1"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="block text-xs text-slate-500">型</span>
-                <select
-                  name="typeId"
-                  className="mt-1 rounded border border-slate-300 px-2 py-1"
-                >
-                  {(
-                    Object.keys(CUSTOM_FIELD_TYPE_ID) as Array<
-                      keyof typeof CUSTOM_FIELD_TYPE_ID
-                    >
-                  ).map((t) => (
-                    <option key={t} value={CUSTOM_FIELD_TYPE_ID[t]}>
-                      {CUSTOM_FIELD_TYPE_LABEL[t]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex-1 text-sm">
-                <span className="block text-xs text-slate-500">説明</span>
-                <input
-                  name="description"
-                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
-                />
-              </label>
-              <label className="flex items-center gap-1 text-sm">
-                <input type="checkbox" name="required" />
-                <span className="text-xs text-slate-600">必須</span>
-              </label>
-              <Button variant="secondary">
-                追加
-              </Button>
-            </div>
-
-            {/* 型ごとの追加パラメータ。使う型のものだけ埋めれば足りる */}
-            <details className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
-              <summary className="cursor-pointer text-xs text-slate-600">
-                型ごとの設定（リスト系の選択肢・数値の範囲・日付の初期値）
-              </summary>
-              <div className="mt-2 space-y-2">
-                <label className="block text-sm">
-                  <span className="block text-xs text-slate-500">
-                    選択肢（リスト・複数リスト・チェックボックス・ラジオ用。1行に1つ）
-                  </span>
-                  <textarea
-                    name="items"
-                    rows={3}
-                    placeholder={"A社\nB社\nC社"}
-                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
-                  />
-                </label>
-                <div className="flex flex-wrap gap-3 text-xs">
-                  <label className="flex items-center gap-1">
-                    <input type="checkbox" name="allowAddItem" />
-                    項目の追加を許す
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input type="checkbox" name="allowInput" />
-                    「その他」の自由入力を許す
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <label>
-                    数値の最小
-                    <input
-                      name="min"
-                      className="ml-1 w-20 rounded border border-slate-300 px-1 py-0.5"
-                    />
-                  </label>
-                  <label>
-                    最大
-                    <input
-                      name="max"
-                      className="ml-1 w-20 rounded border border-slate-300 px-1 py-0.5"
-                    />
-                  </label>
-                  <label>
-                    単位
-                    <input
-                      name="unit"
-                      placeholder="円"
-                      className="ml-1 w-16 rounded border border-slate-300 px-1 py-0.5"
-                    />
-                  </label>
-                  <label>
-                    日付の最小
-                    <input
-                      name="dateMin"
-                      placeholder="2026-01-01"
-                      className="ml-1 w-28 rounded border border-slate-300 px-1 py-0.5"
-                    />
-                  </label>
-                  <label>
-                    最大
-                    <input
-                      name="dateMax"
-                      placeholder="2026-12-31"
-                      className="ml-1 w-28 rounded border border-slate-300 px-1 py-0.5"
-                    />
-                  </label>
-                </div>
-              </div>
-            </details>
           </form>
         </Section>
       )}

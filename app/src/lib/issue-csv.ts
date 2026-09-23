@@ -1,6 +1,5 @@
 import { buildCsv, parseCsv } from "@/lib/csv";
 import { PRIORITIES, RESOLUTIONS } from "@/lib/constants";
-import { formatFieldValue, parseFieldValue, type FieldDef } from "@/lib/custom-field";
 
 /**
  * 課題の CSV 入出力。
@@ -55,7 +54,6 @@ export type IssueRow = {
   creatorName: string;
   createdAt: Date;
   updatedAt: Date;
-  customValues: Record<number, unknown>;
 };
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
@@ -63,8 +61,8 @@ const stamp = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ");
 const hours = (v: unknown) => (v == null ? "" : String(Number(v)));
 
 /** 課題一覧を CSV にする */
-export function issuesToCsv(issues: IssueRow[], fields: FieldDef[]): string {
-  const header = [...BASE_COLUMNS, ...fields.map((f) => f.name)];
+export function issuesToCsv(issues: IssueRow[]): string {
+  const header = [...BASE_COLUMNS];
 
   const rows = issues.map((i) => [
     i.issueKey,
@@ -88,7 +86,6 @@ export function issuesToCsv(issues: IssueRow[], fields: FieldDef[]): string {
     i.creatorName,
     stamp(i.createdAt),
     stamp(i.updatedAt),
-    ...fields.map((f) => formatFieldValue(f, i.customValues[f.id] ?? null)),
   ]);
 
   return buildCsv([header as unknown as string[], ...rows]);
@@ -104,7 +101,6 @@ export type ImportMasters = {
   versions: Map<string, number>;
   /** 既存の課題キー → id。親課題の解決に使う */
   issueKeys: Map<string, number>;
-  fields: FieldDef[];
 };
 
 export type ParsedIssue = {
@@ -126,7 +122,6 @@ export type ParsedIssue = {
   categoryIds: number[];
   milestoneIds: number[];
   versionIds: number[];
-  customFieldValues: Record<number, unknown>;
 };
 
 export type ImportResult = {
@@ -200,12 +195,10 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
     };
   }
 
-  const fieldByName = new Map(masters.fields.map((f) => [f.name, f]));
   const known = new Set<string>([
     ...BASE_COLUMNS,
     ...Object.values(ALIASES).flat(),
-    ...fieldByName.keys(),
-  ]);
+      ]);
   const ignoredColumns = header.filter((h) => h && !known.has(h));
 
   const issues: ParsedIssue[] = [];
@@ -334,41 +327,6 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
     const versionIds = resolveMulti("発生バージョン", masters.versions);
     if (!categoryIds || !milestoneIds || !versionIds) continue;
 
-    // カスタム属性。列名が属性名と一致するものを拾う
-    const customFieldValues: Record<number, unknown> = {};
-    let cfError = false;
-    for (const [name, def] of fieldByName) {
-      const i = col(name);
-      if (i === -1) continue;
-      const raw = (row[i] ?? "").trim();
-
-      // リスト系は選択肢名で書かれているので、IDに直してから検証する
-      let input: string | string[] = raw;
-      if (def.items.length > 0) {
-        const names = splitMulti(raw);
-        const ids: string[] = [];
-        for (const n of names) {
-          const item = def.items.find((x) => x.name === n);
-          if (!item) {
-            errors.push(`${where}: ${name}「${n}」は選択肢にありません`);
-            cfError = true;
-            break;
-          }
-          ids.push(String(item.id));
-        }
-        if (cfError) break;
-        input = ids;
-      }
-
-      const parsed = parseFieldValue(def, input);
-      if (!parsed.ok) {
-        errors.push(`${where}: ${parsed.error}`);
-        cfError = true;
-        break;
-      }
-      if (parsed.value !== null) customFieldValues[def.id] = parsed.value;
-    }
-    if (cfError) continue;
 
     issues.push({
       line,
@@ -387,7 +345,6 @@ export function csvToIssues(text: string, masters: ImportMasters): ImportResult 
       categoryIds,
       milestoneIds,
       versionIds,
-      customFieldValues,
     });
   }
 

@@ -28,28 +28,6 @@ async function nameMaps(projectId: number) {
   };
 }
 
-/**
- * カスタム属性の定義と値。
- *
- * 単体取得のときだけ引く。一覧で課題ごとに引くと件数ぶんクエリが出るので、
- * 一覧のレスポンスでは `customFields: []` のまま返す
- * （本家も一覧と単体で同じ構造だが、こちらは負荷を優先した。意図的な相違）。
- */
-async function customFieldsFor(projectId: number, issueId: number) {
-  const { loadFieldDefs, applicableTo } = await import("@/lib/custom-field-form");
-  const [defs, rows, issue] = await Promise.all([
-    loadFieldDefs(projectId),
-    prisma.issueCustomFieldValue.findMany({ where: { issueId } }),
-    prisma.issue.findUniqueOrThrow({
-      where: { id: issueId },
-      select: { issueTypeId: true },
-    }),
-  ]);
-  return {
-    customFields: applicableTo(defs, issue.issueTypeId),
-    customFieldValues: Object.fromEntries(rows.map((r) => [r.customFieldId, r.value])),
-  };
-}
 
 /** GET /api/v2/issues/:issueIdOrKey */
 export const GET = apiRoute<{ issueIdOrKey: string }>(async (_req, ctx, params) => {
@@ -57,7 +35,6 @@ export const GET = apiRoute<{ issueIdOrKey: string }>(async (_req, ctx, params) 
   const full = await prisma.issue.findUniqueOrThrow({ where: { id: found.id }, include });
   return serializeIssue(full, {
     ...(await nameMaps(full.projectId)),
-    ...(await customFieldsFor(full.projectId, full.id)),
   });
 });
 
@@ -111,6 +88,5 @@ export const PATCH = apiRoute<{ issueIdOrKey: string }>(async (req, ctx, params)
   const full = await prisma.issue.findUniqueOrThrow({ where: { id: found.id }, include });
   return serializeIssue(full, {
     ...(await nameMaps(full.projectId)),
-    ...(await customFieldsFor(full.projectId, full.id)),
   });
 });

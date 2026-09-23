@@ -7,7 +7,6 @@ import { prisma } from "@/lib/db";
 import { currentUser, assertCan } from "@/lib/session";
 import { createIssue, updateIssue, deleteIssue } from "@/lib/issue";
 import { putFile, deleteFile, MAX_ATTACHMENT_BYTES } from "@/lib/storage";
-import { loadFieldDefs, applicableTo, readFieldValues } from "@/lib/custom-field-form";
 import { audit } from "@/lib/audit";
 
 /** 課題まわりのサーバーアクション。入口で必ず assertCan を通す */
@@ -34,15 +33,6 @@ export async function addIssue(key: string, formData: FormData) {
 
   const issueTypeId = num(formData.get("issueTypeId")) ?? 1;
 
-  // カスタム属性。課題種別で有効なものだけを見る
-  const defs = applicableTo(await loadFieldDefs(project.id), issueTypeId);
-  const cf = readFieldValues(defs, formData, "full");
-  if (!cf.ok) {
-    await setFlash(`/projects/${key}/issues/new`, cf.error, true);
-    revalidatePath(`/projects/${key}/issues/new`);
-    return;
-  }
-
   let created;
   try {
     created = await createIssue({
@@ -50,7 +40,6 @@ export async function addIssue(key: string, formData: FormData) {
       summary: String(formData.get("summary") ?? "").trim(),
       description: String(formData.get("description") ?? ""),
       issueTypeId,
-      customFieldValues: cf.ok ? cf.values : {},
       priorityId: num(formData.get("priorityId")),
       assigneeId: num(formData.get("assigneeId")) ?? null,
       startDate: date(formData.get("startDate")),
@@ -92,20 +81,6 @@ export async function editIssue(issueKey: string, formData: FormData) {
     const raw = formData.get(k);
     if (raw === null) continue;
     patch[k] = String(raw) === "" ? null : Number(raw);
-  }
-
-  // カスタム属性は「送られてきたものだけ」更新する。
-  // 出ていない属性を未入力として扱うと、別のフォームからの更新で値が消える
-  const defs = applicableTo(await loadFieldDefs(project.id), issue.issueTypeId);
-  const cf = readFieldValues(defs, formData, "partial");
-  if (!cf.ok) {
-    await backToIssue(issueKey, cf.error, true);
-    return;
-  }
-  if (cf.ok && Object.keys(cf.values).length > 0) {
-    patch.customFieldValues = cf.values;
-    // 値を変えるなら編集権限を要求する（コメントだけの権限では通さない）
-    await assertCan(actor, "issue.edit", project.id);
   }
 
   try {

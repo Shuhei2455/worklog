@@ -1,28 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { issuesToCsv, csvToIssues, BASE_COLUMNS, type ImportMasters } from "./issue-csv";
 import { parseCsv } from "./csv";
-import type { FieldDef } from "./custom-field";
 
-const listField: FieldDef = {
-  id: 3,
-  name: "対応区分",
-  typeId: "single_list",
-  required: false,
-  settings: {},
-  items: [
-    { id: 2, name: "新規" },
-    { id: 4, name: "調査" },
-  ],
-};
 
-const numField: FieldDef = {
-  id: 2,
-  name: "見積金額",
-  typeId: "number",
-  required: false,
-  settings: { unit: "円", min: 0 },
-  items: [],
-};
 
 const masters = (over: Partial<ImportMasters> = {}): ImportMasters => ({
   statuses: new Map([
@@ -41,16 +21,10 @@ const masters = (over: Partial<ImportMasters> = {}): ImportMasters => ({
     ["v1.1", 2],
   ]),
   issueKeys: new Map([["AA-1", 100]]),
-  fields: [numField, listField],
   ...over,
 });
 
 describe("issuesToCsv", () => {
-  it("ヘッダは固定列＋カスタム属性名", () => {
-    const csv = issuesToCsv([], [numField, listField]);
-    const [header] = parseCsv(csv);
-    expect(header).toEqual([...BASE_COLUMNS, "見積金額", "対応区分"]);
-  });
 
   it("値を人が読める形で出す", () => {
     const csv = issuesToCsv(
@@ -75,13 +49,8 @@ describe("issuesToCsv", () => {
           creatorName: "管理者",
           createdAt: new Date("2026-09-01T10:00:00Z"),
           updatedAt: new Date("2026-09-02T11:30:00Z"),
-          customValues: {
-            2: { kind: "number", value: 12000 },
-            3: { kind: "list", itemIds: [4] },
-          },
         },
       ],
-      [numField, listField],
     );
     const rows = parseCsv(csv);
     const row = rows[1];
@@ -96,8 +65,6 @@ describe("issuesToCsv", () => {
     expect(row[11]).toBe(""); // 実績時間は未入力
     expect(row[14]).toBe("v1.0 / v1.1");
     // カスタム属性
-    expect(row[19]).toBe("12000 円");
-    expect(row[20]).toBe("調査");
   });
 });
 
@@ -156,25 +123,6 @@ describe("csvToIssues", () => {
     expect(out.issues[0].milestoneIds).toEqual([1, 2]);
   });
 
-  it("カスタム属性を列名で拾う", () => {
-    const out = csvToIssues("件名,見積金額,対応区分\nA,15000,調査", masters());
-    expect(out.errors).toEqual([]);
-    expect(out.issues[0].customFieldValues).toEqual({
-      2: { kind: "number", value: 15000 },
-      3: { kind: "list", itemIds: [4] },
-    });
-  });
-
-  it("選択肢に無い値はエラー", () => {
-    const out = csvToIssues("件名,対応区分\nA,未知", masters());
-    expect(out.errors[0]).toContain("対応区分「未知」");
-  });
-
-  it("カスタム属性の範囲も見る", () => {
-    const out = csvToIssues("件名,見積金額\nA,-5", masters());
-    expect(out.errors[0]).toContain("見積金額");
-  });
-
   it("行番号をエラーに含める", () => {
     const out = csvToIssues("件名,種別\nA,タスク\nB,無い種別", masters());
     expect(out.errors[0]).toContain("2行目");
@@ -214,10 +162,8 @@ describe("csvToIssues", () => {
           creatorName: "管理者",
           createdAt: new Date("2026-09-01T00:00:00Z"),
           updatedAt: new Date("2026-09-01T00:00:00Z"),
-          customValues: { 3: { kind: "list", itemIds: [2] } },
         },
       ],
-      [numField, listField],
     );
 
     const out = csvToIssues(csv, masters());
@@ -228,9 +174,6 @@ describe("csvToIssues", () => {
       statusId: 2,
       assigneeId: 1,
       categoryIds: [1],
-    });
-    expect(out.issues[0].customFieldValues).toEqual({
-      3: { kind: "list", itemIds: [2] },
     });
   });
 });

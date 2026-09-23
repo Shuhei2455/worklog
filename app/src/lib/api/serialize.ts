@@ -1,6 +1,5 @@
 import { PRIORITIES, RESOLUTIONS } from "@/lib/constants";
 import { toRoleType } from "@/lib/permissions";
-import { serializeFieldValue, type FieldDef } from "@/lib/custom-field";
 
 /**
  * 本家と同じ形のレスポンスに整える。
@@ -130,8 +129,6 @@ export function serializeIssue(
     categories: Map<number, string>;
     versions: Map<number, { name: string; description: string | null }>;
     /** カスタム属性の定義と、この課題の値（決定 D24） */
-    customFields?: FieldDef[];
-    customFieldValues?: Record<number, unknown>;
   },
 ) {
   const cat = (id: number) => ({
@@ -183,9 +180,6 @@ export function serializeIssue(
     updatedUser: serializeUser(i.updater),
     updated: stamp(i.updatedAt),
     // 定義を渡されたときだけ埋める。一覧で毎回引くと件数ぶんクエリが出る
-    customFields: (names.customFields ?? []).map((f) =>
-      serializeFieldValue(f, names.customFieldValues?.[f.id] ?? null),
-    ),
     attachments: [],
     sharedFiles: [],
     stars: [],

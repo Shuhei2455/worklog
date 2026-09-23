@@ -17,7 +17,7 @@ export function parseIssueKey(raw: string): { projectKey: string; keyId: number 
 
 /** describeChanges に渡す辞書をプロジェクト単位で組む */
 export async function changeLookupsFor(projectId: number): Promise<ChangeLookups> {
-  const [statuses, issueTypes, categories, versions, members, issues, customFields] =
+  const [statuses, issueTypes, categories, versions, members, issues] =
     await Promise.all([
       prisma.status.findMany({ where: { projectId } }),
       prisma.issueType.findMany({ where: { projectId } }),
@@ -31,10 +31,6 @@ export async function changeLookupsFor(projectId: number): Promise<ChangeLookups
         where: { projectId },
         select: { id: true, keyId: true, project: { select: { key: true } } },
       }),
-      prisma.customField.findMany({
-        where: { projectId },
-        include: { items: { orderBy: { displayOrder: "asc" } } },
-      }),
     ]);
 
   return {
@@ -44,19 +40,6 @@ export async function changeLookupsFor(projectId: number): Promise<ChangeLookups
     versions: new Map(versions.map((v) => [v.id, v.name])),
     users: new Map(members.map((m) => [m.userId, m.user.name])),
     issues: new Map(issues.map((i) => [i.id, `${i.project.key}-${i.keyId}`])),
-    customFields: new Map(
-      customFields.map((f) => [
-        f.id,
-        {
-          id: f.id,
-          name: f.name,
-          typeId: f.typeId,
-          required: f.required,
-          settings: (f.settings ?? {}) as Record<string, never>,
-          items: f.items.map((i) => ({ id: i.id, name: i.name })),
-        },
-      ]),
-    ),
   };
 }
 

@@ -74,18 +74,6 @@ enum NotificationReason {
   watching
 }
 
-/// カスタム属性の型。値は本家と同じ(00-spec-verified.md 10.1 で確認済み)。
-enum CustomFieldType {
-  text           // 1
-  sentence       // 2
-  number         // 3
-  date           // 4
-  single_list    // 5
-  multiple_list  // 6
-  checkbox       // 7
-  radio          // 8
-}
-
 // ===========================================================================
 // ユーザーとチーム
 // ===========================================================================
@@ -243,7 +231,6 @@ model Project {
   categories    Category[]
   versions      Version[]
   statuses      Status[]
-  customFields  CustomField[]
   issues        Issue[]
   activities    Activity[]
   wikiPages     WikiPage[]
@@ -373,48 +360,6 @@ model Status {
   @@map("statuses")
 }
 
-model CustomField {
-  projectId   Int             @map("project_id")
-  id          Int
-  typeId      CustomFieldType @map("type_id")
-  name        String
-  description String?
-  required    Boolean         @default(false)
-  /// 空なら全種別で有効。IssueType.id の配列
-  applicableIssueTypes Int[]  @map("applicable_issue_types")
-
-  /// 型ごとの追加パラメータ(00-spec-verified.md 10.1)。
-  /// 数値型は min/max/initialValue/unit、日付型は min/max/initialValueType/
-  /// initialDate/initialShift、リスト型は allowAddItem/allowInput。
-  /// 型ごとにカラムを生やすと8型ぶん散らかるのでJSONBにまとめる
-  settings    Json?
-
-  displayOrder Int      @map("display_order")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  project Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  items   CustomFieldItem[]
-  values  IssueCustomFieldValue[]
-
-  @@id([projectId, id])
-  @@map("custom_fields")
-}
-
-/// リスト型・複数リスト型・ラジオ型の選択肢
-model CustomFieldItem {
-  id            Int    @id @default(autoincrement())
-  projectId     Int    @map("project_id")
-  customFieldId Int    @map("custom_field_id")
-  name          String
-  displayOrder  Int    @map("display_order")
-
-  customField CustomField @relation(fields: [projectId, customFieldId], references: [projectId, id], onDelete: Cascade)
-
-  @@index([projectId, customFieldId])
-  @@map("custom_field_items")
-}
-
 // ===========================================================================
 // 課題
 // ===========================================================================
@@ -477,7 +422,6 @@ model Issue {
   relationsFrom    IssueRelation[]         @relation("RelationFrom")
   relationsTo      IssueRelation[]         @relation("RelationTo")
   participants     IssueParticipant[]
-  customFieldValues IssueCustomFieldValue[]
   activities       Activity[]
   watchings        Watching[]
   stars            Star[]
@@ -558,20 +502,6 @@ model IssueParticipant {
 
   @@id([issueId, userId])
   @@map("issue_participants")
-}
-
-model IssueCustomFieldValue {
-  issueId       Int  @map("issue_id")
-  projectId     Int  @map("project_id")
-  customFieldId Int  @map("custom_field_id")
-  /// 型が8種あるので値はJSONBで持つ。型ごとの検証はアプリ側(zod)で行う
-  value         Json
-
-  issue       Issue       @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  customField CustomField @relation(fields: [projectId, customFieldId], references: [projectId, id], onDelete: Cascade)
-
-  @@id([issueId, customFieldId])
-  @@map("issue_custom_field_values")
 }
 
 // ===========================================================================

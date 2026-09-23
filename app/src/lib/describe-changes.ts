@@ -1,6 +1,5 @@
 import { PRIORITIES, RESOLUTIONS } from "@/lib/constants";
 import type { Change } from "@/lib/issue";
-import { formatFieldValue, type FieldDef } from "@/lib/custom-field";
 
 /**
  * 変更差分JSONBを日本語ラベルに解決する。
@@ -21,7 +20,6 @@ export type ChangeLookups = {
   versions?: Map<number, string>;
   issues?: Map<number, string>;
   /** カスタム属性の定義。`customField_{id}` の解決に使う */
-  customFields?: Map<number, FieldDef>;
 };
 
 export type DescribedChange = {
@@ -81,27 +79,6 @@ function resolveOne(
 
 /** 1件の差分を日本語に直す */
 function describeOne(c: Change, lookups: ChangeLookups): DescribedChange {
-  // カスタム属性。`customField_{id}` という名前で履歴に入っている。
-  // 値は保存した形のJSONなので、定義を使って人が読める文字列に直す
-  const cf = /^customField_(\d+)$/.exec(c.field);
-  if (cf) {
-    const def = lookups.customFields?.get(Number(cf[1]));
-    const fmt = (raw: string | null) => {
-      if (raw === null) return null;
-      if (!def) return raw;
-      try {
-        return formatFieldValue(def, JSON.parse(raw)) || null;
-      } catch {
-        // 定義が変わって読めない古い履歴。生のまま出す（落とさない）
-        return raw;
-      }
-    };
-    return {
-      label: def?.name ?? `カスタム属性#${cf[1]}`,
-      from: fmt(c.from),
-      to: fmt(c.to),
-    };
-  }
 
   const label = FIELD_LABELS[c.field] ?? c.field;
 

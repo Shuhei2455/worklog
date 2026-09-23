@@ -11,8 +11,6 @@ import {
 import { PRIORITIES, PRIORITY_LABEL, RESOLUTIONS } from "@/lib/constants";
 import { Shell } from "@/components/Shell";
 import { PageTitle, Button, ToggleChip } from "@/components/ui";
-import { CustomFieldInputs, CustomFieldValues } from "@/components/CustomFieldInputs";
-import { loadFieldDefs, applicableTo } from "@/lib/custom-field-form";
 import {
   editIssue,
   removeIssue,
@@ -84,8 +82,6 @@ export default async function IssueDetail({
     projectFiles,
     commitLinks,
     relatedPulls,
-    fieldDefs,
-    fieldValueRows,
   ] = await Promise.all([
     prisma.status.findMany({
       where: { projectId: project.id },
@@ -127,17 +123,9 @@ export default async function IssueDetail({
       include: { repository: { select: { name: true } } },
       orderBy: { externalPrNumber: "desc" },
     }),
-    loadFieldDefs(project.id),
-    prisma.issueCustomFieldValue.findMany({ where: { issueId: issue.id } }),
   ]);
 
   const fullKey = `${project.key}-${issue.keyId}`;
-
-  // この課題種別で有効なカスタム属性と、その値
-  const activeFields = applicableTo(fieldDefs, issue.issueTypeId);
-  const fieldValues = Object.fromEntries(
-    fieldValueRows.map((r) => [r.customFieldId, r.value]),
-  );
 
   return (
     <Shell
@@ -512,25 +500,6 @@ export default async function IssueDetail({
               </div>
             ))}
           </dl>
-
-        {/* カスタム属性。このタスク種別で有効なものだけ出す */}
-        {activeFields.length > 0 && (
-          <div className="rounded border border-slate-200 bg-white p-3">
-            <h2 className="mb-1 text-xs font-semibold text-slate-600">カスタム属性</h2>
-            {canEdit ? (
-              <form action={editIssue.bind(null, fullKey)} className="space-y-2">
-                <CustomFieldInputs fields={activeFields} values={fieldValues} />
-                <Button variant="secondary">
-                  保存
-                </Button>
-              </form>
-            ) : (
-              <dl>
-                <CustomFieldValues fields={activeFields} values={fieldValues} />
-              </dl>
-            )}
-          </div>
-        )}
 
           {project.subtaskingEnabled && (
             <div className="rounded border border-slate-200 bg-white p-3">

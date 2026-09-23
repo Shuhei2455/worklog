@@ -8,8 +8,6 @@ import { Shell } from "@/components/Shell";
 import { projectNav } from "@/lib/project-nav";
 import { PageTitle, Button } from "@/components/ui";
 import { addIssue } from "../actions";
-import { CustomFieldInputs } from "@/components/CustomFieldInputs";
-import { loadFieldDefs } from "@/lib/custom-field-form";
 
 export default async function NewIssue({
   params,
@@ -30,7 +28,7 @@ export default async function NewIssue({
   const ctx = await projectContext(project.id, user.id);
   if (!can(user, "issue.create", ctx)) notFound();
 
-  const [issueTypes, members, customFields] = await Promise.all([
+  const [issueTypes, members] = await Promise.all([
     prisma.issueType.findMany({
       where: { projectId: project.id },
       orderBy: { displayOrder: "asc" },
@@ -39,7 +37,6 @@ export default async function NewIssue({
       where: { projectId: project.id },
       include: { user: true },
     }),
-    loadFieldDefs(project.id),
   ]);
 
   return (
@@ -142,15 +139,6 @@ export default async function NewIssue({
           </p>
         )}
 
-        {/* カスタム属性。タスク種別ごとの絞り込みは送信後に行う
-            （種別を選ぶたびに出し入れするには client JS が必要なため、
-            ここでは全件出して、保存時に有効なものだけを使う） */}
-        {customFields.length > 0 && (
-          <div className="rounded border border-slate-200 bg-slate-50 p-3">
-            <h2 className="mb-2 text-xs font-medium text-slate-500">カスタム属性</h2>
-            <CustomFieldInputs fields={customFields} />
-          </div>
-        )}
 
         <label className="block">
           <span className="text-slate-600">詳細（Markdown）</span>

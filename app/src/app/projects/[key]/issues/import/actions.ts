@@ -8,7 +8,6 @@ import { currentUser, assertCan } from "@/lib/session";
 import { createIssue } from "@/lib/issue";
 import { decodeCsv } from "@/lib/csv";
 import { csvToIssues, type ImportMasters } from "@/lib/issue-csv";
-import { loadFieldDefs } from "@/lib/custom-field-form";
 import { audit } from "@/lib/audit";
 
 /**
@@ -23,7 +22,7 @@ import { audit } from "@/lib/audit";
  */
 
 async function loadMasters(projectId: number): Promise<ImportMasters> {
-  const [statuses, issueTypes, members, categories, versions, issues, fields] =
+  const [statuses, issueTypes, members, categories, versions, issues] =
     await Promise.all([
       prisma.status.findMany({ where: { projectId }, orderBy: { displayOrder: "asc" } }),
       prisma.issueType.findMany({ where: { projectId }, orderBy: { displayOrder: "asc" } }),
@@ -34,7 +33,6 @@ async function loadMasters(projectId: number): Promise<ImportMasters> {
         where: { projectId },
         select: { id: true, keyId: true, project: { select: { key: true } } },
       }),
-      loadFieldDefs(projectId),
     ]);
 
   return {
@@ -45,7 +43,6 @@ async function loadMasters(projectId: number): Promise<ImportMasters> {
     categories: new Map(categories.map((c) => [c.name, c.id])),
     versions: new Map(versions.map((v) => [v.name, v.id])),
     issueKeys: new Map(issues.map((i) => [`${i.project.key}-${i.keyId}`, i.id])),
-    fields,
   };
 }
 
@@ -142,7 +139,6 @@ export async function runImport(key: string, formData: FormData) {
       categoryIds: row.categoryIds,
       milestoneIds: row.milestoneIds,
       versionIds: row.versionIds,
-      customFieldValues: row.customFieldValues,
       createdBy: actor.id,
     });
     created++;

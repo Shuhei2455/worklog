@@ -16,7 +16,7 @@ import { DEFAULT_STATUSES, DEFAULT_ISSUE_TYPES } from "../src/lib/constants";
  *
  * 全機能に中身が入るようにしてある:
  *   ユーザー10人（管理者・一般・ゲスト・閲覧のみ・登録のみ・英語表示）・
- *   チーム3つ・プロジェクト5つ・カスタム属性4種・
+ *   チーム3つ・プロジェクト5つ・
  *   課題（親子・関連・期限切れ・完了済み・未割り当て）・コメント・
  *   スター・ウォッチ・通知・Wiki（履歴つき）・共有ファイル・
  *   マイルストーン（バーンダウンが描ける期間つき）・
@@ -53,7 +53,6 @@ async function wipe() {
     "stars",
     "watchings",
     "issue_participants",
-    "issue_custom_field_values",
     "issue_categories",
     "issue_milestones",
     "issue_versions",
@@ -72,8 +71,6 @@ async function wipe() {
     "attachments",
     "issues",
     "repositories",
-    "custom_field_items",
-    "custom_fields",
     "webhooks",
     "saved_filters",
     "recently_viewed_issues",
@@ -253,47 +250,6 @@ async function main() {
     },
   });
 
-  // ---- カスタム属性（4種類の型を並べる） ----
-  const cfText = await prisma.customField.create({
-    data: {
-      projectId: web.id, id: 1, typeId: "text", name: "顧客名",
-      description: "問い合わせ元", required: false,
-      applicableIssueTypes: [], settings: {}, displayOrder: 1,
-    },
-  });
-  const cfNum = await prisma.customField.create({
-    data: {
-      projectId: web.id, id: 2, typeId: "number", name: "見積金額",
-      required: false, applicableIssueTypes: [],
-      settings: { unit: "円", min: 0 }, displayOrder: 2,
-    },
-  });
-  const cfList = await prisma.customField.create({
-    data: {
-      projectId: web.id, id: 3, typeId: "single_list", name: "対応区分",
-      required: false, applicableIssueTypes: [], settings: {}, displayOrder: 3,
-      items: {
-        create: [
-          { name: "新規", displayOrder: 1 },
-          { name: "改修", displayOrder: 2 },
-          { name: "調査", displayOrder: 3 },
-        ],
-      },
-    },
-  });
-  // 選択肢は別に引き直す。入れ子の create では id が返らない
-  const cfItems = await prisma.customFieldItem.findMany({
-    where: { projectId: web.id, customFieldId: cfList.id },
-    orderBy: { displayOrder: "asc" },
-  });
-  await prisma.customField.create({
-    data: {
-      projectId: web.id, id: 4, typeId: "date", name: "顧客希望日",
-      required: false, applicableIssueTypes: [],
-      settings: { initialValueType: 1 }, displayOrder: 4,
-    },
-  });
-  console.log("  カスタム属性4種（文字列・数値・リスト・日付）");
 
   // ---- 課題 ----
   type IssueSpec = {
@@ -310,7 +266,6 @@ async function main() {
     cat?: number[];
     ms?: number[];
     desc?: string;
-    cf?: Record<number, unknown>;
   };
 
   /** 1プロジェクトぶんの課題をまとめて作る */
@@ -348,17 +303,6 @@ async function main() {
       });
       made.push({ id: issue.id, keyId, statusId });
 
-      if (s.cf) {
-        for (const [fid, value] of Object.entries(s.cf)) {
-          await prisma.issueCustomFieldValue.create({
-            data: {
-              issueId: issue.id, projectId,
-              customFieldId: Number(fid), value: value as Prisma.InputJsonValue,
-            },
-          });
-        }
-      }
-
       // 参加者。登録者と担当者
       const parts = new Set<number>([createdBy]);
       if (s.assignee) parts.add(u[s.assignee].id);
@@ -385,10 +329,7 @@ async function main() {
     { summary: "ログイン画面のデザインを刷新する", statusId: 2, priorityId: 2,
       assignee: "nakamura", start: -8, due: 3, est: 16, act: 6,
       cat: [cats[0].id, cats[3].id], ms: [v1.id],
-      desc: "既存のログイン画面は古いので作り直す。\n\n- [ ] 配色を決める\n- [x] 画面構成の案出し",
-      cf: { [cfText.id]: { kind: "text", value: "ヌーラボ商事" },
-            [cfNum.id]: { kind: "number", value: 250000 },
-            [cfList.id]: { kind: "list", itemIds: [cfItems[1].id] } } },
+      desc: "既存のログイン画面は古いので作り直す。\n\n- [ ] 配色を決める\n- [x] 画面構成の案出し", },
     // 以下、admin の担当は期限日の絞り込み（期限切れ/今日まで/4日以内/全て）が
     // 全部埋まるように散らしてある。ログインして最初に見る画面なので中身が要る
     { summary: "セッションが切れると500になる", typeId: 2, statusId: 1, priorityId: 2,

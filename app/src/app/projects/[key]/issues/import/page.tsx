@@ -8,7 +8,6 @@ import { Shell } from "@/components/Shell";
 import { projectNav } from "@/lib/project-nav";
 import { PageTitle, Button } from "@/components/ui";
 import { BASE_COLUMNS } from "@/lib/issue-csv";
-import { loadFieldDefs } from "@/lib/custom-field-form";
 import { previewImport, runImport } from "./actions";
 
 type Summary = {
@@ -38,7 +37,6 @@ export default async function ImportIssues({
   const ctx = await projectContext(project.id, user.id);
   if (!can(user, "issue.create", ctx)) notFound();
 
-  const fields = await loadFieldDefs(project.id);
 
   let summary: Summary | null = null;
   if (sp.result) {
@@ -76,11 +74,6 @@ export default async function ImportIssues({
         <p className="mt-1 font-mono text-xs text-slate-500">
           {BASE_COLUMNS.join(" / ")}
         </p>
-        {fields.length > 0 && (
-          <p className="mt-1 text-xs text-slate-500">
-            カスタム属性: <span className="font-mono">{fields.map((f) => f.name).join(" / ")}</span>
-          </p>
-        )}
         <p className="mt-2 text-xs text-slate-500">
           <strong>件名</strong>だけが必須です。種別を省くと先頭の種別になります。
           状態・担当者・カテゴリーなどは<strong>名前</strong>で書いてください
